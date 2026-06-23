@@ -1,12 +1,12 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http'; // 🌟 เพิ่มบรรทัดนี้
+import { provideHttpClient } from '@angular/common/http';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }), 
+    provideZonelessChangeDetection(),
     provideRouter(routes),
-    provideHttpClient() // 🌟 เพิ่มฟังก์ชันนี้เข้าไป
+    provideHttpClient()
   ]
 };
