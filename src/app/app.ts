@@ -1,12 +1,14 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component } from '@angular/core';
+// 🌟 ลบ RouterOutlet ออกไปเพราะใน html ไม่ได้ใช้แล้ว
+import { MeterCropperComponent } from './features/meter-reading/components/meter-cropper/meter-cropper';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  standalone: true,
+  imports: [MeterCropperComponent], // 🌟 เหลือแค่ตัว Crop รูปของเราตัวเดียวพอครับ
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App {
-  protected readonly title = signal('water-bill-web');
+export class AppComponent {
+  title = 'water-bill-web';
 }

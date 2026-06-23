@@ -1,0 +1,30 @@
+<div class="cropper-container">
+  <h2>📷 อัปโหลดและครอบตัดเลขมิเตอร์</h2>
+  
+  <input type="file" (change)="fileChangeEvent($event)" accept="image/*" />
+
+  <div class="preview-area" *ngIf="imageChangedEvent">
+    <div class="crop-workspace">
+      <image-cropper
+        [imageChangedEvent]="imageChangedEvent"
+        [maintainAspectRatio]="true"
+        [aspectRatio]="3 / 1"
+        format="jpeg"
+        (imageCropped)="imageCropped($event)"
+      ></image-cropper>
+    </div>
+
+    <div class="result-workspace" *ngIf="croppedImage">
+      <br>
+      <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
+        {{ isLoading ? 'กำลังวิเคราะห์...' : 'สกัดตัวเลขด้วย AI' }}
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="aiResult" class="result-box">
+    <h3>🤖 เลขมิเตอร์ที่ AI อ่านได้:</h3>
+    <p class="big-number">{{ aiResult.read_unit }}</p>
+    <p class="status-msg">{{ aiResult.message }}</p>
+  </div>
+</div>

@@ -1,0 +1,7 @@
+.cropper-container { padding: 20px; text-align: center; font-family: sans-serif; }
+.crop-workspace { margin: 20px auto; max-width: 600px; border: 2px dashed #ccc; }
+.btn-submit { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+.btn-submit:disabled { background: #ccc; }
+.result-box { margin-top: 20px; padding: 20px; background: #e6f7ff; border-radius: 8px; border: 1px solid #91d5ff; }
+.big-number { font-size: 32px; font-weight: bold; color: #ff4d4f; margin: 10px 0; }
+.status-msg { color: #666; font-size: 14px; }
