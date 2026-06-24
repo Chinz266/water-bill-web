@@ -4,15 +4,6 @@
     <p class="subtitle">เลือกรูปภาพมิเตอร์น้ำและปรับแต่งขนาดเพื่อส่งให้ AI วิเคราะห์</p>
   </div>
   
-  Upload Zone
-  <div class="upload-zone" [class.has-image]="imageChangedEvent">
-    <label class="upload-label">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <span>{{ imageChangedEvent ? 'เปลี่ยนรูปภาพใหม่' : 'คลิกเพื่ออัปโหลดรูปภาพมิเตอร์น้ำ' }}</span>
-      <input type="file" (change)="fileChangeEvent($event)" accept="image/*" class="file-input" />
-    </label>
-  <h2>📷 ระบบสแกนเลขมิเตอร์น้ำอัจฉริยะ</h2>
-  
   <div class="file-upload-wrapper">
     <label for="file-upload" class="custom-file-upload">
       📁 เลือกรูปภาพมิเตอร์น้ำ

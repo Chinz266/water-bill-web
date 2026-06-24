@@ -7,11 +7,7 @@ import { Navbar } from './layout/navbar/navbar'; // 🌟 ดึง Navbar มา
 @Component({
   selector: 'app-root',
   standalone: true,
-<<<<<<< HEAD
-  imports: [NgxSonnerToaster, RouterOutlet, RouterModule, NavbarComponent], // 🌟 เอามาใส่ใน imports
-=======
   imports: [NgxSonnerToaster, RouterModule, Navbar], // 🌟 เอามาใส่ใน imports
->>>>>>> origin/futureTitle
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
