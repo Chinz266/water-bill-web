@@ -26,7 +26,8 @@ export class MeterReadingService {
       previous_unit: 0,          // สมมติเดือนที่ก่อนหน้าใช้น้ำไป 0 หน่วย (หรือแก้ Mock ตามต้องการ)
       current_unit: parsedUnit,  // เลขมิเตอร์ที่ได้จาก AI (ที่เรากด Save)
       billing_month: new Date().getMonth() + 1 + '', 
-      billing_year: new Date().getFullYear() + ''
+      billing_year: new Date().getFullYear() + '',
+      create_by: 1               // Mock ID ของ Admin ผู้สร้างบิล
     };
     return this.http.post(`${this.apiUrl}/bills`, payload);
   }
