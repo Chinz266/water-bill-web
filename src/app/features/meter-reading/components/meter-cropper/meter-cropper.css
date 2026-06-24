@@ -25,6 +25,7 @@
   margin: 0 0 8px 0;
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .subtitle {
