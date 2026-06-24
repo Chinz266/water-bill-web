@@ -8,7 +8,7 @@ import { NavbarComponent } from './layout/navbar/navbar'; // 🌟 ดึง Navb
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [MeterCropperComponent, NgxSonnerToaster,RouterOutlet, RouterModule, NavbarComponent], // 🌟 เอามาใส่ใน imports
+  imports: [NgxSonnerToaster, RouterOutlet, RouterModule, NavbarComponent], // 🌟 เอามาใส่ใน imports
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
