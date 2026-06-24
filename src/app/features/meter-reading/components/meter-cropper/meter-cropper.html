@@ -1,7 +1,12 @@
 <div class="cropper-container">
-  <h2>📷 อัปโหลดและครอบตัดเลขมิเตอร์</h2>
+  <h2>📷 ระบบสแกนเลขมิเตอร์น้ำอัจฉริยะ</h2>
   
-  <input type="file" (change)="fileChangeEvent($event)" accept="image/*" />
+  <div class="file-upload-wrapper">
+    <label for="file-upload" class="custom-file-upload">
+      📁 เลือกรูปภาพมิเตอร์น้ำ
+    </label>
+    <input id="file-upload" type="file" (change)="fileChangeEvent($event)" accept="image/*" />
+  </div>
 
   <div class="preview-area" *ngIf="imageChangedEvent">
     <div class="crop-workspace">
@@ -14,17 +19,20 @@
       ></image-cropper>
     </div>
 
-    <div class="result-workspace" *ngIf="croppedImage">
-      <br>
+    <div class="result-workspace">
       <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
-        {{ isLoading ? 'กำลังวิเคราะห์...' : 'สกัดตัวเลขด้วย AI' }}
+        <span *ngIf="isLoading" class="spinner"></span>
+        {{ isLoading ? 'กำลังส่งภาพให้ระบบ AI วิเคราะห์...' : '⚡ สกัดตัวเลขค่าน้ำ' }}
       </button>
     </div>
   </div>
 
   <div *ngIf="aiResult" class="result-box">
-    <h3>🤖 เลขมิเตอร์ที่ AI อ่านได้:</h3>
-    <p class="big-number">{{ aiResult.read_unit }}</p>
-    <p class="status-msg">{{ aiResult.message }}</p>
+    <h3>🤖 ผลการวิเคราะห์จาก AI:</h3>
+    <div class="big-number-container">
+      <p class="big-number">{{ aiResult.read_unit }}</p>
+      <span class="unit-text">หน่วย (m³)</span>
+    </div>
+    <p class="status-msg">🔹 สถานะระบบ: {{ aiResult.message || 'ดึงข้อมูลสำเร็จ' }}</p>
   </div>
 </div>

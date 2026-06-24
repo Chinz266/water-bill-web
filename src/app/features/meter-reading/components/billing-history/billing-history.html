@@ -1,0 +1,52 @@
+<div class="history-container">
+  <div class="history-header">
+    <h2>📋 ประวัติการใช้น้ำและบันทึกบิล</h2>
+    <button class="btn-refresh" (click)="loadBillingHistory()" [disabled]="isLoading">
+      🔄 อัปเดตข้อมูล
+    </button>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>กำลังดึงประวัติการบันทึกจาก MySQL...</p>
+  </div>
+
+  <div class="table-responsive" *ngIf="!isLoading && bills.length > 0">
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>📅 วันที่-เวลาบันทึก</th>
+          <th>💧 เลขมิเตอร์ที่อ่านได้ (m³)</th>
+          <th>💰 ยอดชำระ (บาท)</th>
+          <th>สถานะ</th>
+          <th>จัดการ</th> </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let bill of bills">
+          <td>#{{ bill.id }}</td>
+          <td>{{ bill.create_date | date:'dd/MM/yyyy - HH:mm' }}</td>
+          <td class="unit-cell">{{ bill.current_unit }}</td>
+          <td>{{ bill.total_amount }}</td>
+          <td>
+            <span class="status-badge clickable" 
+                  [class.pending]="bill.payment_status === 'PENDING'"
+                  [class.paid]="bill.payment_status === 'PAID'"
+                  (click)="toggleStatus(bill)">
+              {{ bill.payment_status }}
+            </span>
+          </td>
+          <td>
+            <button class="btn-delete" (click)="deleteBill(bill.id)" title="ลบข้อมูล">
+              🗑️
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="!isLoading && bills.length === 0" class="empty-state">
+    <p>📭 ยังไม่มีประวัติการบันทึกข้อมูล ลองไปสแกนมิเตอร์น้ำกันก่อนนะ!</p>
+  </div>
+</div>

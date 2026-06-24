@@ -1,57 +1,94 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ImageCroppedEvent, ImageCropperComponent } from 'ngx-image-cropper';
+import { ImageCropperComponent } from 'ngx-image-cropper';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-// ปรับแก้ Path ให้ชี้ไปที่ไฟล์ meter-reading.ts ให้ถูกต้อง
-import { MeterReadingService } from '../../services/meter-reading.service'; 
+import { MeterReadingService } from '../../services/meter-reading.service';
 
 @Component({
   selector: 'app-meter-cropper',
   standalone: true,
   imports: [CommonModule, ImageCropperComponent],
-  // ปรับชื่อไฟล์ให้ตรงกับแถบด้านซ้ายมือ
   templateUrl: './meter-cropper.html',
   styleUrls: ['./meter-cropper.css']
 })
 export class MeterCropperComponent {
+  // ==========================================
+  // โซนประกาศตัวแปร
+  // ==========================================
   imageChangedEvent: Event | null = null;
   croppedImage: SafeUrl = '';
   croppedBlob: Blob | null | undefined = null;
-  
+
   aiResult: any = null;
   isLoading = false;
+  isSaving = false;
+  saveSuccess = false;
 
   constructor(
     private sanitizer: DomSanitizer,
-    private meterService: MeterReadingService 
+    private meterReadingService: MeterReadingService
   ) {}
 
+  // ==========================================
+  // โซนฟังก์ชันจัดการรูปภาพ (เลือกรูป & ครอปรูป)
+  // ==========================================
   fileChangeEvent(event: Event): void {
     this.imageChangedEvent = event;
-    this.aiResult = null; 
+    // รีเซ็ตค่าผลลัพธ์เก่าทิ้งเวลาเลือกรูปใหม่
+    this.aiResult = null;
+    this.saveSuccess = false;
   }
 
-  imageCropped(event: ImageCroppedEvent) {
-    if (event.objectUrl) {
-      this.croppedImage = this.sanitizer.bypassSecurityTrustUrl(event.objectUrl);
-    }
-    this.croppedBlob = event.blob; 
+  imageCropped(event: any) {
+    this.croppedImage = this.sanitizer.bypassSecurityTrustUrl(event.objectUrl);
+    this.croppedBlob = event.blob;
   }
 
+  // ==========================================
+  // โซนฟังก์ชันคุยกับหลังบ้าน (NestJS)
+  // ==========================================
+  
+  // 1. ส่งรูปไปสแกนเลข
   uploadToBackend() {
     if (!this.croppedBlob) return;
+
     this.isLoading = true;
     this.aiResult = null;
+    this.saveSuccess = false;
 
-    this.meterService.uploadCroppedImage(this.croppedBlob).subscribe({
-      next: (response) => {
+    const formData = new FormData();
+    // ตั้งชื่อไฟล์จำลองให้ NestJS รับไปใช้งาน
+    formData.append('file', this.croppedBlob, 'meter-cropped.jpg');
+
+    this.meterReadingService.uploadCroppedImage(formData).subscribe({
+      next: (res) => {
         this.isLoading = false;
-        this.aiResult = response;
+        this.aiResult = res; // เก็บผลลัพธ์ที่ได้จาก AI มาแสดงหน้าจอ
       },
       error: (err) => {
         this.isLoading = false;
         console.error('Error:', err);
         alert('เชื่อมต่อ API ไม่สำเร็จ เช็คให้ชัวร์ว่า NestJS รันอยู่ไหมครับ');
+      }
+    });
+  }
+
+  // 2. กดยืนยันบันทึกตัวเลขลงฐานข้อมูล
+  confirmAndSave() {
+    if (!this.aiResult || !this.aiResult.read_unit) return;
+    
+    this.isSaving = true;
+    this.saveSuccess = false;
+
+    this.meterReadingService.saveBill(this.aiResult.read_unit).subscribe({
+      next: (response) => {
+        this.isSaving = false;
+        this.saveSuccess = true;
+      },
+      error: (err) => {
+        this.isSaving = false;
+        console.error('Save error:', err);
+        alert('❌ บันทึกไม่สำเร็จ รบกวนเช็ค Terminal ฝั่ง NestJS หน่อยครับ');
       }
     });
   }
