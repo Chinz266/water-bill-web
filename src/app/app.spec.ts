@@ -17,7 +17,10 @@ describe('AppComponent', () => {
       }),
     });
   });
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/futureTitle
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
