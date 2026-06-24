@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ImageCropperComponent } from 'ngx-image-cropper';
+import { ImageCropperComponent, ImageTransform, OutputFormat } from 'ngx-image-cropper';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { toast } from 'ngx-sonner';
@@ -8,32 +8,12 @@ import { toast } from 'ngx-sonner';
 @Component({
   selector: 'app-meter-cropper',
   standalone: true,
-  imports: [CommonModule],
+  // eslint-disable-next-line @angular-eslint/no-unused-standalone-imports
+  imports: [CommonModule, ImageCropperComponent],
   templateUrl: './meter-cropper.html',
   styleUrls: ['./meter-cropper.css']
 })
 export class MeterCropperComponent {
-rotateLeft() {
-throw new Error('Method not implemented.');
-}
-rotateRight() {
-throw new Error('Method not implemented.');
-}
-flipHorizontal() {
-throw new Error('Method not implemented.');
-}
-flipVertical() {
-throw new Error('Method not implemented.');
-}
-zoomIn() {
-throw new Error('Method not implemented.');
-}
-zoomOut() {
-throw new Error('Method not implemented.');
-}
-resetImage() {
-throw new Error('Method not implemented.');
-}
   // ==========================================
   // โซนประกาศตัวแปร
   // ==========================================
@@ -44,9 +24,11 @@ throw new Error('Method not implemented.');
   isLoading = false;
   isSaving = false;
   saveSuccess = false;
-maintainAspectRatio: any;
-aspectRatio: number|undefined;
-transform: any;
+  maintainAspectRatio = false;
+  aspectRatio = 3 / 1;
+  transform: ImageTransform = {};
+  private rotation = 0;
+  private scale = 1;
 
   constructor(
     private sanitizer: DomSanitizer,
@@ -61,11 +43,63 @@ transform: any;
     // รีเซ็ตค่าผลลัพธ์เก่าทิ้งเวลาเลือกรูปใหม่
     this.aiResult = null;
     this.saveSuccess = false;
+    this.resetImage();
   }
 
   imageCropped(event: any) {
     this.croppedImage = this.sanitizer.bypassSecurityTrustUrl(event.objectUrl);
     this.croppedBlob = event.blob;
+  }
+
+  // ==========================================
+  // โซนฟังก์ชันปรับแต่งรูปภาพ (หมุน, สลับ, ซูม)
+  // ==========================================
+  rotateLeft(): void {
+    this.rotation -= 90;
+    this.updateTransform();
+  }
+
+  rotateRight(): void {
+    this.rotation += 90;
+    this.updateTransform();
+  }
+
+  flipHorizontal(): void {
+    this.transform = {
+      ...this.transform,
+      flipH: !this.transform.flipH
+    };
+  }
+
+  flipVertical(): void {
+    this.transform = {
+      ...this.transform,
+      flipV: !this.transform.flipV
+    };
+  }
+
+  zoomIn(): void {
+    this.scale += 0.1;
+    this.updateTransform();
+  }
+
+  zoomOut(): void {
+    this.scale = Math.max(0.1, this.scale - 0.1);
+    this.updateTransform();
+  }
+
+  resetImage(): void {
+    this.rotation = 0;
+    this.scale = 1;
+    this.transform = {};
+  }
+
+  private updateTransform(): void {
+    this.transform = {
+      ...this.transform,
+      rotate: this.rotation,
+      scale: this.scale
+    };
   }
 
   // ==========================================
