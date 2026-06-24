@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* Main Container */
 .cropper-container {
   max-width: 1000px;
@@ -357,4 +358,172 @@
     opacity: 1;
     transform: translateY(0);
   }
+=======
+/* คอนเทนเนอร์หลักจัดกึ่งกลางหน้าจอ */
+.cropper-container {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 30px;
+  background: #1e1e24; /* สีเทาดาร์กโทนโมเดิร์น */
+  color: #f8f9fa;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-family: 'Prompt', 'Segoe UI', Roboto, sans-serif;
+  text-align: center;
+}
+
+/* หัวข้อระบบ */
+h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 25px;
+  color: #4dabf7; /* ฟ้าพาสเทล */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* ซ่อน Input File ดิบ แล้วแต่งปุ่มอัปโหลดใหม่ */
+.file-upload-wrapper {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+.custom-file-upload {
+  display: inline-block;
+  padding: 12px 24px;
+  background: #2b2c34;
+  color: #a5d8ff;
+  border: 2px dashed #4dabf7;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.custom-file-upload:hover {
+  background: rgba(77, 171, 247, 0.1);
+  transform: translateY(-2px);
+}
+
+/* พื้นที่ทำงาน (Workspace) */
+.preview-area {
+  margin-top: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.crop-workspace {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #3f414a;
+  background: #121214;
+}
+
+/* ปุ่มส่งให้ AI ประมวลผล */
+.btn-submit {
+  width: 100%;
+  background: linear-gradient(135deg, #3b5bdb 0%, #1c7ed6 100%);
+  color: white;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(28, 126, 214, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(28, 126, 214, 0.4);
+}
+
+.btn-submit:disabled {
+  background: #3f414a;
+  color: #868e96;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* กล่องแสดงผลลัพธ์จาก AI */
+.result-box {
+  margin-top: 25px;
+  padding: 20px;
+  background: #141517;
+  border-left: 5px solid #51cf66; /* เขียวบอกความสำเร็จ */
+  border-radius: 8px;
+  text-align: left;
+  animation: slideDown 0.4s ease-out;
+}
+
+.result-box h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #dee2e6;
+}
+
+.big-number-container {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.big-number {
+  font-size: 40px;
+  font-weight: 700;
+  color: #51cf66;
+  margin: 0;
+  font-family: 'Courier New', Courier, monospace; /* ฟอนต์แนวตัวเลขดิจิทัล */
+  letter-spacing: 2px;
+}
+
+.unit-text {
+  color: #868e96;
+  font-size: 16px;
+}
+
+.status-msg {
+  margin: 8px 0 0 0;
+  color: #adb5bd;
+  font-size: 13px;
+}
+
+/* เอฟเฟกต์ Loading หมุนๆ */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 10px;
+}
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #121214; /* สีพื้นหลังเว็บหลังบ้านให้มืดเข้าชุดกัน */
+  background-image: radial-gradient(rgba(77, 171, 247, 0.05) 1px, transparent 0); /* เพิ่ม Dot ลายจุดเบาๆ แนว Tech */
+  background-size: 24px 24px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+>>>>>>> master
 }

@@ -1,1 +1,7 @@
-/* You can add global styles to this file, and also import other style files */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #121214; /* คืนชีพสีพื้นหลังมืด */
+  color: #f8f9fa;
+  font-family: 'Prompt', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
