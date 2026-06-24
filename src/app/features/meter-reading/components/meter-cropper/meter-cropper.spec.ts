@@ -1,17 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MeterCropper } from './meter-cropper';
+import { MeterCropperComponent } from './meter-cropper';
 
-describe('MeterCropper', () => {
-  let component: MeterCropper;
-  let fixture: ComponentFixture<MeterCropper>;
+describe('MeterCropperComponent', () => {
+  let component: MeterCropperComponent;
+  let fixture: ComponentFixture<MeterCropperComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MeterCropper],
+      imports: [MeterCropperComponent],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(MeterCropper);
+    fixture = TestBed.createComponent(MeterCropperComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

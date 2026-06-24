@@ -1,30 +1,121 @@
 <div class="cropper-container">
-  <h2>📷 อัปโหลดและครอบตัดเลขมิเตอร์</h2>
+  <div class="header-section">
+    <h2>📷 อัปโหลดและครอบตัดเลขมิเตอร์</h2>
+    <p class="subtitle">เลือกรูปภาพมิเตอร์น้ำและปรับแต่งขนาดเพื่อส่งให้ AI วิเคราะห์</p>
+  </div>
   
-  <input type="file" (change)="fileChangeEvent($event)" accept="image/*" />
+  <!-- Upload Zone -->
+  <div class="upload-zone" [class.has-image]="imageChangedEvent">
+    <label class="upload-label">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>{{ imageChangedEvent ? 'เปลี่ยนรูปภาพใหม่' : 'คลิกเพื่ออัปโหลดรูปภาพมิเตอร์น้ำ' }}</span>
+      <input type="file" (change)="fileChangeEvent($event)" accept="image/*" class="file-input" />
+    </label>
+  </div>
 
-  <div class="preview-area" *ngIf="imageChangedEvent">
-    <div class="crop-workspace">
-      <image-cropper
-        [imageChangedEvent]="imageChangedEvent"
-        [maintainAspectRatio]="true"
-        [aspectRatio]="3 / 1"
-        format="jpeg"
-        (imageCropped)="imageCropped($event)"
-      ></image-cropper>
+  <div class="main-workspace" *ngIf="imageChangedEvent">
+    <!-- Controls Panel -->
+    <div class="control-panel">
+      <!-- Aspect Ratio Toggle -->
+      <div class="control-group">
+        <span class="group-label">อัตราส่วนการครอบ:</span>
+        <div class="toggle-buttons">
+          <button type="button" class="toggle-btn" [class.active]="!maintainAspectRatio" (click)="maintainAspectRatio = false">
+            อิสระ (Freeform)
+          </button>
+          <button type="button" class="toggle-btn" [class.active]="maintainAspectRatio" (click)="maintainAspectRatio = true">
+            ล็อค 3:1 (มิเตอร์ทั่วไป)
+          </button>
+        </div>
+      </div>
+
+      <!-- Transform Controls -->
+      <div class="control-group">
+        <span class="group-label">ปรับแต่งรูปภาพ:</span>
+        <div class="action-buttons">
+          <button type="button" class="action-btn" (click)="rotateLeft()" title="หมุนซ้าย 90°">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+            หมุนซ้าย
+          </button>
+          <button type="button" class="action-btn" (click)="rotateRight()" title="หมุนขวา 90°">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><polyline points="21 3 21 8 16 8"/></svg>
+            หมุนขวา
+          </button>
+          <button type="button" class="action-btn" (click)="flipHorizontal()" title="กลับด้านแนวนอน">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12H2"/><path d="M10 2 2 12l8 10"/><path d="m14 2 8 10-8 10"/></svg>
+            สลับแนวนอน
+          </button>
+          <button type="button" class="action-btn" (click)="flipVertical()" title="กลับด้านแนวตั้ง">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m2 10 10-8 10 8"/><path d="m2 14 10 8 10-8"/></svg>
+            สลับแนวตั้ง
+          </button>
+          <button type="button" class="action-btn" (click)="zoomIn()" title="ซูมเข้า">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+            ซูมเข้า
+          </button>
+          <button type="button" class="action-btn" (click)="zoomOut()" title="ซูมออก">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+            ซูมออก
+          </button>
+          <button type="button" class="action-btn reset-btn" (click)="resetImage()" title="รีเซ็ตการปรับแต่ง">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            รีเซ็ต
+          </button>
+        </div>
+      </div>
     </div>
 
-    <div class="result-workspace" *ngIf="croppedImage">
-      <br>
-      <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
-        {{ isLoading ? 'กำลังวิเคราะห์...' : 'สกัดตัวเลขด้วย AI' }}
-      </button>
+    <!-- Workspace Grid -->
+    <div class="workspace-grid">
+      <!-- Left: Cropper Workspace -->
+      <div class="crop-workspace-container">
+        <div class="panel-header">📌 พื้นที่ครอบตัดรูปภาพ</div>
+        <div class="crop-workspace">
+          <image-cropper
+            [imageChangedEvent]="imageChangedEvent"
+            [maintainAspectRatio]="maintainAspectRatio"
+            [aspectRatio]="aspectRatio"
+            [(transform)]="transform"
+            format="jpeg"
+            (imageCropped)="imageCropped($event)"
+          ></image-cropper>
+        </div>
+      </div>
+
+      <!-- Right: Preview and Submission -->
+      <div class="preview-sidebar" *ngIf="croppedImage">
+        <div class="panel-header">🔍 ผลลัพธ์การครอบตัด</div>
+        <div class="cropped-preview-box">
+          <img [src]="croppedImage" alt="Cropped Preview" class="cropped-image-display" />
+        </div>
+        <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
+          <span class="btn-content" *ngIf="!isLoading">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            สกัดตัวเลขด้วย AI
+          </span>
+          <span class="btn-content" *ngIf="isLoading">
+            <span class="spinner"></span>
+            กำลังวิเคราะห์...
+          </span>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div *ngIf="aiResult" class="result-box">
-    <h3>🤖 เลขมิเตอร์ที่ AI อ่านได้:</h3>
-    <p class="big-number">{{ aiResult.read_unit }}</p>
-    <p class="status-msg">{{ aiResult.message }}</p>
+  <!-- Analysis Result -->
+  <div *ngIf="aiResult" class="result-box animate-fade-in">
+    <div class="result-header">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-icon"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <h3>ผลการวิเคราะห์ด้วย AI</h3>
+    </div>
+    <div class="result-body">
+      <div class="number-display">
+        <span class="number-label">เลขมิเตอร์ที่อ่านได้</span>
+        <span class="big-number">{{ aiResult.read_unit }}</span>
+      </div>
+      <div class="status-msg" [class.success]="aiResult.message?.includes('สำเร็จ')">
+        {{ aiResult.message }}
+      </div>
+    </div>
   </div>
 </div>
