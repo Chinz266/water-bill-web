@@ -1,18 +1,16 @@
 <div class="cropper-container">
-<<<<<<< HEAD
   <div class="header-section">
     <h2>📷 อัปโหลดและครอบตัดเลขมิเตอร์</h2>
     <p class="subtitle">เลือกรูปภาพมิเตอร์น้ำและปรับแต่งขนาดเพื่อส่งให้ AI วิเคราะห์</p>
   </div>
   
-  <!-- Upload Zone -->
+  Upload Zone
   <div class="upload-zone" [class.has-image]="imageChangedEvent">
     <label class="upload-label">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <span>{{ imageChangedEvent ? 'เปลี่ยนรูปภาพใหม่' : 'คลิกเพื่ออัปโหลดรูปภาพมิเตอร์น้ำ' }}</span>
       <input type="file" (change)="fileChangeEvent($event)" accept="image/*" class="file-input" />
     </label>
-=======
   <h2>📷 ระบบสแกนเลขมิเตอร์น้ำอัจฉริยะ</h2>
   
   <div class="file-upload-wrapper">
@@ -20,7 +18,6 @@
       📁 เลือกรูปภาพมิเตอร์น้ำ
     </label>
     <input id="file-upload" type="file" (change)="fileChangeEvent($event)" accept="image/*" />
->>>>>>> master
   </div>
 
   <div class="main-workspace" *ngIf="imageChangedEvent">
@@ -75,60 +72,6 @@
       </div>
     </div>
 
-<<<<<<< HEAD
-    <!-- Workspace Grid -->
-    <div class="workspace-grid">
-      <!-- Left: Cropper Workspace -->
-      <div class="crop-workspace-container">
-        <div class="panel-header">📌 พื้นที่ครอบตัดรูปภาพ</div>
-        <div class="crop-workspace">
-          <image-cropper
-            [imageChangedEvent]="imageChangedEvent"
-            [maintainAspectRatio]="maintainAspectRatio"
-            [aspectRatio]="aspectRatio"
-            [(transform)]="transform"
-            format="jpeg"
-            (imageCropped)="imageCropped($event)"
-          ></image-cropper>
-        </div>
-      </div>
-
-      <!-- Right: Preview and Submission -->
-      <div class="preview-sidebar" *ngIf="croppedImage">
-        <div class="panel-header">🔍 ผลลัพธ์การครอบตัด</div>
-        <div class="cropped-preview-box">
-          <img [src]="croppedImage" alt="Cropped Preview" class="cropped-image-display" />
-        </div>
-        <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
-          <span class="btn-content" *ngIf="!isLoading">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            สกัดตัวเลขด้วย AI
-          </span>
-          <span class="btn-content" *ngIf="isLoading">
-            <span class="spinner"></span>
-            กำลังวิเคราะห์...
-          </span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Analysis Result -->
-  <div *ngIf="aiResult" class="result-box animate-fade-in">
-    <div class="result-header">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-icon"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
-      <h3>ผลการวิเคราะห์ด้วย AI</h3>
-    </div>
-    <div class="result-body">
-      <div class="number-display">
-        <span class="number-label">เลขมิเตอร์ที่อ่านได้</span>
-        <span class="big-number">{{ aiResult.read_unit }}</span>
-      </div>
-      <div class="status-msg" [class.success]="aiResult.message?.includes('สำเร็จ')">
-        {{ aiResult.message }}
-      </div>
-    </div>
-=======
     <div class="result-workspace">
       <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
         <span *ngIf="isLoading" class="spinner"></span>
@@ -144,6 +87,5 @@
       <span class="unit-text">หน่วย (m³)</span>
     </div>
     <p class="status-msg">🔹 สถานะระบบ: {{ aiResult.message || 'ดึงข้อมูลสำเร็จ' }}</p>
->>>>>>> master
   </div>
 </div>
