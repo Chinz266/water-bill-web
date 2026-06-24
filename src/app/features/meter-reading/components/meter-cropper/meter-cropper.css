@@ -160,6 +160,47 @@ body {
   justify-content: center;
 }
 
+/* ปุ่มยืนยันสร้างบิล */
+.btn-confirm {
+  width: 100%;
+  margin-top: 16px;
+  background: linear-gradient(135deg, #2b8a3e 0%, #37b24d 100%);
+  color: white;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(43, 138, 62, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(43, 138, 62, 0.4);
+}
+
+.btn-confirm:disabled {
+  background: #3f414a;
+  color: #868e96;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ข้อความบันทึกสำเร็จ */
+.success-msg {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: rgba(81, 207, 102, 0.1);
+  border: 1px solid rgba(81, 207, 102, 0.3);
+  border-radius: 8px;
+  color: #51cf66;
+  font-weight: 500;
+  animation: slideDown 0.4s ease-out;
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-10px); }

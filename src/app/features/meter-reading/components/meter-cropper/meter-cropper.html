@@ -63,8 +63,20 @@
       </div>
     </div>
 
+    <!-- Image Cropper -->
+    <div class="crop-workspace">
+      <image-cropper
+        [imageChangedEvent]="imageChangedEvent"
+        [maintainAspectRatio]="maintainAspectRatio"
+        [aspectRatio]="aspectRatio"
+        [transform]="transform"
+        format="jpeg"
+        (imageCropped)="imageCropped($event)"
+      ></image-cropper>
+    </div>
+
     <div class="result-workspace">
-      <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading">
+      <button class="btn-submit" (click)="uploadToBackend()" [disabled]="isLoading || !croppedBlob">
         <span *ngIf="isLoading" class="spinner"></span>
         {{ isLoading ? 'กำลังส่งภาพให้ระบบ AI วิเคราะห์...' : '⚡ สกัดตัวเลขค่าน้ำ' }}
       </button>
@@ -78,5 +90,20 @@
       <span class="unit-text">หน่วย (m³)</span>
     </div>
     <p class="status-msg">🔹 สถานะระบบ: {{ aiResult.message || 'ดึงข้อมูลสำเร็จ' }}</p>
+
+    <!-- ปุ่มยืนยันส่งค่าไปสร้างบิล -->
+    <button
+      class="btn-confirm"
+      (click)="confirmAndSave()"
+      [disabled]="isSaving || saveSuccess || !aiResult.read_unit"
+    >
+      <span *ngIf="isSaving" class="spinner"></span>
+      {{ isSaving ? 'กำลังบันทึก...' : '✅ ยืนยันและสร้างบิลค่าน้ำ' }}
+    </button>
+    
+    <!-- แสดงผลเมื่อบันทึกสำเร็จ -->
+    <div *ngIf="saveSuccess" class="success-msg">
+      🎉 บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้ว!
+    </div>
   </div>
 </div>
