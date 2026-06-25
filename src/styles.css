@@ -1,7 +1,35 @@
+/* ดึงฟอนต์ Space Grotesk จาก Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+/* 🌟 ตั้งค่าตัวแปรสีทั้งหมด (แกะมาจากรูปของลูกพี่เลยครับ) */
+:root {
+  --bg: #08080f;          /* สีพื้นหลังหลัก (ดำสุด) */
+  --bg2: #0d0d1a;         /* สีพื้นหลังรอง (เช่น กล่องการ์ด) */
+  --bg3: #12121f;         /* สีพื้นหลังกล่องที่เด่นขึ้นมาอีกนิด */
+  --sf: #16162a;          /* สีพื้นผิว (Surface) */
+  
+  --bd: rgba(255, 255, 255, 0.07); /* สีเส้นขอบจางๆ */
+  --bd2: rgba(255, 255, 255, 0.13);/* สีเส้นขอบชัดขึ้นมาหน่อย */
+  
+  --tx: #f0f0ff;          /* สีตัวหนังสือหลัก (ขาวอมฟ้า) */
+  --tx2: #a8a8c8;         /* สีตัวหนังสือรอง (เทาอมม่วง) */
+  --tx3: #6b6b8a;         /* สีตัวหนังสือจางๆ (เทาเข้ม) */
+  
+  --pur: #8b5cf6;         /* สีม่วงเด่น */
+  --blu: #3b82f6;         /* สีน้ำเงินเด่น */
+  --grad: linear-gradient(135deg, #8b5cf6, #3b82f6); /* สีไล่ระดับ ม่วงไปน้ำเงิน */
+}
+
+/* บังคับใช้ฟอนต์และสีพื้นหลังกับทุกหน้าของเว็บ */
+* {
+  box-sizing: border-box;
+}
+
 body {
+  font-family: 'Space Grotesk', sans-serif;
+  background-color: var(--bg);
+  color: var(--tx);
   margin: 0;
   padding: 0;
-  background-color: #121214; /* คืนชีพสีพื้นหลังมืด */
-  color: #f8f9fa;
-  font-family: 'Prompt', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: background 0.3s, color 0.3s;
 }

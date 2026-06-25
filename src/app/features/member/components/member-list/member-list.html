@@ -1,0 +1,120 @@
+<div class="member-container">
+  <div class="header-action">
+    <div>
+      <h2 class="page-title">👥 รายชื่อลูกบ้าน / จัดการบ้านเลขที่</h2>
+      <p class="subtitle">ระบบจัดการข้อมูล เพิ่ม แก้ไข และลบข้อมูลลูกบ้านประจำหมู่บ้าน (CRUD)</p>
+    </div>
+    <button class="btn-primary" (click)="openAddModal()">➕ เพิ่มบ้านใหม่</button>
+  </div>
+
+  <div class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>บ้านเลขที่</th>
+          <th>ชื่อ - นามสกุลเจ้าบ้าน</th>
+          <th>เบอร์โทรศัพท์</th>
+          <th class="text-center">การจัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let member of members$ | async">
+          <td class="highlight-text">{{ member.house_no }}</td>
+          <td>{{ member.fname }} {{ member.lname }}</td>
+          <td class="dim-text">{{ member.phone || '-' }}</td>
+          <td class="text-center">
+            <button class="btn-action edit" (click)="openEditModal(member)">✏️ แก้ไข</button>
+            <button class="btn-action delete" (click)="deleteMember(member.id, member.house_no)">🗑️ ลบ</button>
+          </td>
+        </tr>
+        <tr *ngIf="!(members$ | async)?.length">
+          <td colspan="4" class="text-center no-data">📭 ไม่พบข้อมูลบ้านในระบบ กดเพิ่มบ้านใหม่ได้เลยครับ</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showAddModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🏠 เพิ่มข้อมูลบ้านพักใหม่</h3>
+      <button class="btn-close" (click)="closeAddModal()">✕</button>
+    </div>
+    
+    <div class="input-row">
+      <div class="input-form full-width">
+        <label>บ้านเลขที่ / ซอย <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="newMember.house_no" [class.is-invalid]="addErrors.house_no" placeholder="เช่น 99/1">
+        <span class="error-text" *ngIf="addErrors.house_no">{{ addErrors.house_no }}</span>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <div class="input-form">
+        <label>ชื่อจริง <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="newMember.fname" [class.is-invalid]="addErrors.fname" placeholder="ชื่อ">
+        <span class="error-text" *ngIf="addErrors.fname">{{ addErrors.fname }}</span>
+      </div>
+      <div class="input-form">
+        <label>นามสกุล</label>
+        <input type="text" [(ngModel)]="newMember.lname" placeholder="นามสกุล">
+      </div>
+    </div>
+
+    <div class="input-row">
+      <div class="input-form full-width">
+        <label>เบอร์โทรศัพท์ติดต่อ</label>
+        <input type="tel" [(ngModel)]="newMember.phone" [class.is-invalid]="addErrors.phone" placeholder="เช่น 0812345678">
+        <span class="error-text" *ngIf="addErrors.phone">{{ addErrors.phone }}</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeAddModal()">ยกเลิก</button>
+      <button class="btn-primary" (click)="saveMember()">บันทึกข้อมูล</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showEditModal">
+  <div class="modal-box edit-theme">
+    <div class="modal-header">
+      <h3>✏️ แก้ไขข้อมูลบ้านเลขที่ {{ editingMember.house_no }}</h3>
+      <button class="btn-close" (click)="closeEditModal()">✕</button>
+    </div>
+    
+    <div class="input-row">
+      <div class="input-form full-width">
+        <label>บ้านเลขที่ / ซอย <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="editingMember.house_no" [class.is-invalid]="editErrors.house_no" placeholder="เช่น 99/1">
+        <span class="error-text" *ngIf="editErrors.house_no">{{ editErrors.house_no }}</span>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <div class="input-form">
+        <label>ชื่อจริง <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="editingMember.fname" [class.is-invalid]="editErrors.fname" placeholder="ชื่อ">
+        <span class="error-text" *ngIf="editErrors.fname">{{ editErrors.fname }}</span>
+      </div>
+      <div class="input-form">
+        <label>นามสกุล</label>
+        <input type="text" [(ngModel)]="editingMember.lname" placeholder="นามสกุล">
+      </div>
+    </div>
+
+    <div class="input-row">
+      <div class="input-form full-width">
+        <label>เบอร์โทรศัพท์ติดต่อ</label>
+        <input type="tel" [(ngModel)]="editingMember.phone" [class.is-invalid]="editErrors.phone" placeholder="เช่น 0812345678">
+        <span class="error-text" *ngIf="editErrors.phone">{{ editErrors.phone }}</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeEditModal()">ยกเลิก</button>
+      <button class="btn-warning" (click)="updateMember()">บันทึกการแก้ไข</button>
+    </div>
+  </div>
+</div>

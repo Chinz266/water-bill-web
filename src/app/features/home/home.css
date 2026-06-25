@@ -1,0 +1,77 @@
+.home-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh; 
+  text-align: center;
+  color: white;
+}
+
+.welcome-box {
+  max-width: 600px;
+  padding: 40px;
+}
+
+.gradient-text {
+  font-size: 3.5rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #51cf66, #3bc9db);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #888;
+  margin-bottom: 30px;
+}
+
+/* ป้ายแสดงข้อมูลจาก NestJS */
+.real-data-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #333;
+  padding: 10px 20px;
+  border-radius: 30px;
+  color: #ccc;
+  margin-bottom: 35px;
+}
+
+.real-data-badge strong {
+  color: #51cf66;
+  font-size: 1.2rem;
+  margin: 0 5px;
+}
+
+.dot {
+  height: 8px; width: 8px;
+  background-color: #51cf66;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  box-shadow: 0 0 8px #51cf66;
+}
+
+.quick-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: 12px 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-outline:hover {
+  border-color: #51cf66;
+  color: #51cf66;
+  background: rgba(81, 207, 102, 0.05);
+}

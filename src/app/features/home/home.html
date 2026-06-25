@@ -1,0 +1,19 @@
+<div class="home-container">
+  <div class="welcome-box">
+    <h1 class="gradient-text">Smart Water Bill</h1>
+    <p class="subtitle">ระบบจัดการค่าน้ำประปาหมู่บ้าน ประจำเดือน{{ currentMonth }}</p>
+
+    <div class="real-data-badge" *ngIf="realTotalHouses !== null">
+      <span class="dot pulse"></span> มีข้อมูลบ้านพักในระบบ <strong>{{ realTotalHouses }}</strong> หลัง
+    </div>
+    
+    <div class="real-data-badge loading" *ngIf="realTotalHouses === null">
+      ⏳ กำลังซิงค์ข้อมูลจากฐานข้อมูล...
+    </div>
+
+    <div class="quick-actions">
+      <button class="btn-outline" routerLink="/scan">📷 สแกนมิเตอร์น้ำ</button>
+      <button class="btn-outline" routerLink="/members">👥 จัดการลูกบ้าน</button>
+    </div>
+  </div>
+</div>
