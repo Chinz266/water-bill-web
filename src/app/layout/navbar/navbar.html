@@ -9,4 +9,10 @@
     <a routerLink="/history" routerLinkActive="active-link">📋 ประวัติการใช้น้ำ</a>
     <a routerLink="/members" routerLinkActive="active-link">👥 สมาชิก</a>
   </div>
+
+  <!-- 🌟 ชื่อคนที่ล็อกอินอยู่ + ปุ่มออกจากระบบ -->
+  <div class="nav-user">
+    <span class="user-name">👤 {{ displayName() }}</span>
+    <button type="button" class="logout-btn" (click)="onLogout()">ออกจากระบบ</button>
+  </div>
 </nav>

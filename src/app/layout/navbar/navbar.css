@@ -40,3 +40,46 @@
   background: #2b2c34;
   color: #4dabf7;
 }
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #adb5bd;
+}
+
+.logout-btn {
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ff8787;
+  background: transparent;
+  border: 1px solid rgba(255, 135, 135, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  color: #ffc9c9;
+  background: rgba(255, 135, 135, 0.12);
+  border-color: rgba(255, 135, 135, 0.6);
+}
+
+@media (max-width: 900px) {
+  .navbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 15px 20px;
+  }
+
+  .user-name {
+    display: none;
+  }
+}

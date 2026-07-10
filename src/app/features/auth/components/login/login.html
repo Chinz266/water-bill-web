@@ -1,0 +1,70 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">💧</div>
+      <h1>เข้าสู่ระบบ</h1>
+      <p>ระบบจัดการค่าน้ำประปาหมู่บ้าน</p>
+    </div>
+
+    <form class="auth-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="field">
+        <label for="email">อีเมล</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="somchai@example.com"
+          autocomplete="username"
+          inputmode="email"
+          [class.invalid]="email.invalid && email.touched"
+        />
+        @if (email.touched && email.hasError('required')) {
+          <div class="field-error">กรุณากรอกอีเมล</div>
+        } @else if (email.touched && email.hasError('email')) {
+          <div class="field-error">รูปแบบอีเมลไม่ถูกต้อง</div>
+        }
+      </div>
+
+      <div class="field">
+        <label for="password">รหัสผ่าน</label>
+        <div class="password-wrap">
+          <input
+            id="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="กรอกรหัสผ่าน"
+            autocomplete="current-password"
+            [class.invalid]="password.invalid && password.touched"
+          />
+          <button
+            type="button"
+            class="toggle-password"
+            (click)="togglePassword()"
+            [attr.aria-label]="showPassword() ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+          >
+            {{ showPassword() ? '🙈' : '👁️' }}
+          </button>
+        </div>
+        @if (password.touched && password.hasError('required')) {
+          <div class="field-error">กรุณากรอกรหัสผ่าน</div>
+        }
+      </div>
+
+      @if (errorMessage()) {
+        <div class="alert" role="alert">
+          <span>⚠️</span>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <button type="submit" class="submit-btn" [disabled]="submitting()">
+        {{ submitting() ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      ยังไม่มีบัญชี?
+      <a routerLink="/register">สมัครสมาชิก</a>
+    </div>
+  </div>
+</div>

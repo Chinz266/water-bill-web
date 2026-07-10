@@ -1,6 +1,12 @@
 <ngx-sonner-toaster [position]="'top-right'" [richColors]="true"></ngx-sonner-toaster>
-<app-navbar></app-navbar>
 
-<main class="main-content">
+<!-- 🌟 ยังไม่ได้ล็อกอิน = ไม่ต้องโชว์ navbar (หน้า login/register จะเต็มจอ) -->
+@if (isLoggedIn()) {
+  <app-navbar></app-navbar>
+
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+} @else {
   <router-outlet></router-outlet>
-</main>
+}
