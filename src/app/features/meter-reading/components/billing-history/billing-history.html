@@ -30,8 +30,8 @@
           <td>{{ bill.total_amount }}</td>
           <td>
             <span class="status-badge clickable" 
-                  [class.pending]="bill.payment_status === 'PENDING'"
-                  [class.paid]="bill.payment_status === 'PAID'"
+                  [class.pending]="bill.payment_status === 'Pending'"
+                  [class.paid]="bill.payment_status === 'Paid'"
                   (click)="toggleStatus(bill)">
               {{ bill.payment_status }}
             </span>

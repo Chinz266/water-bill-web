@@ -20,7 +20,7 @@ export class BillingHistoryComponent implements OnInit {
   ) { }
 
   toggleStatus(bill: any) {
-    const newStatus = bill.payment_status === 'PENDING' ? 'PAID' : 'PENDING';
+    const newStatus = bill.payment_status === 'Pending' ? 'Paid' : 'Pending';
     this.meterReadingService.updatePaymentStatus(bill.id, newStatus).subscribe({
       next: () => {
         bill.payment_status = newStatus;
