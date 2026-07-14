@@ -1,120 +1,276 @@
-<div class="member-container">
-  <div class="header-action">
-    <div>
-      <h2 class="page-title">👥 รายชื่อลูกบ้าน / จัดการบ้านเลขที่</h2>
-      <p class="subtitle">ระบบจัดการข้อมูล เพิ่ม แก้ไข และลบข้อมูลลูกบ้านประจำหมู่บ้าน (CRUD)</p>
+<div class="members">
+  <div class="members-head">
+    <div class="page-head">
+      <h1 class="page-title">ลูกบ้านในหมู่บ้าน</h1>
+      <p class="page-subtitle">เพิ่ม แก้ไข หรือลบข้อมูลบ้านและเจ้าของบ้านได้ที่นี่</p>
     </div>
-    <button class="btn-primary" (click)="openAddModal()">➕ เพิ่มบ้านใหม่</button>
+
+    <button type="button" class="btn btn-primary add-btn" (click)="openAddModal()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      เพิ่มบ้านใหม่
+    </button>
   </div>
 
-  <div class="table-container">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>บ้านเลขที่</th>
-          <th>ชื่อ - นามสกุลเจ้าบ้าน</th>
-          <th>เบอร์โทรศัพท์</th>
-          <th class="text-center">การจัดการ</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let member of members$ | async">
-          <td class="highlight-text">{{ member.house_no }}</td>
-          <td>{{ member.fname }} {{ member.lname }}</td>
-          <td class="dim-text">{{ member.phone || '-' }}</td>
-          <td class="text-center">
-            <button class="btn-action edit" (click)="openEditModal(member)">✏️ แก้ไข</button>
-            <button class="btn-action delete" (click)="deleteMember(member.id, member.house_no)">🗑️ ลบ</button>
-          </td>
-        </tr>
-        <tr *ngIf="!(members$ | async)?.length">
-          <td colspan="4" class="text-center no-data">📭 ไม่พบข้อมูลบ้านในระบบ กดเพิ่มบ้านใหม่ได้เลยครับ</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  @if (members$ | async; as members) {
+    @if (members.length > 0) {
+      <!-- จอใหญ่: ตาราง -->
+      <div class="table-card desktop-only">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>บ้านเลขที่</th>
+                <th>ชื่อเจ้าของบ้าน</th>
+                <th>เบอร์โทรศัพท์</th>
+                <th class="th-actions">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (member of members; track member.id) {
+                <tr>
+                  <td class="cell-strong">{{ member.house_no }}</td>
+                  <td>{{ member.fname }} {{ member.lname }}</td>
+                  <td class="cell-muted">{{ member.phone || '—' }}</td>
+                  <td>
+                    <div class="cell-actions">
+                      <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        แก้ไข
+                      </button>
+                      <button type="button" class="btn btn-sm btn-danger-soft" (click)="askDelete(member)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+                        ลบ
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- มือถือ: การ์ดใบใหญ่ -->
+      <div class="member-cards mobile-only">
+        @for (member of members; track member.id) {
+          <div class="card member-card">
+            <div class="member-top">
+              <span class="chip chip-info">บ้านเลขที่ {{ member.house_no }}</span>
+            </div>
+            <p class="member-name">{{ member.fname }} {{ member.lname }}</p>
+            <p class="member-phone text-muted">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 5.2 2 2 0 0 1 6 3Z"/></svg>
+              {{ member.phone || 'ไม่ได้ระบุเบอร์โทร' }}
+            </p>
+            <div class="member-actions">
+              <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                แก้ไข
+              </button>
+              <button type="button" class="btn btn-sm btn-danger-soft" (click)="askDelete(member)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+                ลบ
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <!-- ยังไม่มีข้อมูล -->
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-art">🏠</div>
+          <h2 class="empty-title">ยังไม่มีบ้านในระบบ</h2>
+          <p class="empty-text">เพิ่มบ้านหลังแรกเข้าระบบก่อน แล้วค่อยเริ่มบันทึกค่าน้ำได้เลยครับ</p>
+          <button type="button" class="btn btn-primary" (click)="openAddModal()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            เพิ่มบ้านหลังแรก
+          </button>
+        </div>
+      </div>
+    }
+  } @else {
+    <!-- กำลังโหลด -->
+    <div class="card">
+      <p class="loading-note">
+        <span class="loading-dot"></span> กำลังโหลดรายชื่อลูกบ้าน รอสักครู่นะครับ...
+      </p>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>
+  }
 </div>
 
-<div class="modal-overlay" *ngIf="showAddModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3>🏠 เพิ่มข้อมูลบ้านพักใหม่</h3>
-      <button class="btn-close" (click)="closeAddModal()">✕</button>
-    </div>
-    
-    <div class="input-row">
-      <div class="input-form full-width">
-        <label>บ้านเลขที่ / ซอย <span class="required">*</span></label>
-        <input type="text" [(ngModel)]="newMember.house_no" [class.is-invalid]="addErrors.house_no" placeholder="เช่น 99/1">
-        <span class="error-text" *ngIf="addErrors.house_no">{{ addErrors.house_no }}</span>
+<!-- หน้าต่างเพิ่มบ้านใหม่ -->
+@if (showAddModal) {
+  <div class="modal-overlay" (click)="closeAddModal()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">เพิ่มบ้านใหม่</h2>
+        <button type="button" class="modal-close" (click)="closeAddModal()" aria-label="ปิด">✕</button>
       </div>
-    </div>
 
-    <div class="input-row">
-      <div class="input-form">
-        <label>ชื่อจริง <span class="required">*</span></label>
-        <input type="text" [(ngModel)]="newMember.fname" [class.is-invalid]="addErrors.fname" placeholder="ชื่อ">
-        <span class="error-text" *ngIf="addErrors.fname">{{ addErrors.fname }}</span>
+      <div class="field">
+        <label class="field-label" for="add-house">บ้านเลขที่ <span class="field-required">*</span></label>
+        <input
+          id="add-house"
+          class="field-input"
+          type="text"
+          [(ngModel)]="newMember.house_no"
+          [class.is-invalid]="addErrors.house_no"
+          placeholder="เช่น 99/1"
+        />
+        @if (addErrors.house_no) {
+          <p class="field-error">{{ addErrors.house_no }}</p>
+        }
       </div>
-      <div class="input-form">
-        <label>นามสกุล</label>
-        <input type="text" [(ngModel)]="newMember.lname" placeholder="นามสกุล">
-      </div>
-    </div>
 
-    <div class="input-row">
-      <div class="input-form full-width">
-        <label>เบอร์โทรศัพท์ติดต่อ</label>
-        <input type="tel" [(ngModel)]="newMember.phone" [class.is-invalid]="addErrors.phone" placeholder="เช่น 0812345678">
-        <span class="error-text" *ngIf="addErrors.phone">{{ addErrors.phone }}</span>
+      <div class="field">
+        <label class="field-label" for="add-fname">ชื่อจริงเจ้าของบ้าน <span class="field-required">*</span></label>
+        <input
+          id="add-fname"
+          class="field-input"
+          type="text"
+          [(ngModel)]="newMember.fname"
+          [class.is-invalid]="addErrors.fname"
+          placeholder="เช่น สมชาย"
+        />
+        @if (addErrors.fname) {
+          <p class="field-error">{{ addErrors.fname }}</p>
+        }
       </div>
-    </div>
 
-    <div class="modal-actions">
-      <button class="btn-cancel" (click)="closeAddModal()">ยกเลิก</button>
-      <button class="btn-primary" (click)="saveMember()">บันทึกข้อมูล</button>
+      <div class="field">
+        <label class="field-label" for="add-lname">นามสกุล</label>
+        <input id="add-lname" class="field-input" type="text" [(ngModel)]="newMember.lname" placeholder="เช่น ใจดี" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="add-phone">เบอร์โทรศัพท์</label>
+        <input
+          id="add-phone"
+          class="field-input"
+          type="tel"
+          inputmode="tel"
+          [(ngModel)]="newMember.phone"
+          [class.is-invalid]="addErrors.phone"
+          placeholder="เช่น 0812345678"
+        />
+        @if (addErrors.phone) {
+          <p class="field-error">{{ addErrors.phone }}</p>
+        } @else {
+          <p class="field-hint">ไม่กรอกก็ได้ครับ แต่มีไว้ติดต่อเจ้าของบ้านง่ายกว่า</p>
+        }
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeAddModal()">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="saveMember()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+          บันทึกข้อมูล
+        </button>
+      </div>
     </div>
   </div>
-</div>
+}
 
-<div class="modal-overlay" *ngIf="showEditModal">
-  <div class="modal-box edit-theme">
-    <div class="modal-header">
-      <h3>✏️ แก้ไขข้อมูลบ้านเลขที่ {{ editingMember.house_no }}</h3>
-      <button class="btn-close" (click)="closeEditModal()">✕</button>
-    </div>
-    
-    <div class="input-row">
-      <div class="input-form full-width">
-        <label>บ้านเลขที่ / ซอย <span class="required">*</span></label>
-        <input type="text" [(ngModel)]="editingMember.house_no" [class.is-invalid]="editErrors.house_no" placeholder="เช่น 99/1">
-        <span class="error-text" *ngIf="editErrors.house_no">{{ editErrors.house_no }}</span>
+<!-- หน้าต่างแก้ไขข้อมูลบ้าน -->
+@if (showEditModal) {
+  <div class="modal-overlay" (click)="closeEditModal()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">แก้ไขข้อมูลบ้านเลขที่ {{ editingMember.house_no }}</h2>
+        <button type="button" class="modal-close" (click)="closeEditModal()" aria-label="ปิด">✕</button>
       </div>
-    </div>
 
-    <div class="input-row">
-      <div class="input-form">
-        <label>ชื่อจริง <span class="required">*</span></label>
-        <input type="text" [(ngModel)]="editingMember.fname" [class.is-invalid]="editErrors.fname" placeholder="ชื่อ">
-        <span class="error-text" *ngIf="editErrors.fname">{{ editErrors.fname }}</span>
+      <div class="field">
+        <label class="field-label" for="edit-house">บ้านเลขที่ <span class="field-required">*</span></label>
+        <input
+          id="edit-house"
+          class="field-input"
+          type="text"
+          [(ngModel)]="editingMember.house_no"
+          [class.is-invalid]="editErrors.house_no"
+          placeholder="เช่น 99/1"
+        />
+        @if (editErrors.house_no) {
+          <p class="field-error">{{ editErrors.house_no }}</p>
+        }
       </div>
-      <div class="input-form">
-        <label>นามสกุล</label>
-        <input type="text" [(ngModel)]="editingMember.lname" placeholder="นามสกุล">
-      </div>
-    </div>
 
-    <div class="input-row">
-      <div class="input-form full-width">
-        <label>เบอร์โทรศัพท์ติดต่อ</label>
-        <input type="tel" [(ngModel)]="editingMember.phone" [class.is-invalid]="editErrors.phone" placeholder="เช่น 0812345678">
-        <span class="error-text" *ngIf="editErrors.phone">{{ editErrors.phone }}</span>
+      <div class="field">
+        <label class="field-label" for="edit-fname">ชื่อจริงเจ้าของบ้าน <span class="field-required">*</span></label>
+        <input
+          id="edit-fname"
+          class="field-input"
+          type="text"
+          [(ngModel)]="editingMember.fname"
+          [class.is-invalid]="editErrors.fname"
+          placeholder="เช่น สมชาย"
+        />
+        @if (editErrors.fname) {
+          <p class="field-error">{{ editErrors.fname }}</p>
+        }
       </div>
-    </div>
 
-    <div class="modal-actions">
-      <button class="btn-cancel" (click)="closeEditModal()">ยกเลิก</button>
-      <button class="btn-warning" (click)="updateMember()">บันทึกการแก้ไข</button>
+      <div class="field">
+        <label class="field-label" for="edit-lname">นามสกุล</label>
+        <input id="edit-lname" class="field-input" type="text" [(ngModel)]="editingMember.lname" placeholder="เช่น ใจดี" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="edit-phone">เบอร์โทรศัพท์</label>
+        <input
+          id="edit-phone"
+          class="field-input"
+          type="tel"
+          inputmode="tel"
+          [(ngModel)]="editingMember.phone"
+          [class.is-invalid]="editErrors.phone"
+          placeholder="เช่น 0812345678"
+        />
+        @if (editErrors.phone) {
+          <p class="field-error">{{ editErrors.phone }}</p>
+        }
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeEditModal()">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="updateMember()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+          บันทึกการแก้ไข
+        </button>
+      </div>
     </div>
   </div>
-</div>
+}
+
+<!-- หน้าต่างยืนยันก่อนลบ -->
+@if (memberToDelete) {
+  <div class="modal-overlay" (click)="cancelDelete()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">ลบบ้านหลังนี้ใช่ไหมครับ?</h2>
+        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>
+          ข้อมูลบ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong>
+          ({{ memberToDelete.fname }} {{ memberToDelete.lname }})
+          จะถูกลบออกจากระบบถาวร กู้คืนไม่ได้นะครับ
+        </span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="cancelDelete()">เก็บไว้ก่อน</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDelete()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+          ลบเลย
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,5 +1,13 @@
+/* พื้นที่เนื้อหาหลักของทุกหน้า — เว้นขอบให้โปร่ง และกันไม่ให้เนื้อหาโดนแถบเมนูล่างบังบนมือถือ */
 .main-content {
-  padding: 20px;
   width: 100%;
-  box-sizing: border-box;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
+  }
 }

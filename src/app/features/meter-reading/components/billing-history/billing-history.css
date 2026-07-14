@@ -1,132 +1,157 @@
-.history-container {
-  max-width: 900px;
-  margin: 40px auto;
-  padding: 30px;
-  background: #1e1e24;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  font-family: 'Prompt', sans-serif;
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.history-header {
+.history-head {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.history-head .page-head {
+  margin-bottom: 24px;
+}
+
+.th-actions {
+  text-align: right;
+}
+
+.amount {
+  color: var(--text);
+}
+
+/* การ์ดบิลสำหรับมือถือ */
+.bill-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bill-top {
+  display: flex;
   align-items: center;
-  margin-bottom: 25px;
-  border-bottom: 1px solid #2b2c34;
-  padding-bottom: 15px;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-.history-header h2 {
-  margin: 0;
-  font-size: 22px;
-  color: #f8f9fa;
+.bill-owner {
+  font-size: 18px;
+  font-weight: 700;
 }
 
-/* ปุ่มรีเฟรช */
-.btn-refresh {
-  background: #2b2c34;
-  color: #4dabf7;
-  border: 1px solid #4dabf7;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.btn-refresh:hover {
-  background: rgba(77, 171, 247, 0.1);
-  transform: translateY(-1px);
-}
-
-/* จัดการดีไซน์ตาราง */
-.table-responsive {
-  overflow-x: auto;
-  border-radius: 8px;
-  border: 1px solid #2b2c34;
-}
-
-.history-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  color: #dee2e6;
-}
-
-.history-table th {
-  background: #141517;
-  color: #a5d8ff;
-  padding: 14px 18px;
-  font-weight: 600;
+.bill-date {
   font-size: 14px;
 }
 
-.history-table td {
-  padding: 14px 18px;
-  border-bottom: 1px solid #2b2c34;
-  font-size: 15px;
+.bill-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0;
 }
 
-.history-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+.bill-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 }
 
-.unit-cell {
-  font-family: 'Courier New', monospace;
-  font-weight: 700;
-  color: #51cf66;
-  font-size: 16px !important;
+.bill-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
-/* Badge สถานะ */
-.status-badge {
-  background: rgba(255, 193, 7, 0.15);
-  color: #ffc107;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
+.bill-figures .big-value {
+  font-size: 32px;
 }
 
-/* Loading & Empty State */
-.loading-state, .empty-state {
+/* ---------- หน้าต่างรายละเอียดบิลแบบเต็ม ---------- */
+.detail-card {
+  max-width: 560px;
+}
+
+.detail-sub {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.detail-total {
   text-align: center;
-  padding: 40px 20px;
-  color: #adb5bd;
 }
 
-.spinner {
-  display: inline-block;
-  width: 30px;
-  height: 30px;
-  border: 3px solid rgba(255,255,255,0.1);
-  border-radius: 50%;
-  border-top-color: #4dabf7;
-  animation: spin 1s linear infinite;
-  margin-bottom: 15px;
+.detail-amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 16px;
 }
 
-/* จัดการสีและลูกเล่นของปุ่มถังขยะ */
-.btn-delete {
-  background: transparent;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
-  opacity: 0.7;
+.detail-heading {
+  margin: 24px 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
-.btn-delete:hover {
-  transform: scale(1.2) rotate(10deg);
-  opacity: 1;
+.detail-list {
+  margin: 0;
 }
 
-/* ทำให้ป้ายสถานะดูเหมือนคลิกได้ */
-.status-badge.clickable {
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.detail-row dt {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.detail-row dd {
+  margin: 0;
+  text-align: right;
+}
+
+.detail-phone {
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* สลับระหว่างตาราง (จอใหญ่) กับการ์ด (มือถือ) */
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .history-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-head .page-head {
+    margin-bottom: 16px;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: flex;
+  }
+}

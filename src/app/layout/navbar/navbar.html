@@ -1,18 +1,57 @@
-<nav class="navbar">
-  <div class="nav-brand">
-    <span class="logo-icon">💧</span>
-    <h1>WaterBillWeb</h1>
-  </div>
-  <div class="nav-links">
-    <a routerLink="/home" routerLinkActive="active-link"> Home</a>
-    <a routerLink="/scan" routerLinkActive="active-link">📷 สแกนมิเตอร์</a>
-    <a routerLink="/history" routerLinkActive="active-link">📋 ประวัติการใช้น้ำ</a>
-    <a routerLink="/members" routerLinkActive="active-link">👥 สมาชิก</a>
-  </div>
+<!-- แถบบนสุด: ชื่อระบบ + เมนู (จอใหญ่) + ชื่อผู้ใช้และปุ่มออกจากระบบ -->
+<header class="topbar">
+  <a class="brand" routerLink="/home">
+    <span class="brand-mark">💧</span>
+    <span class="brand-text">
+      <span class="brand-title">ค่าน้ำประปาหมู่บ้าน</span>
+      <span class="brand-sub">ระบบบันทึกและออกบิล</span>
+    </span>
+  </a>
 
-  <!-- 🌟 ชื่อคนที่ล็อกอินอยู่ + ปุ่มออกจากระบบ -->
-  <div class="nav-user">
-    <span class="user-name">👤 {{ displayName() }}</span>
-    <button type="button" class="logout-btn" (click)="onLogout()">ออกจากระบบ</button>
+  <nav class="desk-menu" aria-label="เมนูหลัก">
+    <a routerLink="/home" routerLinkActive="is-active">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>
+      หน้าแรก
+    </a>
+    <a routerLink="/scan" routerLinkActive="is-active">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+      สแกนมิเตอร์
+    </a>
+    <a routerLink="/history" routerLinkActive="is-active">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+      ประวัติบิล
+    </a>
+    <a routerLink="/members" routerLinkActive="is-active">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 5.6"/><path d="M17.5 14.2A5.2 5.2 0 0 1 21 19"/></svg>
+      ลูกบ้าน
+    </a>
+  </nav>
+
+  <div class="topbar-user">
+    <span class="user-name">สวัสดี, {{ displayName() }}</span>
+    <button type="button" class="btn btn-ghost btn-sm logout-btn" (click)="onLogout()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+      <span class="logout-text">ออกจากระบบ</span>
+    </button>
   </div>
+</header>
+
+<!-- แถบเมนูล่าง: ใช้บนมือถือ กดด้วยนิ้วโป้งได้ถนัด -->
+<nav class="tabbar" aria-label="เมนูหลัก (มือถือ)">
+  <a routerLink="/home" routerLinkActive="is-active">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>
+    หน้าแรก
+  </a>
+  <a routerLink="/scan" routerLinkActive="is-active">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+    สแกนมิเตอร์
+  </a>
+  <a routerLink="/history" routerLinkActive="is-active">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+    ประวัติบิล
+  </a>
+  <a routerLink="/members" routerLinkActive="is-active">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 5.6"/><path d="M17.5 14.2A5.2 5.2 0 0 1 21 19"/></svg>
+    ลูกบ้าน
+  </a>
 </nav>

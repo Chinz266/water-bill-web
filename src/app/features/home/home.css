@@ -1,77 +1,121 @@
-.home-container {
+svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* กล่องงานหลักของหน้า — ปุ่มสแกนมิเตอร์ต้องเด่นที่สุด */
+.hero {
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 70vh; 
-  text-align: center;
-  color: white;
+  gap: 24px;
+  margin-bottom: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--primary-soft) 100%);
 }
 
-.welcome-box {
-  max-width: 600px;
-  padding: 40px;
-}
-
-.gradient-text {
-  font-size: 3.5rem;
-  font-weight: bold;
-  margin-bottom: 10px;
-  background: linear-gradient(90deg, #51cf66, #3bc9db);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.subtitle {
-  font-size: 1.2rem;
-  color: #888;
-  margin-bottom: 30px;
-}
-
-/* ป้ายแสดงข้อมูลจาก NestJS */
-.real-data-badge {
-  display: inline-block;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid #333;
-  padding: 10px 20px;
-  border-radius: 30px;
-  color: #ccc;
-  margin-bottom: 35px;
-}
-
-.real-data-badge strong {
-  color: #51cf66;
-  font-size: 1.2rem;
-  margin: 0 5px;
-}
-
-.dot {
-  height: 8px; width: 8px;
-  background-color: #51cf66;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 8px;
-  box-shadow: 0 0 8px #51cf66;
-}
-
-.quick-actions {
+.hero-art {
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 20px;
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  font-size: 44px;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: var(--shadow);
 }
 
-.btn-outline {
-  background: transparent;
-  border: 1px solid #444;
-  color: #ccc;
-  padding: 12px 24px;
-  font-size: 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.hero-title {
+  font-size: 22px;
 }
 
-.btn-outline:hover {
-  border-color: #51cf66;
-  color: #51cf66;
-  background: rgba(81, 207, 102, 0.05);
+.hero-text {
+  margin: 8px 0 24px;
+  color: var(--text-muted);
+  max-width: 52ch;
+}
+
+.hero-btn {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 17px;
+}
+
+/* การ์ดสรุปข้อมูล */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.month-value {
+  font-size: 32px;
+}
+
+.stat-hint {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.stat-skeleton {
+  width: 120px;
+  height: 40px;
+  margin: 12px 0 8px;
+}
+
+/* ทางลัดไปหน้าอื่น (ปุ่มรอง) */
+.shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.shortcut {
+  min-height: 60px;
+  justify-content: flex-start;
+  padding: 0 24px;
+  color: var(--text);
+}
+
+@media (max-width: 700px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .hero-art {
+    width: 72px;
+    height: 72px;
+    font-size: 34px;
+    border-radius: 20px;
+  }
+
+  .hero-btn {
+    width: 100%;
+  }
+
+  .stats,
+  .shortcuts {
+    grid-template-columns: 1fr;
+  }
 }

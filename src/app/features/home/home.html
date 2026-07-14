@@ -1,19 +1,59 @@
-<div class="home-container">
-  <div class="welcome-box">
-    <h1 class="gradient-text">Smart Water Bill</h1>
-    <p class="subtitle">ระบบจัดการค่าน้ำประปาหมู่บ้าน ประจำเดือน{{ currentMonth }}</p>
+<div class="home">
+  <div class="page-head">
+    <h1 class="page-title">สวัสดีครับ 👋</h1>
+    <p class="page-subtitle">วันนี้จะบันทึกค่าน้ำของเดือน{{ currentMonth }}ใช่ไหมครับ</p>
+  </div>
 
-    <div class="real-data-badge" *ngIf="realTotalHouses !== null">
-      <span class="dot pulse"></span> มีข้อมูลบ้านพักในระบบ <strong>{{ realTotalHouses }}</strong> หลัง
+  <!-- งานหลักของหน้านี้: พาไปสแกนมิเตอร์ -->
+  <div class="hero card">
+    <div class="hero-art">📷</div>
+    <div class="hero-body">
+      <h2 class="hero-title">บันทึกเลขมิเตอร์น้ำ</h2>
+      <p class="hero-text">ถ่ายรูปหน้าปัดมิเตอร์ แล้วระบบจะอ่านตัวเลขให้อัตโนมัติ ตรวจสอบอีกครั้งแล้วกดบันทึกได้เลย</p>
+      <button type="button" class="btn btn-primary hero-btn" routerLink="/scan">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+        เริ่มสแกนมิเตอร์
+      </button>
     </div>
-    
-    <div class="real-data-badge loading" *ngIf="realTotalHouses === null">
-      ⏳ กำลังซิงค์ข้อมูลจากฐานข้อมูล...
+  </div>
+
+  <!-- ข้อมูลสรุปสั้น ๆ -->
+  <div class="stats">
+    <div class="stat card">
+      <span class="stat-label">บ้านในระบบตอนนี้</span>
+
+      @if (realTotalHouses === null) {
+        <div class="skeleton stat-skeleton"></div>
+        <p class="loading-note">
+          <span class="loading-dot"></span> กำลังโหลดข้อมูลลูกบ้าน...
+        </p>
+      } @else {
+        <p class="stat-value">
+          <span class="big-value">{{ realTotalHouses }}</span>
+          <span class="value-unit">หลัง</span>
+        </p>
+        <p class="stat-hint text-muted">ข้อมูลล่าสุดจากทะเบียนลูกบ้าน</p>
+      }
     </div>
 
-    <div class="quick-actions">
-      <button class="btn-outline" routerLink="/scan">📷 สแกนมิเตอร์น้ำ</button>
-      <button class="btn-outline" routerLink="/members">👥 จัดการลูกบ้าน</button>
+    <div class="stat card">
+      <span class="stat-label">รอบบิลปัจจุบัน</span>
+      <p class="stat-value">
+        <span class="big-value month-value">{{ currentMonth }}</span>
+      </p>
+      <p class="stat-hint text-muted">บันทึกค่าน้ำของเดือนนี้ให้ครบทุกหลังนะครับ</p>
     </div>
+  </div>
+
+  <!-- งานอื่น ๆ ที่ทำได้ -->
+  <div class="shortcuts">
+    <button type="button" class="btn btn-secondary shortcut" routerLink="/members">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 5.6"/><path d="M17.5 14.2A5.2 5.2 0 0 1 21 19"/></svg>
+      จัดการลูกบ้าน
+    </button>
+    <button type="button" class="btn btn-secondary shortcut" routerLink="/history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+      ดูประวัติบิล
+    </button>
   </div>
 </div>

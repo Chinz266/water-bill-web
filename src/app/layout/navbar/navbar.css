@@ -1,85 +1,178 @@
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 40px;
-  background: #1e1e24;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  border-bottom: 1px solid #2b2c34;
+:host {
+  display: block;
 }
 
-.nav-brand {
+svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+/* ---------- แถบบนสุด ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.logo-icon { font-size: 24px; }
-.nav-brand h1 { margin: 0; color: #f8f9fa; font-size: 20px; font-weight: 600; }
-
-.nav-links {
-  display: flex;
-  gap: 20px;
-}
-
-.nav-links a {
-  color: #adb5bd;
   text-decoration: none;
-  font-weight: 500;
-  padding: 8px 16px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  color: var(--text);
 }
 
-.nav-links a:hover {
-  background: rgba(77, 171, 247, 0.1);
-  color: #a5d8ff;
-}
-
-.nav-links a.active-link {
-  background: #2b2c34;
-  color: #4dabf7;
-}
-
-.nav-user {
+.brand-mark {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.brand-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.brand-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- เมนูจอใหญ่ ---------- */
+.desk-menu {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.desk-menu a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.desk-menu a:hover {
+  background: var(--line-soft);
+  color: var(--text);
+}
+
+.desk-menu a.is-active {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+}
+
+/* ---------- ผู้ใช้ + ออกจากระบบ ---------- */
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
 }
 
 .user-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #adb5bd;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.logout-btn {
-  padding: 8px 16px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ff8787;
-  background: transparent;
-  border: 1px solid rgba(255, 135, 135, 0.35);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
+.logout-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
-.logout-btn:hover {
-  color: #ffc9c9;
-  background: rgba(255, 135, 135, 0.12);
-  border-color: rgba(255, 135, 135, 0.6);
+/* ---------- แถบเมนูล่าง (มือถือ) ---------- */
+.tabbar {
+  display: none;
 }
 
 @media (max-width: 900px) {
-  .navbar {
-    flex-wrap: wrap;
+  .topbar {
     gap: 12px;
-    padding: 15px 20px;
+    padding: 10px 16px;
   }
 
-  .user-name {
+  .brand-sub,
+  .user-name,
+  .desk-menu {
+    display: none;
+  }
+
+  .topbar-user {
+    margin-left: auto;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .tabbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -2px 16px rgba(15, 23, 42, 0.06);
+  }
+
+  .tabbar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 60px;
+    padding: 6px 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 12px;
+  }
+
+  .tabbar a.is-active {
+    color: var(--primary);
+    background: var(--primary-soft);
+  }
+}
+
+@media (max-width: 380px) {
+  .logout-text {
     display: none;
   }
 }

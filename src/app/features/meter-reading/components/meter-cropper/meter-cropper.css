@@ -1,208 +1,306 @@
-/* คอนเทนเนอร์หลักจัดกึ่งกลางหน้าจอ */
-.cropper-container {
-  max-width: 700px;
-  margin: 40px auto;
-  padding: 30px;
-  background: #1e1e24; /* สีเทาดาร์กโทนโมเดิร์น */
-  color: #f8f9fa;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  font-family: 'Prompt', 'Segoe UI', Roboto, sans-serif;
-  text-align: center;
+.scan {
+  max-width: 720px;
+  margin: 0 auto;
 }
 
-/* หัวข้อระบบ */
-h2 {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 25px;
-  color: #4dabf7; /* ฟ้าพาสเทล */
+svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- โครงแต่ละขั้นตอน ---------- */
+.step + .step,
+.step + .card {
+  margin-top: 16px;
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.step-no {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-hover);
+  background: var(--primary-soft-2);
+  border-radius: 50%;
 }
 
-/* ซ่อน Input File ดิบ แล้วแต่งปุ่มอัปโหลดใหม่ */
-.file-upload-wrapper {
-  position: relative;
-  margin-bottom: 20px;
+.step-title {
+  font-size: 19px;
 }
 
-input[type="file"] {
+/* ---------- ช่องเลือกรูป ---------- */
+input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--primary-soft);
+  border: 2px dashed #bfdbfe;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dropzone:hover {
+  background: var(--primary-soft-2);
+  border-color: var(--primary);
+}
+
+.dropzone.compact {
+  flex-direction: row;
+  justify-content: center;
+  padding: 16px;
+}
+
+.dropzone.compact .dropzone-hint {
   display: none;
 }
 
-.custom-file-upload {
-  display: inline-block;
-  padding: 12px 24px;
-  background: #2b2c34;
-  color: #a5d8ff;
-  border: 2px dashed #4dabf7;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
+.dropzone-art {
+  font-size: 40px;
+  line-height: 1;
 }
 
-.custom-file-upload:hover {
-  background: rgba(77, 171, 247, 0.1);
-  transform: translateY(-2px);
+.dropzone.compact .dropzone-art {
+  font-size: 24px;
 }
 
-/* พื้นที่ทำงาน (Workspace) */
-.preview-area {
-  margin-top: 25px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.dropzone-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--primary-hover);
 }
 
-.crop-workspace {
-  width: 100%;
-  border-radius: 12px;
+.dropzone-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ---------- กรอบครอบตัด ---------- */
+.crop-frame {
   overflow: hidden;
-  border: 1px solid #3f414a;
-  background: #121214;
+  background: #0f172a;
+  border-radius: var(--radius-sm);
 }
 
-/* ปุ่มส่งให้ AI ประมวลผล */
-.btn-submit {
-  width: 100%;
-  background: linear-gradient(135deg, #3b5bdb 0%, #1c7ed6 100%);
-  color: white;
-  padding: 14px;
-  border: none;
-  border-radius: 8px;
+.crop-frame image-cropper {
+  --cropper-outline-color: rgba(15, 23, 42, 0.6);
+  display: block;
+}
+
+/* ---------- แถบเครื่องมือ ---------- */
+.tool-label {
+  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.segmented button {
+  min-height: 48px;
+  font-family: inherit;
   font-size: 16px;
   font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(28, 126, 214, 0.3);
-  transition: all 0.3s ease;
 }
 
-.btn-submit:hover:not(:disabled) {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(28, 126, 214, 0.4);
+.segmented button.is-on {
+  color: var(--primary-hover);
+  background: #fff;
+  box-shadow: var(--shadow);
 }
 
-.btn-submit:disabled {
-  background: #3f414a;
-  color: #868e96;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-/* กล่องแสดงผลลัพธ์จาก AI */
-.result-box {
-  margin-top: 25px;
-  padding: 20px;
-  background: #141517;
-  border-left: 5px solid #51cf66; /* เขียวบอกความสำเร็จ */
-  border-radius: 8px;
-  text-align: left;
-  animation: slideDown 0.4s ease-out;
-}
-
-.result-box h3 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-  color: #dee2e6;
-}
-
-.big-number-container {
-  display: flex;
-  align-items: baseline;
+.tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
 }
 
-.big-number {
-  font-size: 40px;
-  font-weight: 700;
-  color: #51cf66;
-  margin: 0;
-  font-family: 'Courier New', Courier, monospace; /* ฟอนต์แนวตัวเลขดิจิทัล */
-  letter-spacing: 2px;
-}
-
-.unit-text {
-  color: #868e96;
-  font-size: 16px;
-}
-
-.status-msg {
-  margin: 8px 0 0 0;
-  color: #adb5bd;
-  font-size: 13px;
-}
-
-/* เอฟเฟกต์ Loading หมุนๆ */
-.spinner {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s ease-in-out infinite;
-  margin-right: 10px;
-}
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #121214; /* สีพื้นหลังเว็บหลังบ้านให้มืดเข้าชุดกัน */
-  background-image: radial-gradient(rgba(77, 171, 247, 0.05) 1px, transparent 0); /* เพิ่ม Dot ลายจุดเบาๆ แนว Tech */
-  background-size: 24px 24px;
-  min-height: 100vh;
+.tool {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-/* ปุ่มยืนยันสร้างบิล */
-.btn-confirm {
+.tool:hover {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-2);
+}
+
+/* ---------- ปุ่มหลักของแต่ละขั้น ---------- */
+.main-action {
+  min-height: 56px;
+  margin-top: 24px;
+  font-size: 17px;
+}
+
+.btn-spinner.dark {
+  border-color: var(--primary-soft-2);
+  border-top-color: var(--primary);
+}
+
+/* ---------- ระหว่างรอผล ---------- */
+.skel-bar {
+  height: 12px;
+  margin-bottom: 16px;
+}
+
+.skel-number {
+  height: 72px;
+}
+
+/* ---------- ผลการอ่านตัวเลข ---------- */
+.result {
+  animation: fade-up 0.25s ease-out;
+}
+
+.conf {
+  margin-bottom: 24px;
+}
+
+.conf-bar {
+  height: 10px;
+  overflow: hidden;
+  background: var(--line-soft);
+  border-radius: 999px;
+}
+
+.conf-fill {
+  display: block;
+  height: 100%;
+  background: var(--warning);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.conf-text {
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.conf.good .conf-fill {
+  background: var(--success);
+}
+
+.conf.good .conf-text {
+  color: var(--success);
+}
+
+/* ช่องเลขมิเตอร์ — ต้องใหญ่ อ่านง่าย และแก้ด้วยมือได้ */
+.meter-label {
+  font-size: 16px;
+}
+
+.meter-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--primary-soft);
+  border: 2px solid var(--primary-soft-2);
+  border-radius: var(--radius-sm);
+}
+
+.meter-box:focus-within {
+  border-color: var(--primary);
+}
+
+.meter-input {
+  flex: 1;
   width: 100%;
-  margin-top: 16px;
-  background: linear-gradient(135deg, #2b8a3e 0%, #37b24d 100%);
-  color: white;
-  padding: 14px;
+  min-width: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+  background: transparent;
   border: none;
-  border-radius: 8px;
+  outline: none;
+}
+
+.meter-input::-webkit-outer-spin-button,
+.meter-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.meter-unit {
   font-size: 16px;
   font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(43, 138, 62, 0.3);
-  transition: all 0.3s ease;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.btn-confirm:hover:not(:disabled) {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(43, 138, 62, 0.4);
+.save-alert {
+  margin-top: 16px;
 }
 
-.btn-confirm:disabled {
-  background: #3f414a;
-  color: #868e96;
-  box-shadow: none;
-  cursor: not-allowed;
-}
+@media (max-width: 640px) {
+  .tools {
+    grid-template-columns: repeat(3, 1fr);
+  }
 
-/* ข้อความบันทึกสำเร็จ */
-.success-msg {
-  margin-top: 12px;
-  padding: 12px 16px;
-  background: rgba(81, 207, 102, 0.1);
-  border: 1px solid rgba(81, 207, 102, 0.3);
-  border-radius: 8px;
-  color: #51cf66;
-  font-weight: 500;
-  animation: slideDown 0.4s ease-out;
-}
+  .segmented {
+    grid-template-columns: 1fr;
+  }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  .meter-input {
+    font-size: 36px;
+  }
 }

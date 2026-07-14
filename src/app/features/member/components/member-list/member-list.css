@@ -1,231 +1,84 @@
-.member-container {
-  padding: 30px;
-  color: white;
-  max-width: 1200px;
-  margin: 0 auto;
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.header-action {
+.members-head {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
+  gap: 16px;
 }
 
-.page-title {
-  color: #51cf66;
-  margin: 0 0 5px 0;
-  font-size: 1.8rem;
+.members-head .page-head {
+  margin-bottom: 24px;
 }
 
-.subtitle {
-  color: #888;
-  margin: 0;
-  font-size: 0.95rem;
+.th-actions {
+  text-align: right;
 }
 
-.table-container {
-  background: #1e1e1e;
-  border-radius: 12px;
-  border: 1px solid #333;
-  overflow: hidden;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.4);
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.data-table th {
-  background: #252525;
-  color: #aaa;
-  padding: 15px 20px;
-  font-weight: normal;
-  border-bottom: 1px solid #333;
-}
-
-.data-table td {
-  padding: 15px 20px;
-  border-bottom: 1px solid #2a2a2a;
-  color: #eee;
-}
-
-.data-table tbody tr:hover {
-  background: rgba(81, 207, 102, 0.02);
-}
-
-.highlight-text {
-  color: #51cf66 !important;
-  font-weight: bold;
-}
-
-.dim-text {
-  color: #777 !important;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.no-data {
-  padding: 40px !important;
-  color: #666 !important;
-  font-style: italic;
-}
-
-/* ปุ่มเพิ่มข้อมูล */
-.btn-primary {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: 0.2s;
-  font-weight: bold;
-}
-.btn-primary:hover { background: #218838; }
-
-/* ปุ่มสีส้มในหน้าแก้ไข */
-.btn-warning {
-  background: #f0a020;
-  color: #111;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: 0.2s;
-  font-weight: bold;
-}
-.btn-warning:hover { background: #d88f18; }
-
-/* 🛠️ สไตล์ปุ่ม Action ในตาราง */
-.btn-action {
-  border: 1px solid #444;
-  background: transparent;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  cursor: pointer;
-  margin: 0 5px;
-  transition: all 0.2s ease;
-}
-
-.btn-action.edit { color: #f0a020; }
-.btn-action.edit:hover {
-  background: rgba(240, 160, 32, 0.1);
-  border-color: #f0a020;
-}
-
-.btn-action.delete { color: #ff6b6b; }
-.btn-action.delete:hover {
-  background: rgba(255, 107, 107, 0.1);
-  border-color: #ff6b6b;
-}
-
-/* หน้าต่างป๊อปอัพ (Modal) */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
-
-.modal-box {
-  background: #1e1e1e;
-  padding: 30px;
-  border-radius: 12px;
-  width: 450px;
-  border: 1px solid #444;
-  box-shadow: 0 15px 30px rgba(0,0,0,0.6);
-}
-
-.modal-box.edit-theme h3 {
-  color: #f0a020;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #51cf66;
-}
-
-.btn-close {
-  background: transparent;
-  border: none;
-  color: #aaa;
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-
-.input-row {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 15px;
-}
-
-.input-form {
-  flex: 1;
+/* การ์ดลูกบ้านสำหรับมือถือ */
+.member-cards {
   display: flex;
   flex-direction: column;
+  gap: 16px;
 }
 
-.input-form.full-width { flex: 100%; }
-
-.input-form label {
-  font-size: 0.9rem;
-  color: #ccc;
+.member-top {
   margin-bottom: 8px;
 }
 
-.required { color: #ff6b6b; }
-
-.input-form input {
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #444;
-  background: #2a2a2a;
-  color: white;
-  outline: none;
-  transition: border 0.2s;
+.member-name {
+  font-size: 20px;
+  font-weight: 700;
 }
 
-.input-form input:focus { border-color: #51cf66; }
-.modal-box.edit-theme .input-form input:focus { border-color: #f0a020; }
-
-.modal-actions {
+.member-phone {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 30px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
 }
 
-.btn-cancel {
-  padding: 10px 20px;
-  border: 1px solid #555;
-  border-radius: 8px;
-  background: transparent;
-  color: #ccc;
-  cursor: pointer;
-  transition: 0.2s;
+.member-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
 }
 
-.btn-cancel:hover {
-  background: #333;
-  color: white;
+/* สลับระหว่างตาราง (จอใหญ่) กับการ์ด (มือถือ) */
+.mobile-only {
+  display: none;
 }
 
+@media (max-width: 768px) {
+  .members-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .members-head .page-head {
+    margin-bottom: 16px;
+  }
+
+  .add-btn {
+    width: 100%;
+    min-height: 56px;
+    margin-bottom: 16px;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: flex;
+  }
+}

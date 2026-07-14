@@ -1,35 +1,630 @@
-/* ดึงฟอนต์ Space Grotesk จาก Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+/* ============================================================
+   ระบบจัดการค่าน้ำประปาหมู่บ้าน — สไตล์กลางของทั้งเว็บ
+   ใช้ธีมสีน้ำเงินอ่อน สบายตา ตัวหนังสือใหญ่ อ่านง่ายสำหรับทุกวัย
+   ============================================================ */
 
-/* 🌟 ตั้งค่าตัวแปรสีทั้งหมด (แกะมาจากรูปของลูกพี่เลยครับ) */
 :root {
-  --bg: #08080f;          /* สีพื้นหลังหลัก (ดำสุด) */
-  --bg2: #0d0d1a;         /* สีพื้นหลังรอง (เช่น กล่องการ์ด) */
-  --bg3: #12121f;         /* สีพื้นหลังกล่องที่เด่นขึ้นมาอีกนิด */
-  --sf: #16162a;          /* สีพื้นผิว (Surface) */
-  
-  --bd: rgba(255, 255, 255, 0.07); /* สีเส้นขอบจางๆ */
-  --bd2: rgba(255, 255, 255, 0.13);/* สีเส้นขอบชัดขึ้นมาหน่อย */
-  
-  --tx: #f0f0ff;          /* สีตัวหนังสือหลัก (ขาวอมฟ้า) */
-  --tx2: #a8a8c8;         /* สีตัวหนังสือรอง (เทาอมม่วง) */
-  --tx3: #6b6b8a;         /* สีตัวหนังสือจางๆ (เทาเข้ม) */
-  
-  --pur: #8b5cf6;         /* สีม่วงเด่น */
-  --blu: #3b82f6;         /* สีน้ำเงินเด่น */
-  --grad: linear-gradient(135deg, #8b5cf6, #3b82f6); /* สีไล่ระดับ ม่วงไปน้ำเงิน */
+  /* สีหลัก — ใช้เฉพาะปุ่มสำคัญและจุดที่ต้องการเน้นเท่านั้น */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --primary-soft-2: #dbeafe;
+
+  /* พื้นหลังและการ์ด */
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --line: #e2e8f0;
+  --line-soft: #f1f5f9;
+
+  /* ตัวหนังสือ */
+  --text: #0f172a;
+  --text-muted: #64748b;
+
+  /* สถานะ */
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --warning: #f59e0b;
+  --warning-soft: #fef3c7;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+
+  /* ระยะห่างมาตรฐาน 8 / 16 / 24 */
+  --sp-1: 8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+
+  /* มุมโค้งและเงา */
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.12);
 }
 
-/* บังคับใช้ฟอนต์และสีพื้นหลังกับทุกหน้าของเว็บ */
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
-  font-family: 'Space Grotesk', sans-serif;
-  background-color: var(--bg);
-  color: var(--tx);
   margin: 0;
   padding: 0;
-  transition: background 0.3s, color 0.3s;
+}
+
+body {
+  font-family: 'Noto Sans Thai', 'IBM Plex Sans Thai', 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+}
+
+/* กรอบโฟกัสสำหรับคนที่ใช้คีย์บอร์ด */
+:focus-visible {
+  outline: 3px solid var(--primary-soft-2);
+  outline-offset: 2px;
+}
+
+/* ---------- หัวข้อของแต่ละหน้า ---------- */
+.page-head {
+  margin-bottom: var(--sp-3);
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.page-subtitle {
+  margin-top: 4px;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* ---------- การ์ด ---------- */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--sp-3);
+}
+
+.card-soft {
+  background: var(--primary-soft);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+/* ---------- ตัวเลขขนาดใหญ่ (เลขมิเตอร์ / ยอดเงิน) ---------- */
+.big-value {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.value-unit {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ---------- ปุ่ม ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 20px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.btn svg {
+  flex-shrink: 0;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ปุ่มหลัก — หน้าหนึ่งควรมีปุ่มนี้แค่ปุ่มเดียว */
+.btn-primary {
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.btn-primary:disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+}
+
+/* ปุ่มรอง — เส้นขอบบาง พื้นขาว */
+.btn-secondary {
+  color: var(--primary);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-2);
+}
+
+/* ปุ่มโปร่ง — ใช้กับงานที่ไม่ต้องเน้น */
+.btn-ghost {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--line-soft);
+}
+
+/* ปุ่มลบ / ยกเลิก */
+.btn-danger {
+  color: #fff;
+  background: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.btn-danger-soft {
+  color: var(--danger);
+  background: var(--card);
+  border: 1.5px solid var(--danger-soft);
+}
+
+.btn-danger-soft:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.btn-sm {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 15px;
+  gap: 6px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ---------- ฟอร์ม ---------- */
+.field {
+  display: block;
+}
+
+.field + .field {
+  margin-top: var(--sp-2);
+}
+
+.field-label {
+  display: block;
+  margin-bottom: var(--sp-1);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.field-required {
+  color: var(--danger);
+}
+
+.field-input {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field-input::placeholder {
+  color: #94a3b8;
+}
+
+.field-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+.field-input:disabled {
+  background: var(--line-soft);
+  cursor: not-allowed;
+}
+
+.field-input.is-invalid {
+  border-color: var(--danger);
+}
+
+.field-input.is-invalid:focus {
+  box-shadow: 0 0 0 4px var(--danger-soft);
+}
+
+/* ช่องเลือกรายการ — วาดลูกศรเอง เพราะ select ของแต่ละเบราว์เซอร์หน้าตาไม่เหมือนกัน */
+select.field-input {
+  appearance: none;
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 20px;
+  cursor: pointer;
+}
+
+.field-error {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.field-hint {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ---------- ป้ายสถานะ (chip) ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.chip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chip-success {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.chip-warning {
+  color: #b45309;
+  background: var(--warning-soft);
+}
+
+.chip-danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.chip-info {
+  color: var(--primary-hover);
+  background: var(--primary-soft-2);
+}
+
+button.chip {
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+button.chip:hover {
+  filter: brightness(0.96);
+}
+
+/* ---------- ตาราง ---------- */
+.table-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--line-soft);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 16px;
+  border-top: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+  background: var(--primary-soft);
+}
+
+.cell-strong {
+  font-weight: 700;
+}
+
+.cell-muted {
+  color: var(--text-muted);
+}
+
+.cell-number {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cell-actions {
+  display: flex;
+  gap: var(--sp-1);
+  justify-content: flex-end;
+}
+
+/* ---------- สถานะกำลังโหลด (skeleton) ---------- */
+.loading-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--sp-2);
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.loading-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.skeleton {
+  height: 20px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 37%, #eef2f7 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+.skeleton-row {
+  height: 64px;
+  margin-bottom: 2px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- หน้าจอที่ยังไม่มีข้อมูล ---------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--sp-4) var(--sp-3);
+}
+
+.empty-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: var(--sp-2);
+  font-size: 44px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.empty-text {
+  margin: var(--sp-1) 0 var(--sp-3);
+  max-width: 420px;
+  color: var(--text-muted);
+}
+
+/* ---------- หน้าต่างยืนยัน (modal) ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2);
+  background: rgba(15, 23, 42, 0.45);
+  animation: fade-up 0.15s ease-out;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--sp-3);
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  font-size: 18px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: var(--line-soft);
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--sp-1);
+  margin-top: var(--sp-3);
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+/* ---------- ข้อความแจ้งเตือนในกล่อง ---------- */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  font-size: 15px;
+  border-radius: var(--radius-sm);
+}
+
+.alert-danger {
+  color: #991b1b;
+  background: var(--danger-soft);
+}
+
+.alert-success {
+  color: #166534;
+  background: var(--success-soft);
+}
+
+.alert-warning {
+  color: #92400e;
+  background: var(--warning-soft);
+}
+
+/* ---------- ตัวหมุนรอโหลดในปุ่ม ---------- */
+.btn-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- ตัวช่วยเล็ก ๆ ---------- */
+.text-muted {
+  color: var(--text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .page-title {
+    font-size: 22px;
+  }
+
+  .card,
+  .card-soft {
+    padding: var(--sp-2);
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px 16px;
+  }
 }

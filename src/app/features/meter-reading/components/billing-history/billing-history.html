@@ -1,52 +1,286 @@
-<div class="history-container">
-  <div class="history-header">
-    <h2>📋 ประวัติการใช้น้ำและบันทึกบิล</h2>
-    <button class="btn-refresh" (click)="loadBillingHistory()" [disabled]="isLoading">
-      🔄 อัปเดตข้อมูล
+<div class="history">
+  <div class="history-head">
+    <div class="page-head">
+      <h1 class="page-title">ประวัติบิลค่าน้ำ</h1>
+      <p class="page-subtitle">แตะที่บิลเพื่อดูรายละเอียดเต็ม หรือแตะป้ายสถานะเพื่อเปลี่ยนเป็น "ชำระแล้ว"</p>
+    </div>
+
+    <button type="button" class="btn btn-secondary" (click)="loadBillingHistory()" [disabled]="isLoading">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2v6h6"/><path d="M3.5 13a9 9 0 1 0 2.3-6.4L3 8"/></svg>
+      โหลดข้อมูลใหม่
     </button>
   </div>
 
-  <div *ngIf="isLoading" class="loading-state">
-    <div class="spinner"></div>
-    <p>กำลังดึงประวัติการบันทึกจาก MySQL...</p>
-  </div>
+  <!-- กำลังโหลด -->
+  @if (isLoading) {
+    <div class="card">
+      <p class="loading-note">
+        <span class="loading-dot"></span> กำลังโหลดประวัติบิล รอสักครู่นะครับ...
+      </p>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>
+  }
 
-  <div class="table-responsive" *ngIf="!isLoading && bills.length > 0">
-    <table class="history-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>📅 วันที่-เวลาบันทึก</th>
-          <th>💧 เลขมิเตอร์ที่อ่านได้ (m³)</th>
-          <th>💰 ยอดชำระ (บาท)</th>
-          <th>สถานะ</th>
-          <th>จัดการ</th> </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let bill of bills">
-          <td>#{{ bill.id }}</td>
-          <td>{{ bill.create_date | date:'dd/MM/yyyy - HH:mm' }}</td>
-          <td class="unit-cell">{{ bill.current_unit }}</td>
-          <td>{{ bill.total_amount }}</td>
-          <td>
-            <span class="status-badge clickable" 
-                  [class.pending]="bill.payment_status === 'Pending'"
-                  [class.paid]="bill.payment_status === 'Paid'"
-                  (click)="toggleStatus(bill)">
-              {{ bill.payment_status }}
-            </span>
-          </td>
-          <td>
-            <button class="btn-delete" (click)="deleteBill(bill.id)" title="ลบข้อมูล">
-              🗑️
+  <!-- มีข้อมูล -->
+  @if (!isLoading && bills.length > 0) {
+    <!-- จอใหญ่: ตาราง -->
+    <div class="table-card desktop-only">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>บ้านเลขที่</th>
+              <th>เจ้าของบ้าน</th>
+              <th>วันที่บันทึก</th>
+              <th>เลขมิเตอร์ (ลบ.ม.)</th>
+              <th>ยอดชำระ (บาท)</th>
+              <th>สถานะ</th>
+              <th class="th-actions">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (bill of bills; track bill.id) {
+              <tr>
+                <td class="cell-strong">{{ bill.member?.house_no || '—' }}</td>
+                <td>{{ ownerName(bill) }}</td>
+                <td class="cell-muted">{{ bill.create_date | date:'d MMM yyyy, HH:mm' }}</td>
+                <td class="cell-number">{{ bill.current_unit }}</td>
+                <td class="cell-number amount">{{ bill.total_amount | number:'1.2-2' }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="chip"
+                    [class.chip-success]="bill.payment_status === 'Paid'"
+                    [class.chip-warning]="bill.payment_status !== 'Paid'"
+                    (click)="toggleStatus(bill)"
+                  >
+                    {{ statusLabel(bill.payment_status) }}
+                  </button>
+                </td>
+                <td>
+                  <div class="cell-actions">
+                    <button type="button" class="btn btn-sm btn-secondary" (click)="openDetail(bill)">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                      ดูรายละเอียด
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger-soft" (click)="askDelete(bill)">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+                      ลบ
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- มือถือ: การ์ดใบใหญ่ กดง่ายด้วยนิ้วโป้ง -->
+    <div class="bill-cards mobile-only">
+      @for (bill of bills; track bill.id) {
+        <div class="card bill-card">
+          <div class="bill-top">
+            <span class="chip chip-info">บ้านเลขที่ {{ bill.member?.house_no || '—' }}</span>
+            <button
+              type="button"
+              class="chip"
+              [class.chip-success]="bill.payment_status === 'Paid'"
+              [class.chip-warning]="bill.payment_status !== 'Paid'"
+              (click)="toggleStatus(bill)"
+            >
+              {{ statusLabel(bill.payment_status) }}
             </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          </div>
 
-  <div *ngIf="!isLoading && bills.length === 0" class="empty-state">
-    <p>📭 ยังไม่มีประวัติการบันทึกข้อมูล ลองไปสแกนมิเตอร์น้ำกันก่อนนะ!</p>
-  </div>
+          <p class="bill-owner">{{ ownerName(bill) }}</p>
+          <p class="cell-muted bill-date">{{ bill.create_date | date:'d MMM yyyy, HH:mm' }}</p>
+
+          <div class="bill-figures">
+            <div>
+              <span class="bill-label">เลขมิเตอร์</span>
+              <p class="big-value">{{ bill.current_unit }} <span class="value-unit">ลบ.ม.</span></p>
+            </div>
+            <div>
+              <span class="bill-label">ยอดชำระ</span>
+              <p class="big-value">{{ bill.total_amount | number:'1.2-2' }} <span class="value-unit">บาท</span></p>
+            </div>
+          </div>
+
+          <div class="bill-actions">
+            <button type="button" class="btn btn-sm btn-secondary" (click)="openDetail(bill)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              ดูรายละเอียด
+            </button>
+            <button type="button" class="btn btn-sm btn-danger-soft" (click)="askDelete(bill)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+              ลบบิลนี้
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ยังไม่มีข้อมูล -->
+  @if (!isLoading && bills.length === 0) {
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-art">💧</div>
+        <h2 class="empty-title">ยังไม่มีบิลในระบบ</h2>
+        <p class="empty-text">เริ่มจากการสแกนมิเตอร์น้ำสักหลัง แล้วบิลจะมาแสดงที่หน้านี้ให้เองครับ</p>
+        <button type="button" class="btn btn-primary" routerLink="/scan">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+          ไปสแกนมิเตอร์
+        </button>
+      </div>
+    </div>
+  }
 </div>
+
+<!-- รายละเอียดบิลแบบเต็ม -->
+@if (selectedBill) {
+  <div class="modal-overlay" (click)="closeDetail()">
+    <div class="modal-card detail-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">บิลค่าน้ำ #{{ selectedBill.id }}</h2>
+          <p class="text-muted detail-sub">
+            รอบเดือน {{ selectedBill.billing_month }}/{{ selectedBill.billing_year }}
+            · บันทึกเมื่อ {{ selectedBill.create_date | date:'d MMM yyyy, HH:mm' }}
+          </p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeDetail()" aria-label="ปิด">✕</button>
+      </div>
+
+      <!-- ยอดที่ต้องเก็บ -->
+      <div class="detail-total card-soft">
+        <span class="bill-label">ยอดที่ต้องชำระ</span>
+        <p class="detail-amount">
+          <span class="big-value">{{ selectedBill.total_amount | number:'1.2-2' }}</span>
+          <span class="value-unit">บาท</span>
+        </p>
+        <button
+          type="button"
+          class="chip"
+          [class.chip-success]="selectedBill.payment_status === 'Paid'"
+          [class.chip-warning]="selectedBill.payment_status !== 'Paid'"
+          (click)="toggleStatus(selectedBill)"
+        >
+          {{ statusLabel(selectedBill.payment_status) }}
+        </button>
+        <p class="field-hint">แตะป้ายสถานะเพื่อสลับระหว่าง "รอชำระเงิน" กับ "ชำระแล้ว"</p>
+      </div>
+
+      <!-- ข้อมูลลูกบ้าน -->
+      <h3 class="detail-heading">ข้อมูลลูกบ้าน</h3>
+      <dl class="detail-list">
+        <div class="detail-row">
+          <dt>บ้านเลขที่</dt>
+          <dd class="cell-strong">{{ selectedBill.member?.house_no || '—' }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>เจ้าของบ้าน</dt>
+          <dd>{{ ownerName(selectedBill) }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>เบอร์โทรศัพท์</dt>
+          <dd>
+            @if (selectedBill.member?.phone) {
+              <a class="detail-phone" href="tel:{{ selectedBill.member.phone }}">{{ selectedBill.member.phone }}</a>
+            } @else {
+              <span class="text-muted">ไม่ได้ระบุ</span>
+            }
+          </dd>
+        </div>
+      </dl>
+
+      <!-- การจดมิเตอร์ -->
+      <h3 class="detail-heading">การจดมิเตอร์</h3>
+      <dl class="detail-list">
+        <div class="detail-row">
+          <dt>วันที่จดมิเตอร์</dt>
+          <dd>
+            {{ selectedBill.meter_reading?.reading_date
+                ? (selectedBill.meter_reading.reading_date | date:'d MMM yyyy')
+                : '—' }}
+          </dd>
+        </div>
+        <div class="detail-row">
+          <dt>เลขมิเตอร์ครั้งก่อน</dt>
+          <dd>{{ selectedBill.previous_unit }} ลบ.ม.</dd>
+        </div>
+        <div class="detail-row">
+          <dt>เลขมิเตอร์ครั้งนี้</dt>
+          <dd class="cell-strong">{{ selectedBill.current_unit }} ลบ.ม.</dd>
+        </div>
+        <div class="detail-row">
+          <dt>ใช้น้ำไปทั้งหมด</dt>
+          <dd class="cell-strong">{{ selectedBill.usage_unit }} ลบ.ม.</dd>
+        </div>
+      </dl>
+
+      <!-- การคิดเงิน -->
+      <h3 class="detail-heading">การคิดเงิน</h3>
+      <dl class="detail-list">
+        <div class="detail-row">
+          <dt>เรทค่าน้ำ</dt>
+          <dd>
+            @if (selectedBill.price_per_unit) {
+              {{ selectedBill.price_per_unit | number:'1.2-2' }} บาท ต่อ 1 ลบ.ม.
+            } @else {
+              <span class="text-muted">—</span>
+            }
+          </dd>
+        </div>
+        <div class="detail-row">
+          <dt>วิธีคิด</dt>
+          <dd class="text-muted">
+            {{ selectedBill.usage_unit }} ลบ.ม.
+            @if (selectedBill.price_per_unit) {
+              × {{ selectedBill.price_per_unit | number:'1.2-2' }} บาท
+            }
+            = {{ selectedBill.total_amount | number:'1.2-2' }} บาท
+          </dd>
+        </div>
+      </dl>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" (click)="closeDetail()">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- หน้าต่างยืนยันก่อนลบ -->
+@if (billToDelete) {
+  <div class="modal-overlay" (click)="cancelDelete()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">ลบบิลนี้ใช่ไหมครับ?</h2>
+        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>
+          บิลของบ้านเลขที่ <strong>{{ billToDelete.member?.house_no || '—' }}</strong>
+          ยอด <strong>{{ billToDelete.total_amount | number:'1.2-2' }}</strong> บาท
+          จะถูกลบออกจากระบบถาวร กู้คืนไม่ได้นะครับ
+        </span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="cancelDelete()">
+          เก็บไว้ก่อน
+        </button>
+        <button type="button" class="btn btn-danger" (click)="confirmDelete()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+          ลบเลย
+        </button>
+      </div>
+    </div>
+  </div>
+}

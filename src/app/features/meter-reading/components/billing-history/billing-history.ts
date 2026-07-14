@@ -1,11 +1,13 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
 
 @Component({
   selector: 'app-billing-history',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './billing-history.html',
   styleUrls: ['./billing-history.css']
 })
@@ -14,10 +16,36 @@ export class BillingHistoryComponent implements OnInit {
   isLoading = true;
   isFetching = false;
 
+  // 🌟 บิลที่กำลังจะลบ — ใช้เปิดหน้าต่างยืนยันก่อนลบจริง
+  billToDelete: any = null;
+
+  // 🌟 บิลที่กำลังเปิดดูรายละเอียดเต็ม (ข้อมูลลูกบ้าน + การจดมิเตอร์ + การคิดเงิน)
+  selectedBill: any = null;
+
+  openDetail(bill: any) {
+    this.selectedBill = bill;
+  }
+
+  closeDetail() {
+    this.selectedBill = null;
+  }
+
+  // ชื่อเจ้าของบ้านแบบเต็ม (บางบิลอาจไม่มีข้อมูลลูกบ้านผูกไว้)
+  ownerName(bill: any): string {
+    const member = bill?.member;
+    if (!member) return 'ไม่พบข้อมูลลูกบ้าน';
+    return `${member.fname ?? ''} ${member.lname ?? ''}`.trim() || 'ไม่ระบุชื่อ';
+  }
+
   constructor(
     private meterReadingService: MeterReadingService,
     private cdr: ChangeDetectorRef
   ) { }
+
+  // แปลงสถานะจากหลังบ้านเป็นข้อความไทยที่คนอ่านเข้าใจทันที
+  statusLabel(status: string): string {
+    return status === 'Paid' ? 'ชำระแล้ว' : 'รอชำระเงิน';
+  }
 
   toggleStatus(bill: any) {
     const newStatus = bill.payment_status === 'Pending' ? 'Paid' : 'Pending';
@@ -25,10 +53,14 @@ export class BillingHistoryComponent implements OnInit {
       next: () => {
         bill.payment_status = newStatus;
         this.cdr.detectChanges();
+        toast.success(
+          newStatus === 'Paid' ? 'เปลี่ยนเป็น "ชำระแล้ว" เรียบร้อย' : 'เปลี่ยนเป็น "รอชำระเงิน" เรียบร้อย',
+          { id: 'status-updated' }
+        );
       },
       error: (err) => {
         console.error('Update status error:', err);
-        alert('❌ เปลี่ยนสถานะไม่สำเร็จ เช็คฝั่งหลังบ้านหน่อยครับ');
+        toast.error('เปลี่ยนสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'status-error' });
       }
     });
   }
@@ -46,7 +78,6 @@ export class BillingHistoryComponent implements OnInit {
 
     this.meterReadingService.getBills().subscribe({
       next: (data) => {
-        console.log('ข้อมูลจาก API:', data);
         this.bills = data;
         this.isLoading = false;
         this.isFetching = false;
@@ -61,25 +92,41 @@ export class BillingHistoryComponent implements OnInit {
 
         // 🌟 ใส่เครื่องหมาย ? ดักไว้เช่นกันครับ
         this.cdr?.detectChanges();
-        alert('❌ ไม่สามารถดึงข้อมูลประวัติได้');
+        toast.error('ดึงประวัติบิลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'history-error' });
       }
     });
   }
-  // 🌟 ฟังก์ชันลบข้อมูล (ต้องเอามาแปะไว้ใน Class ของ BillingHistoryComponent)
-  deleteBill(id: number) {
-    const isConfirm = confirm('🚨 แน่ใจไหมว่าต้องการลบบิลนี้? ข้อมูลจะถูกลบออกจากฐานข้อมูลถาวรเลยนะ!');
-    
-    if (isConfirm) {
-      this.meterReadingService.deleteBill(id).subscribe({
-        next: () => {
-          // พอลบสำเร็จ ก็สั่งโหลดข้อมูลใหม่ให้หน้าจอตารางรีเฟรชทันที
-          this.loadBillingHistory();
-        },
-        error: (err) => {
-          console.error('Delete error:', err);
-          alert('❌ ลบข้อมูลไม่สำเร็จ เช็คฝั่งหลังบ้านหน่อยครับ');
-        }
-      });
-    }
+
+  // --- 🗑️ ถามยืนยันก่อนลบ (แทน confirm() ของเบราว์เซอร์) ---
+  askDelete(bill: any) {
+    this.billToDelete = bill;
   }
-}  
+
+  cancelDelete() {
+    this.billToDelete = null;
+  }
+
+  confirmDelete() {
+    if (!this.billToDelete) return;
+
+    const id = this.billToDelete.id;
+    this.billToDelete = null;
+    this.deleteBill(id);
+  }
+
+  // 🌟 ฟังก์ชันลบข้อมูล
+  deleteBill(id: number) {
+    this.meterReadingService.deleteBill(id).subscribe({
+      next: () => {
+        toast.success('ลบบิลเรียบร้อยแล้ว', { id: 'delete-success' });
+        // พอลบสำเร็จ ก็สั่งโหลดข้อมูลใหม่ให้หน้าจอตารางรีเฟรชทันที
+        this.loadBillingHistory();
+      },
+      error: (err) => {
+        console.error('Delete error:', err);
+        this.cdr?.detectChanges();
+        toast.error('ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'delete-error' });
+      }
+    });
+  }
+}
