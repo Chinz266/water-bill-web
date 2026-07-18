@@ -630,31 +630,188 @@ button.chip:hover {
 }
 
 /* ============================================================
+   หน้าต่างรายละเอียดบิล — เน้นให้กวาดตาอ่านได้เร็ว
+   ============================================================ */
+.detail-card {
+  max-width: 600px;
+}
+
+.detail-sub {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+/* ยอดเงินก้อนใหญ่บนสุด — สิ่งที่ทุกคนมองหาก่อนเสมอ */
+.detail-total {
+  text-align: center;
+  padding: 20px 16px;
+  margin-bottom: 24px;
+  background: var(--primary-soft);
+  border-radius: var(--radius);
+}
+
+.detail-total-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.detail-amount {
+  margin: 4px 0;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.detail-words {
+  margin-bottom: 12px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.detail-due {
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+/* กลุ่มข้อมูลย่อย */
+.detail-block {
+  margin-bottom: 20px;
+}
+
+.detail-heading {
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.detail-house {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.detail-person {
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+
+.detail-phone {
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* แถบการใช้น้ำ: ครั้งก่อน → ครั้งนี้ = หน่วยที่ใช้ */
+.usage-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.usage-box {
+  padding: 12px 6px;
+  text-align: center;
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.usage-box.is-result {
+  background: var(--primary-soft-2);
+}
+
+.usage-num {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.usage-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.usage-op {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* บรรทัดวิธีคิดเงิน */
+.calc-line {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 16px;
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.calc-result {
+  font-weight: 700;
+}
+
+/* รายการข้อมูลเอกสาร */
+.detail-list {
+  margin: 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  font-size: 15px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.detail-row dt {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.detail-row dd {
+  margin: 0;
+  text-align: right;
+}
+
+@media (max-width: 480px) {
+  .detail-amount {
+    font-size: 34px;
+  }
+
+  .usage-num {
+    font-size: 20px;
+  }
+}
+
+/* ============================================================
    ใบเสร็จค่าน้ำสำหรับพิมพ์ / บันทึกเป็น PDF
    ปกติซ่อนไว้ พอสั่งพิมพ์ค่อยซ่อนทุกอย่างอื่นแล้วแสดงเฉพาะใบนี้
    (ต้องอยู่ใน styles.css กลาง เพราะ selector body * ถ้าอยู่ใน
     component จะโดน Angular scope จนใช้ไม่ได้)
    ============================================================ */
-#bill-print {
+#bill-print,
+#bills-print-all {
   display: none;
 }
 
 @media print {
-  /* ซ่อนทุกอย่างบนหน้า แล้วแสดงเฉพาะใบเสร็จ */
-  body * {
-    visibility: hidden;
+  /* ซ่อนหน้าจอปกติทั้งหมด เหลือเฉพาะเอกสารที่จะพิมพ์
+     (ใช้ display ไม่ใช่ visibility เพราะเอกสารหลายใบต้องไหลข้ามหน้าได้) */
+  app-navbar,
+  ngx-sonner-toaster,
+  .history,
+  .modal-overlay {
+    display: none !important;
   }
 
   #bill-print,
-  #bill-print * {
-    visibility: visible;
-  }
-
-  #bill-print {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
+  #bills-print-all {
+    display: block !important;
     width: 100%;
     background: #fff;
     color: #000;
@@ -666,8 +823,7 @@ button.chip:hover {
   /* กรอบเอกสารทั้งใบ */
   .rc-doc {
     border: 1.5px solid #000;
-    padding: 20px 24px;
-    margin: 0;
+    padding: 18px 22px;
   }
 
   /* หัวเอกสาร: ชื่อหน่วยงาน + เลขที่ */
@@ -676,7 +832,7 @@ button.chip:hover {
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #000;
   }
 
@@ -695,22 +851,43 @@ button.chip:hover {
     white-space: nowrap;
   }
 
+  .rc-status-tag {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 10px;
+    border: 1px solid #000;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+
   .rc-doctitle {
     text-align: center;
     font-size: 17px;
     font-weight: 700;
-    margin: 12px 0;
+    margin: 10px 0;
+  }
+
+  /* กลุ่มข้อมูลย่อย */
+  .rc-section {
+    margin-bottom: 12px;
+  }
+
+  .rc-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    padding-bottom: 3px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #999;
   }
 
   /* ข้อมูลผู้ใช้น้ำ */
   .rc-info {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 12px;
   }
 
   .rc-info td {
-    padding: 4px 0;
+    padding: 3px 0;
     font-size: 14px;
     width: 50%;
   }
@@ -719,17 +896,56 @@ button.chip:hover {
     font-weight: 600;
   }
 
+  /* การใช้น้ำแบบเห็นภาพ: ครั้งก่อน → ครั้งนี้ = หน่วยที่ใช้ */
+  .rc-usage {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .rc-ubox {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    border: 1px solid #000;
+    border-radius: 4px;
+  }
+
+  .rc-ubox-result {
+    background: #eee;
+  }
+
+  .rc-unum {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .rc-ulabel {
+    font-size: 11px;
+  }
+
+  .rc-uop {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .rc-readdate {
+    margin-top: 5px;
+    font-size: 13px;
+  }
+
   /* ตารางคำนวณค่าน้ำ */
   .rc-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 6px;
   }
 
   .rc-table th,
   .rc-table td {
     border: 1px solid #000;
-    padding: 7px 10px;
+    padding: 6px 10px;
     text-align: center;
     font-size: 13px;
   }
@@ -739,8 +955,8 @@ button.chip:hover {
     font-weight: 700;
   }
 
-  .rc-table tfoot td {
-    font-size: 14px;
+  .rc-left {
+    text-align: left;
   }
 
   .rc-right {
@@ -751,23 +967,40 @@ button.chip:hover {
     font-weight: 700;
   }
 
-  /* จำนวนเงินเป็นตัวอักษร */
-  .rc-inwords {
-    text-align: right;
-    font-style: italic;
+  /* ยอดที่ต้องชำระ — ตัวใหญ่สุดของเอกสาร */
+  .rc-grand {
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 8px;
+    border: 2px solid #000;
+    border-radius: 6px;
+  }
+
+  .rc-grand-label {
+    font-size: 13px;
     font-weight: 600;
-    margin-bottom: 14px;
+  }
+
+  .rc-grand-amount {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .rc-grand-words {
+    font-size: 13px;
+    font-style: italic;
   }
 
   /* กำหนดชำระ + สถานะ */
   .rc-pay {
     display: flex;
     justify-content: space-between;
-    padding: 8px 12px;
-    margin-bottom: 28px;
+    padding: 6px 12px;
+    margin-bottom: 24px;
     border: 1px solid #000;
     background: #f5f5f5;
-    font-size: 14px;
+    font-size: 13px;
   }
 
   /* ช่องลงนาม */
@@ -775,7 +1008,7 @@ button.chip:hover {
     display: flex;
     justify-content: space-around;
     gap: 24px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .rc-sign {
@@ -788,13 +1021,118 @@ button.chip:hover {
   }
 
   .rc-sign-role {
-    color: #000;
+    font-size: 12px;
   }
 
   .rc-issued {
     text-align: right;
     font-size: 12px;
-    color: #333;
+  }
+
+  /* ---------- สลิปบิลหลายใบต่อแผ่น A4 (แผ่นละ 4 ใบ ตัดตามเส้นประ) ----------
+     A4 สูง 29.7 ซม. หักขอบบน-ล่าง 2.4 ซม. เหลือ 27.3 ซม.
+     ใบละ 6.7 ซม. × 4 ใบ = 26.8 ซม. → ลงตัวพอดี 4 ใบต่อแผ่น */
+  .slip {
+    height: 6.7cm;
+    box-sizing: border-box;
+    padding: 3mm 5mm;
+    border-bottom: 1px dashed #777;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.35;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .slip-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+    padding-bottom: 1mm;
+    border-bottom: 1px solid #000;
+  }
+
+  .slip-org {
+    font-weight: 700;
+  }
+
+  .slip-title {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 1mm 0;
+  }
+
+  /* เนื้อสลิป: ซ้าย = ข้อมูล / ขวา = ยอดเงิน */
+  .slip-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 4mm;
+  }
+
+  .slip-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .slip-house {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .slip-dim {
+    font-size: 11px;
+  }
+
+  .slip-meter {
+    margin-top: 1mm;
+    padding: 1mm 2mm;
+    background: #f2f2f2;
+    border-radius: 3px;
+  }
+
+  .slip-right {
+    flex-shrink: 0;
+    width: 34mm;
+    text-align: center;
+    padding: 1mm 2mm;
+    border: 1.5px solid #000;
+    border-radius: 4px;
+  }
+
+  .slip-amount-label {
+    font-size: 10px;
+  }
+
+  .slip-amount {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .slip-amount-unit {
+    font-size: 10px;
+  }
+
+  .slip-status {
+    margin-top: 0.5mm;
+    font-size: 11px;
+    font-weight: 700;
+    border-top: 1px solid #999;
+  }
+
+  .slip-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 1mm;
+    font-size: 10px;
+  }
+
+  .slip-words {
+    font-style: italic;
   }
 
   @page {

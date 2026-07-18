@@ -38,12 +38,39 @@ export class BillingHistoryComponent implements OnInit {
     return `${member.fname ?? ''} ${member.lname ?? ''}`.trim() || 'ไม่ระบุชื่อ';
   }
 
-  // เปิดไดอะล็อกพิมพ์ของเบราว์เซอร์ — ผู้ใช้เลือก "บันทึกเป็น PDF" หรือพิมพ์กระดาษก็ได้
-  // ใบเสร็จที่จะพิมพ์คือ #bill-print ซึ่ง CSS @media print จัดการแสดงให้เอง
-  printBill(): void {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
+  // ==========================================
+  // การพิมพ์ — แยกเป็น 2 แบบ
+  //   billToPrint  = พิมพ์ใบเดียวเต็มหน้า A4 (ใบแจ้งหนี้ทางการ)
+  //   billsToPrint = พิมพ์หลายใบเป็นสลิป แผ่นละ 4 ใบ ไว้ตัดแจก
+  // ==========================================
+  billToPrint: any = null;
+  billsToPrint: any[] = [];
+
+  // พิมพ์บิลใบเดียว (กดได้จากในตารางเลย ไม่ต้องเปิดรายละเอียดก่อน)
+  printSingleBill(bill: any): void {
+    if (typeof window === 'undefined' || !bill) return;
+
+    // แอปเป็น zoneless ต้องสั่ง render เองก่อน ไม่งั้นเอกสารยังไม่ทันขึ้น DOM ตอนสั่งพิมพ์
+    this.billToPrint = bill;
+    this.cdr?.detectChanges();
+
+    window.print();
+
+    this.billToPrint = null;
+    this.cdr?.detectChanges();
+  }
+
+  // พิมพ์หลายใบพร้อมกัน (ทั้งหมด หรือเฉพาะเดือนใดเดือนหนึ่ง)
+  printBills(bills: any[]): void {
+    if (typeof window === 'undefined' || !bills?.length) return;
+
+    this.billsToPrint = bills;
+    this.cdr?.detectChanges();
+
+    window.print();
+
+    this.billsToPrint = [];
+    this.cdr?.detectChanges();
   }
 
   // ==========================================
@@ -123,11 +150,61 @@ export class BillingHistoryComponent implements OnInit {
     return status === 'Paid' ? 'ชำระแล้ว' : 'รอชำระเงิน';
   }
 
+  // ==========================================
+  // จัดบิลเป็นกลุ่มตามเดือน (เดือนล่าสุดอยู่บนสุด)
+  // ==========================================
+  billGroups: any[] = [];
+
+  private readonly thMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+
+  // '07' + '2026' → 'กรกฎาคม 2569' (แสดงเป็น พ.ศ. ตามที่คนไทยใช้กัน)
+  monthLabel(month: string | number, year: string | number): string {
+    const m = Number(month);
+    const y = Number(year);
+    const name = this.thMonths[m - 1] ?? `เดือน ${month}`;
+    // เผื่อบางบิลเก็บปีมาเป็น พ.ศ. อยู่แล้ว จะได้ไม่บวกซ้ำ
+    const buddhistYear = y > 2400 ? y : y + 543;
+    return `${name} ${buddhistYear}`;
+  }
+
+  // รวมบิลเป็นกลุ่มรายเดือน พร้อมยอดรวมและจำนวนที่ยังไม่ชำระของเดือนนั้น
+  private buildBillGroups(): void {
+    const groups = new Map<string, any>();
+
+    for (const bill of this.bills) {
+      const month = String(bill.billing_month ?? '').padStart(2, '0');
+      const year = String(bill.billing_year ?? '');
+      const key = `${year}-${month}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: this.monthLabel(bill.billing_month, bill.billing_year),
+          bills: [],
+          total: 0,
+          unpaid: 0
+        });
+      }
+
+      const group = groups.get(key);
+      group.bills.push(bill);
+      group.total += Number(bill.total_amount) || 0;
+      if (bill.payment_status !== 'Paid') group.unpaid++;
+    }
+
+    // เรียงเดือนล่าสุดขึ้นก่อน
+    this.billGroups = [...groups.values()].sort((a, b) => b.key.localeCompare(a.key));
+  }
+
   toggleStatus(bill: any) {
     const newStatus = bill.payment_status === 'Pending' ? 'Paid' : 'Pending';
     this.meterReadingService.updatePaymentStatus(bill.id, newStatus).subscribe({
       next: () => {
         bill.payment_status = newStatus;
+        this.buildBillGroups(); // ยอดค้างชำระของเดือนนั้นเปลี่ยน ต้องคำนวณใหม่
         this.cdr.detectChanges();
         toast.success(
           newStatus === 'Paid' ? 'เปลี่ยนเป็น "ชำระแล้ว" เรียบร้อย' : 'เปลี่ยนเป็น "รอชำระเงิน" เรียบร้อย',
@@ -155,6 +232,7 @@ export class BillingHistoryComponent implements OnInit {
     this.meterReadingService.getBills().subscribe({
       next: (data) => {
         this.bills = data;
+        this.buildBillGroups(); // จัดกลุ่มรายเดือนใหม่ทุกครั้งที่โหลดข้อมูล
         this.isLoading = false;
         this.isFetching = false;
 

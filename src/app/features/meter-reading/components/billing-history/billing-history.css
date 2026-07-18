@@ -19,6 +19,42 @@ svg {
   margin-bottom: 24px;
 }
 
+.head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- กลุ่มบิลรายเดือน ---------- */
+.month-group + .month-group {
+  margin-top: 32px;
+}
+
+.month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.month-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.month-meta {
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.month-unpaid {
+  color: #b45309;
+  font-weight: 600;
+}
+
 .th-actions {
   text-align: right;
 }
@@ -74,64 +110,6 @@ svg {
   font-size: 32px;
 }
 
-/* ---------- หน้าต่างรายละเอียดบิลแบบเต็ม ---------- */
-.detail-card {
-  max-width: 560px;
-}
-
-.detail-sub {
-  margin-top: 4px;
-  font-size: 14px;
-}
-
-.detail-total {
-  text-align: center;
-}
-
-.detail-amount {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  margin: 4px 0 16px;
-}
-
-.detail-heading {
-  margin: 24px 0 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-.detail-list {
-  margin: 0;
-}
-
-.detail-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line-soft);
-}
-
-.detail-row dt {
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-
-.detail-row dd {
-  margin: 0;
-  text-align: right;
-}
-
-.detail-phone {
-  font-weight: 600;
-  color: var(--primary);
-  text-decoration: none;
-}
-
 /* สลับระหว่างตาราง (จอใหญ่) กับการ์ด (มือถือ) */
 .mobile-only {
   display: none;
@@ -145,6 +123,22 @@ svg {
 
   .history-head .page-head {
     margin-bottom: 16px;
+  }
+
+  /* บนมือถือให้ปุ่มเรียงเต็มความกว้าง กดด้วยนิ้วโป้งง่าย */
+  .head-actions {
+    flex-direction: column;
+    margin-bottom: 16px;
+  }
+
+  .month-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .bill-actions {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .desktop-only {
