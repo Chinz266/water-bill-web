@@ -8,6 +8,7 @@ import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
+import { extractErrorMessage } from '../../../auth/services/auth-error';
 
 @Component({
   selector: 'app-meter-cropper',
@@ -55,7 +56,7 @@ export class MeterCropperComponent implements OnInit {
       },
       error: (err) => {
         console.error('ดึงรายชื่อลูกบ้านไม่สำเร็จ:', err);
-        toast.error('โหลดรายชื่อบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'member-load-error' });
+        toast.error(extractErrorMessage(err, 'โหลดรายชื่อบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-load-error' });
       }
     });
   }
@@ -181,7 +182,7 @@ export class MeterCropperComponent implements OnInit {
         this.isLoading = false;
         console.error('Error:', err);
         this.cdr?.detectChanges();
-        toast.error(this.errorMessage(err, 'อ่านเลขมิเตอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'api-error' });
+        toast.error(extractErrorMessage(err, 'อ่านเลขมิเตอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'api-error' });
       }
     });
   }
@@ -254,14 +255,8 @@ export class MeterCropperComponent implements OnInit {
           this.isSaving = false;
           console.error('Save error:', err);
           this.cdr?.detectChanges();
-          toast.error(this.errorMessage(err, 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'save-error' });
+          toast.error(extractErrorMessage(err, 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'save-error' });
         }
       });
-  }
-
-  // ดึงข้อความ error ที่หลังบ้านส่งมาให้ผู้ใช้อ่านรู้เรื่อง แทนการโชว์ข้อความกลาง ๆ
-  private errorMessage(err: any, fallback: string): string {
-    const message = err?.error?.message ?? err?.message;
-    return typeof message === 'string' && message ? message : fallback;
   }
 }

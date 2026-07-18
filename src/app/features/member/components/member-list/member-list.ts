@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { Observable, catchError, of } from 'rxjs';
 import { toast } from 'ngx-sonner';
 import { MemberService } from '../../services/member.service';
+import { MeterReadingService } from '../../../meter-reading/services/meter-reading.service';
 import { AuthService } from '../../../auth/services/auth.service';
+import { extractErrorMessage } from '../../../auth/services/auth-error';
 
 @Component({
   selector: 'app-member-list',
@@ -19,7 +21,8 @@ export class MemberListComponent implements OnInit {
   isFetching = false;
 
   showAddModal: boolean = false;
-  newMember = { house_no: '', fname: '', lname: '', phone: '', villages_id: 1 };
+  // initial_unit = เลขมิเตอร์ ณ วันลงทะเบียน เอาไว้เป็นจุดตั้งต้นให้บิลเดือนแรกคิดถูก
+  newMember: any = { house_no: '', fname: '', lname: '', phone: '', villages_id: 1, initial_unit: null };
 
   showEditModal: boolean = false;
   editingMember: any = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: 1 };
@@ -33,7 +36,10 @@ export class MemberListComponent implements OnInit {
 
   private auth = inject(AuthService);
 
-  constructor(private memberService: MemberService) { }
+  constructor(
+    private memberService: MemberService,
+    private meterReadingService: MeterReadingService
+  ) { }
 
   ngOnInit(): void {
     this.loadMembers();
@@ -43,7 +49,7 @@ export class MemberListComponent implements OnInit {
     this.members$ = this.memberService.getMembers().pipe(
       catchError(err => {
         console.error('ดึงข้อมูลสมาชิกไม่สำเร็จ:', err);
-        toast.error('โหลดรายชื่อลูกบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'member-load-error' });
+        toast.error(extractErrorMessage(err, 'โหลดรายชื่อลูกบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-load-error' });
         return of([]); // ถ้าดึงข้อมูลไม่สำเร็จ ให้คืนค่าเป็น array ว่าง
       })
     );
@@ -91,23 +97,62 @@ export class MemberListComponent implements OnInit {
 
   closeAddModal() {
     this.showAddModal = false;
-    this.newMember = { house_no: '', fname: '', lname: '', phone: '', villages_id: 1 };
+    this.newMember = { house_no: '', fname: '', lname: '', phone: '', villages_id: 1, initial_unit: null };
     this.addErrors = { house_no: '', fname: '', phone: '' }; // ล้าง error ทิ้ง
   }
 
   saveMember() {
     if (!this.validateMember(this.newMember, this.addErrors)) return;
 
+    const adminId = this.auth.admin()?.id;
+
     // หลังบ้านบังคับ create_by (คอลัมน์ห้ามเป็น NULL) — ใช้ id ของแอดมินที่ล็อกอินอยู่
-    this.memberService.addMember({ ...this.newMember, create_by: this.auth.admin()?.id }).subscribe({
-      next: () => {
-        this.closeAddModal();
-        toast.success('เพิ่มบ้านใหม่เรียบร้อยแล้ว', { id: 'member-added' });
-        this.loadMembers(); // 🌟 โหลดรายชื่อใหม่ให้ตารางอัปเดตทันที
+    this.memberService.addMember({ ...this.newMember, create_by: adminId }).subscribe({
+      next: (created: any) => {
+        const memberId = created?.id;
+        const initialUnit = Number(this.newMember.initial_unit);
+        const hasInitial =
+          this.newMember.initial_unit !== null &&
+          this.newMember.initial_unit !== '' &&
+          !isNaN(initialUnit) &&
+          initialUnit >= 0;
+
+        // ถ้ากรอกเลขมิเตอร์เริ่มต้นมา ให้บันทึกเป็นการจดครั้งแรกของบ้านหลังนี้
+        // เดือนถัดไปเวลาออกบิล ระบบจะใช้เลขนี้เป็น "เลขครั้งก่อน" ให้อัตโนมัติ
+        if (memberId && hasInitial) {
+          this.meterReadingService
+            .createMeterReading({
+              reading_date: new Date().toISOString().slice(0, 10),
+              meter_unit: initialUnit,
+              members_id: memberId,
+              create_by: adminId
+            })
+            .subscribe({
+              next: () => {
+                this.closeAddModal();
+                toast.success('เพิ่มบ้านใหม่และบันทึกเลขมิเตอร์เริ่มต้นแล้ว', { id: 'member-added' });
+                this.loadMembers();
+              },
+              error: (err) => {
+                // บ้านถูกเพิ่มสำเร็จแล้ว แค่บันทึกเลขตั้งต้นไม่ผ่าน — ไม่ต้องลบบ้านทิ้ง
+                console.error('Save initial reading error:', err);
+                this.closeAddModal();
+                toast.warning(
+                  'เพิ่มบ้านแล้ว แต่บันทึกเลขมิเตอร์เริ่มต้นไม่สำเร็จ กรุณาไปจดที่หน้าสแกนมิเตอร์',
+                  { id: 'member-added-no-reading' }
+                );
+                this.loadMembers();
+              }
+            });
+        } else {
+          this.closeAddModal();
+          toast.success('เพิ่มบ้านใหม่เรียบร้อยแล้ว', { id: 'member-added' });
+          this.loadMembers(); // 🌟 โหลดรายชื่อใหม่ให้ตารางอัปเดตทันที
+        }
       },
       error: (err: any) => {
         console.error('Add member error:', err);
-        toast.error('เพิ่มข้อมูลไม่สำเร็จ กรุณาตรวจสอบข้อมูลอีกครั้ง', { id: 'member-add-error' });
+        toast.error(extractErrorMessage(err, 'เพิ่มข้อมูลไม่สำเร็จ กรุณาตรวจสอบข้อมูลอีกครั้ง'), { id: 'member-add-error' });
       }
     });
   }
@@ -135,9 +180,8 @@ export class MemberListComponent implements OnInit {
         this.loadMembers();
       },
       error: (err: any) => {
-        const errorMsg = err.error?.message || err.message || 'ไม่ทราบสาเหตุ';
         console.error('Update member error:', err);
-        toast.error(`แก้ไขข้อมูลไม่สำเร็จ: ${errorMsg}`, { id: 'member-update-error' });
+        toast.error(extractErrorMessage(err, 'แก้ไขข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-update-error' });
       }
     });
   }
@@ -167,9 +211,8 @@ export class MemberListComponent implements OnInit {
         this.loadMembers();
       },
       error: (err: any) => {
-        const errorMsg = err.error?.message || err.message || 'ไม่ทราบสาเหตุ';
         console.error('Delete member error:', err);
-        toast.error(`ลบข้อมูลไม่สำเร็จ: ${errorMsg}`, { id: 'member-delete-error' });
+        toast.error(extractErrorMessage(err, 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-delete-error' });
       }
     });
   }

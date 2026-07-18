@@ -628,3 +628,176 @@ button.chip:hover {
     padding: 12px 16px;
   }
 }
+
+/* ============================================================
+   ใบเสร็จค่าน้ำสำหรับพิมพ์ / บันทึกเป็น PDF
+   ปกติซ่อนไว้ พอสั่งพิมพ์ค่อยซ่อนทุกอย่างอื่นแล้วแสดงเฉพาะใบนี้
+   (ต้องอยู่ใน styles.css กลาง เพราะ selector body * ถ้าอยู่ใน
+    component จะโดน Angular scope จนใช้ไม่ได้)
+   ============================================================ */
+#bill-print {
+  display: none;
+}
+
+@media print {
+  /* ซ่อนทุกอย่างบนหน้า แล้วแสดงเฉพาะใบเสร็จ */
+  body * {
+    visibility: hidden;
+  }
+
+  #bill-print,
+  #bill-print * {
+    visibility: visible;
+  }
+
+  #bill-print {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    width: 100%;
+    background: #fff;
+    color: #000;
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* กรอบเอกสารทั้งใบ */
+  .rc-doc {
+    border: 1.5px solid #000;
+    padding: 20px 24px;
+    margin: 0;
+  }
+
+  /* หัวเอกสาร: ชื่อหน่วยงาน + เลขที่ */
+  .rc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #000;
+  }
+
+  .rc-org-name {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .rc-org-line {
+    font-size: 13px;
+  }
+
+  .rc-no {
+    text-align: right;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .rc-doctitle {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    margin: 12px 0;
+  }
+
+  /* ข้อมูลผู้ใช้น้ำ */
+  .rc-info {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+  }
+
+  .rc-info td {
+    padding: 4px 0;
+    font-size: 14px;
+    width: 50%;
+  }
+
+  .rc-label {
+    font-weight: 600;
+  }
+
+  /* ตารางคำนวณค่าน้ำ */
+  .rc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+  }
+
+  .rc-table th,
+  .rc-table td {
+    border: 1px solid #000;
+    padding: 7px 10px;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .rc-table th {
+    background: #eee;
+    font-weight: 700;
+  }
+
+  .rc-table tfoot td {
+    font-size: 14px;
+  }
+
+  .rc-right {
+    text-align: right;
+  }
+
+  .rc-strong {
+    font-weight: 700;
+  }
+
+  /* จำนวนเงินเป็นตัวอักษร */
+  .rc-inwords {
+    text-align: right;
+    font-style: italic;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  /* กำหนดชำระ + สถานะ */
+  .rc-pay {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-bottom: 28px;
+    border: 1px solid #000;
+    background: #f5f5f5;
+    font-size: 14px;
+  }
+
+  /* ช่องลงนาม */
+  .rc-signs {
+    display: flex;
+    justify-content: space-around;
+    gap: 24px;
+    margin-bottom: 12px;
+  }
+
+  .rc-sign {
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .rc-sign-line {
+    margin-bottom: 4px;
+  }
+
+  .rc-sign-role {
+    color: #000;
+  }
+
+  .rc-issued {
+    text-align: right;
+    font-size: 12px;
+    color: #333;
+  }
+
+  @page {
+    margin: 1.2cm;
+  }
+}

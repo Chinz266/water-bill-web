@@ -248,8 +248,97 @@
       </dl>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-primary" (click)="closeDetail()">ปิดหน้าต่าง</button>
+        <button type="button" class="btn btn-secondary" (click)="closeDetail()">ปิด</button>
+        <button type="button" class="btn btn-primary" (click)="printBill()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+          พิมพ์ / บันทึก PDF
+        </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ใบเสร็จสำหรับพิมพ์ (รูปแบบเอกสารทางการ) — ซ่อนบนจอ แสดงเฉพาะตอนสั่งพิมพ์ -->
+  <div id="bill-print">
+    <div class="rc-doc">
+      <!-- หัวเอกสาร: ชื่อหน่วยงาน + เลขที่ -->
+      <div class="rc-head">
+        <div class="rc-org">
+          <div class="rc-org-name">{{ orgName }}</div>
+          <div class="rc-org-line">{{ orgAddress }}</div>
+          <div class="rc-org-line">{{ orgPhone }}</div>
+        </div>
+        <div class="rc-no">
+          <div>เลขที่ <strong>{{ selectedBill.id }}</strong></div>
+          <div>ประจำเดือน {{ selectedBill.billing_month }}/{{ selectedBill.billing_year }}</div>
+        </div>
+      </div>
+
+      <div class="rc-doctitle">ใบแจ้งหนี้ / ใบเสร็จรับเงินค่าน้ำประปา</div>
+
+      <!-- ข้อมูลผู้ใช้น้ำ -->
+      <table class="rc-info">
+        <tr>
+          <td><span class="rc-label">ชื่อผู้ใช้น้ำ</span> {{ ownerName(selectedBill) }}</td>
+          <td><span class="rc-label">บ้านเลขที่</span> {{ selectedBill.member?.house_no || '—' }}</td>
+        </tr>
+        <tr>
+          <td><span class="rc-label">รหัสผู้ใช้น้ำ</span> {{ selectedBill.member?.id ? ('MB-' + selectedBill.member.id) : '—' }}</td>
+          <td>
+            <span class="rc-label">วันที่จดมาตร</span>
+            {{ selectedBill.meter_reading?.reading_date ? (selectedBill.meter_reading.reading_date | date:'d MMM yyyy') : '—' }}
+          </td>
+        </tr>
+      </table>
+
+      <!-- ตารางคำนวณค่าน้ำ -->
+      <table class="rc-table">
+        <thead>
+          <tr>
+            <th>เลขมาตรครั้งก่อน</th>
+            <th>เลขมาตรครั้งนี้</th>
+            <th>จำนวนหน่วย</th>
+            <th>อัตรา/หน่วย</th>
+            <th>จำนวนเงิน (บาท)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ selectedBill.previous_unit }}</td>
+            <td>{{ selectedBill.current_unit }}</td>
+            <td>{{ selectedBill.usage_unit }}</td>
+            <td>{{ selectedBill.price_per_unit ? (selectedBill.price_per_unit | number:'1.2-2') : '—' }}</td>
+            <td class="rc-right">{{ selectedBill.total_amount | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="rc-right rc-strong">รวมเงินทั้งสิ้น</td>
+            <td class="rc-right rc-strong">{{ selectedBill.total_amount | number:'1.2-2' }}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="rc-inwords">({{ bahtText(selectedBill.total_amount) }})</div>
+
+      <!-- กำหนดชำระ + สถานะ -->
+      <div class="rc-pay">
+        <span>โปรดชำระภายในวันที่ <strong>{{ dueDate(selectedBill) | date:'d MMMM yyyy' }}</strong></span>
+        <span>สถานะ: <strong>{{ statusLabel(selectedBill.payment_status) }}</strong></span>
+      </div>
+
+      <!-- ลงนาม -->
+      <div class="rc-signs">
+        <div class="rc-sign">
+          <div class="rc-sign-line">ลงชื่อ ..............................</div>
+          <div class="rc-sign-role">ผู้จดมาตร / ผู้ออกบิล</div>
+        </div>
+        <div class="rc-sign">
+          <div class="rc-sign-line">ลงชื่อ ..............................</div>
+          <div class="rc-sign-role">เจ้าหน้าที่การเงิน / ผู้รับเงิน</div>
+        </div>
+      </div>
+
+      <div class="rc-issued">ออกบิล ณ วันที่ {{ selectedBill.create_date | date:'d MMMM yyyy' }}</div>
     </div>
   </div>
 }

@@ -164,6 +164,23 @@
         }
       </div>
 
+      <div class="field">
+        <label class="field-label" for="add-initial">เลขมิเตอร์ ณ วันลงทะเบียน</label>
+        <input
+          id="add-initial"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [(ngModel)]="newMember.initial_unit"
+          placeholder="เช่น 1250"
+        />
+        <p class="field-hint">
+          กรอกเลขที่หน้าปัดมิเตอร์ตอนนี้ เพื่อให้บิลเดือนแรกคิดเฉพาะน้ำที่ใช้จริง
+          (ถ้าไม่กรอก เดือนแรกจะเริ่มนับจาก 0)
+        </p>
+      </div>
+
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" (click)="closeAddModal()">ยกเลิก</button>
         <button type="button" class="btn btn-primary" (click)="saveMember()">
@@ -258,9 +275,10 @@
       <div class="alert alert-warning">
         <span>⚠️</span>
         <span>
-          ข้อมูลบ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong>
+          บ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong>
           ({{ memberToDelete.fname }} {{ memberToDelete.lname }})
-          จะถูกลบออกจากระบบถาวร กู้คืนไม่ได้นะครับ
+          จะถูกลบพร้อม <strong>ประวัติจดมิเตอร์และบิลค่าน้ำทั้งหมด</strong> ของบ้านหลังนี้
+          ออกจากระบบถาวร กู้คืนไม่ได้นะครับ
         </span>
       </div>
 
