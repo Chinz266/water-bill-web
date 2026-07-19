@@ -4,9 +4,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 export function extractErrorMessage(err: unknown, fallback: string): string {
   if (!(err instanceof HttpErrorResponse)) return fallback;
 
-  // status 0 = ยิงไปไม่ถึงเซิร์ฟเวอร์ (ลืมเปิด NestJS หรือ CORS บล็อก)
+  // status 0 = ยิงไปไม่ถึงเซิร์ฟเวอร์ (ลืมเปิด backend หรือ CORS บล็อก)
+  // ข้อความต้องเป็นภาษาที่เจ้าหน้าที่หมู่บ้านอ่านแล้วรู้ว่าต้องทำอะไรต่อ ห้ามใช้ศัพท์เทคนิค
   if (err.status === 0) {
-    return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบว่า NestJS รันอยู่ที่ port 3000';
+    return 'ตอนนี้เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่อีกครั้ง ถ้ายังไม่ได้รบกวนแจ้งผู้ดูแลระบบนะครับ';
   }
 
   // NestJS คืน { statusCode, message } โดย message อาจเป็น string หรือ array (validation)

@@ -1029,17 +1029,18 @@ button.chip:hover {
     font-size: 12px;
   }
 
-  /* ---------- สลิปบิลหลายใบต่อแผ่น A4 (แผ่นละ 4 ใบ ตัดตามเส้นประ) ----------
+  /* ---------- สลิปบิลหลายใบต่อแผ่น A4 (แผ่นละ 3 ใบ ตัดตามเส้นประ) ----------
      A4 สูง 29.7 ซม. หักขอบบน-ล่าง 2.4 ซม. เหลือ 27.3 ซม.
-     ใบละ 6.7 ซม. × 4 ใบ = 26.8 ซม. → ลงตัวพอดี 4 ใบต่อแผ่น */
+     ใบละ 9 ซม. × 3 ใบ = 27 ซม. → ลงตัวพอดี 3 ใบต่อแผ่น
+     (อยากได้ 4 ใบต่อแผ่นแบบเดิม เปลี่ยน height เป็น 6.7cm แต่รายละเอียดจะแน่นขึ้น) */
   .slip {
-    height: 6.7cm;
+    height: 9cm;
     box-sizing: border-box;
-    padding: 3mm 5mm;
+    padding: 4mm 6mm;
     border-bottom: 1px dashed #777;
     overflow: hidden;
     font-size: 12px;
-    line-height: 1.35;
+    line-height: 1.45;
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -1049,7 +1050,7 @@ button.chip:hover {
     justify-content: space-between;
     gap: 10px;
     font-size: 11px;
-    padding-bottom: 1mm;
+    padding-bottom: 1.5mm;
     border-bottom: 1px solid #000;
   }
 
@@ -1059,51 +1060,43 @@ button.chip:hover {
 
   .slip-title {
     text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-    margin: 1mm 0;
-  }
-
-  /* เนื้อสลิป: ซ้าย = ข้อมูล / ขวา = ยอดเงิน */
-  .slip-body {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 4mm;
-  }
-
-  .slip-left {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .slip-house {
     font-size: 14px;
     font-weight: 700;
+    margin: 1.5mm 0;
   }
 
-  .slip-dim {
-    font-size: 11px;
+  /* รายการข้อมูล: หัวข้อซ้าย ค่าขวา อ่านทีละบรรทัดเหมือนใบเต็ม */
+  .slip-rows {
+    padding: 1mm 0;
+    border-top: 1px solid #ccc;
   }
 
-  .slip-meter {
-    margin-top: 1mm;
-    padding: 1mm 2mm;
-    background: #f2f2f2;
-    border-radius: 3px;
+  .slip-r {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    padding: 0.3mm 0;
   }
 
-  .slip-right {
-    flex-shrink: 0;
-    width: 34mm;
-    text-align: center;
-    padding: 1mm 2mm;
+  .slip-strong {
+    font-weight: 700;
+  }
+
+  /* ยอดที่ต้องชำระในกรอบ */
+  .slip-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5mm;
+    padding: 1.5mm 3mm;
     border: 1.5px solid #000;
     border-radius: 4px;
   }
 
-  .slip-amount-label {
-    font-size: 10px;
+  .slip-total-label {
+    font-size: 12px;
+    font-weight: 600;
   }
 
   .slip-amount {
@@ -1112,27 +1105,18 @@ button.chip:hover {
     line-height: 1.15;
   }
 
-  .slip-amount-unit {
-    font-size: 10px;
-  }
-
-  .slip-status {
-    margin-top: 0.5mm;
+  .slip-words {
+    text-align: right;
     font-size: 11px;
-    font-weight: 700;
-    border-top: 1px solid #999;
+    font-style: italic;
   }
 
   .slip-foot {
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    margin-top: 1mm;
-    font-size: 10px;
-  }
-
-  .slip-words {
-    font-style: italic;
+    margin-top: 1.5mm;
+    font-size: 11px;
   }
 
   @page {

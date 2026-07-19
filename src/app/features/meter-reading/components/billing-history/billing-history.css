@@ -25,6 +25,15 @@ svg {
   flex-shrink: 0;
 }
 
+/* แถว/การ์ดบิลกดได้ทั้งใบเพื่อดูรายละเอียด */
+.row-clickable {
+  cursor: pointer;
+}
+
+.bill-card.row-clickable:hover {
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
 /* ---------- กลุ่มบิลรายเดือน ---------- */
 .month-group + .month-group {
   margin-top: 32px;

@@ -2,7 +2,7 @@
   <div class="history-head">
     <div class="page-head">
       <h1 class="page-title">ประวัติบิลค่าน้ำ</h1>
-      <p class="page-subtitle">แตะที่บิลเพื่อดูรายละเอียดเต็ม หรือแตะป้ายสถานะเพื่อเปลี่ยนเป็น "ชำระแล้ว"</p>
+      <p class="page-subtitle">แตะที่บิลเพื่อดูรายละเอียด · แตะป้ายสถานะเพื่อเปลี่ยนเป็น "ชำระแล้ว"</p>
     </div>
 
     <div class="head-actions">
@@ -11,15 +11,6 @@
         โหลดข้อมูลใหม่
       </button>
 
-      <button
-        type="button"
-        class="btn btn-primary"
-        (click)="printBills(bills)"
-        [disabled]="isLoading || bills.length === 0"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-        พิมพ์บิลทั้งหมด ({{ bills.length }})
-      </button>
     </div>
   </div>
 
@@ -73,7 +64,7 @@
               </thead>
               <tbody>
                 @for (bill of group.bills; track bill.id) {
-                  <tr>
+                  <tr class="row-clickable" (click)="openDetail(bill)">
                     <td class="cell-strong">{{ bill.member?.house_no || '—' }}</td>
                     <td>{{ ownerName(bill) }}</td>
                     <td class="cell-muted">{{ bill.create_date | date:'d MMM yyyy, HH:mm' }}</td>
@@ -85,27 +76,23 @@
                         class="chip"
                         [class.chip-success]="bill.payment_status === 'Paid'"
                         [class.chip-warning]="bill.payment_status !== 'Paid'"
-                        (click)="toggleStatus(bill)"
+                        (click)="$event.stopPropagation(); toggleStatus(bill)"
                       >
                         {{ statusLabel(bill.payment_status) }}
                       </button>
                     </td>
                     <td>
                       <div class="cell-actions">
-                        <button type="button" class="btn btn-sm btn-secondary" (click)="openDetail(bill)">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
-                          รายละเอียด
-                        </button>
                         <button
                           type="button"
                           class="btn btn-sm btn-secondary"
-                          (click)="printSingleBill(bill)"
-                          title="พิมพ์ / บันทึกบิลใบนี้เป็น PDF"
+                          (click)="$event.stopPropagation(); printSingleBill(bill)"
+                          title="พิมพ์บิลใบนี้ หรือบันทึกเก็บไว้"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                          PDF
+                          พิมพ์บิล
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger-soft" (click)="askDelete(bill)">
+                        <button type="button" class="btn btn-sm btn-danger-soft" (click)="$event.stopPropagation(); askDelete(bill)">
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
                           ลบ
                         </button>
@@ -121,7 +108,7 @@
         <!-- มือถือ: การ์ดใบใหญ่ กดง่ายด้วยนิ้วโป้ง -->
         <div class="bill-cards mobile-only">
           @for (bill of group.bills; track bill.id) {
-            <div class="card bill-card">
+            <div class="card bill-card row-clickable" (click)="openDetail(bill)">
               <div class="bill-top">
                 <span class="chip chip-info">บ้านเลขที่ {{ bill.member?.house_no || '—' }}</span>
                 <button
@@ -129,7 +116,7 @@
                   class="chip"
                   [class.chip-success]="bill.payment_status === 'Paid'"
                   [class.chip-warning]="bill.payment_status !== 'Paid'"
-                  (click)="toggleStatus(bill)"
+                  (click)="$event.stopPropagation(); toggleStatus(bill)"
                 >
                   {{ statusLabel(bill.payment_status) }}
                 </button>
@@ -150,15 +137,11 @@
               </div>
 
               <div class="bill-actions">
-                <button type="button" class="btn btn-sm btn-secondary" (click)="openDetail(bill)">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
-                  รายละเอียด
-                </button>
-                <button type="button" class="btn btn-sm btn-secondary" (click)="printSingleBill(bill)">
+                <button type="button" class="btn btn-sm btn-secondary" (click)="$event.stopPropagation(); printSingleBill(bill)">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                  PDF
+                  พิมพ์บิล
                 </button>
-                <button type="button" class="btn btn-sm btn-danger-soft" (click)="askDelete(bill)">
+                <button type="button" class="btn btn-sm btn-danger-soft" (click)="$event.stopPropagation(); askDelete(bill)">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
                   ลบ
                 </button>
@@ -271,10 +254,6 @@
         <div class="detail-heading">ข้อมูลเอกสาร</div>
         <dl class="detail-list">
           <div class="detail-row">
-            <dt>รหัสผู้ใช้น้ำ</dt>
-            <dd>{{ selectedBill.member?.id ? ('MB-' + selectedBill.member.id) : '—' }}</dd>
-          </div>
-          <div class="detail-row">
             <dt>วันที่จดมาตร</dt>
             <dd>
               {{ selectedBill.meter_reading?.reading_date
@@ -303,7 +282,7 @@
         <button type="button" class="btn btn-secondary" (click)="closeDetail()">ปิด</button>
         <button type="button" class="btn btn-primary" (click)="printSingleBill(selectedBill)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-          พิมพ์ / บันทึก PDF
+          พิมพ์บิลใบนี้
         </button>
       </div>
     </div>
@@ -339,8 +318,8 @@
             <td><span class="rc-label">บ้านเลขที่</span> <strong>{{ billToPrint.member?.house_no || '—' }}</strong></td>
           </tr>
           <tr>
-            <td><span class="rc-label">รหัสผู้ใช้น้ำ</span> {{ billToPrint.member?.id ? ('MB-' + billToPrint.member.id) : '—' }}</td>
             <td><span class="rc-label">โทรศัพท์</span> {{ billToPrint.member?.phone || '—' }}</td>
+            <td></td>
           </tr>
         </table>
       </div>
@@ -430,7 +409,7 @@
   </div>
 }
 
-<!-- สลิปบิลหลายใบสำหรับพิมพ์ลง A4 แผ่นละ 4 ใบ แล้วตัดตามเส้นประ -->
+<!-- สลิปบิลหลายใบสำหรับพิมพ์ลง A4 แล้วตัดตามเส้นประ (รายละเอียดเหมือนใบเต็ม) -->
 @if (billsToPrint.length > 0) {
   <div id="bills-print-all">
     @for (bill of billsToPrint; track bill.id) {
@@ -442,42 +421,53 @@
 
         <div class="slip-title">ใบแจ้งค่าน้ำประปา</div>
 
-        <div class="slip-body">
-          <!-- ซ้าย: ผู้ใช้น้ำ + การใช้น้ำ -->
-          <div class="slip-left">
-            <div class="slip-house">บ้านเลขที่ {{ bill.member?.house_no || '—' }}</div>
-            <div>{{ ownerName(bill) }}</div>
-            <div class="slip-dim">
-              โทร. {{ bill.member?.phone || '—' }}
-              @if (bill.member?.id) {
-                · รหัส MB-{{ bill.member.id }}
-              }
-            </div>
-            <div class="slip-meter">
-              มาตร <strong>{{ bill.previous_unit }}</strong> → <strong>{{ bill.current_unit }}</strong>
-              = ใช้ <strong>{{ bill.usage_unit }}</strong> หน่วย
-              @if (bill.price_per_unit) {
-                × {{ bill.price_per_unit | number:'1.2-2' }} บาท
-              }
-            </div>
-            <div class="slip-dim">
-              จดมาตร
-              {{ bill.meter_reading?.reading_date ? (bill.meter_reading.reading_date | date:'d MMM yy') : '—' }}
-              · ชำระภายใน {{ dueDate(bill) | date:'d MMM yy' }}
-            </div>
+        <!-- ข้อมูลผู้ใช้น้ำ -->
+        <div class="slip-rows">
+          <div class="slip-r">
+            <span>บ้านเลขที่</span>
+            <span class="slip-strong">{{ bill.member?.house_no || '—' }}</span>
           </div>
-
-          <!-- ขวา: ยอดเงิน -->
-          <div class="slip-right">
-            <div class="slip-amount-label">ยอดชำระ</div>
-            <div class="slip-amount">{{ bill.total_amount | number:'1.2-2' }}</div>
-            <div class="slip-amount-unit">บาท</div>
-            <div class="slip-status">{{ statusLabel(bill.payment_status) }}</div>
+          <div class="slip-r">
+            <span>ชื่อผู้ใช้น้ำ</span>
+            <span>{{ ownerName(bill) }}</span>
+          </div>
+          <div class="slip-r">
+            <span>โทรศัพท์</span>
+            <span>{{ bill.member?.phone || '—' }}</span>
           </div>
         </div>
 
+        <!-- การใช้น้ำ -->
+        <div class="slip-rows">
+          <div class="slip-r">
+            <span>เลขมาตรครั้งก่อน</span>
+            <span>{{ bill.previous_unit }} ลบ.ม.</span>
+          </div>
+          <div class="slip-r">
+            <span>เลขมาตรครั้งนี้</span>
+            <span>{{ bill.current_unit }} ลบ.ม.</span>
+          </div>
+          <div class="slip-r">
+            <span>หน่วยที่ใช้</span>
+            <span class="slip-strong">{{ bill.usage_unit }} ลบ.ม.</span>
+          </div>
+          @if (bill.price_per_unit) {
+            <div class="slip-r">
+              <span>อัตราค่าน้ำ</span>
+              <span>{{ bill.price_per_unit | number:'1.2-2' }} บาท / ลบ.ม.</span>
+            </div>
+          }
+        </div>
+
+        <!-- ยอดที่ต้องชำระ -->
+        <div class="slip-total">
+          <span class="slip-total-label">ยอดที่ต้องชำระ</span>
+          <span class="slip-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</span>
+        </div>
+        <div class="slip-words">({{ bahtText(bill.total_amount) }})</div>
+
         <div class="slip-foot">
-          <span class="slip-words">({{ bahtText(bill.total_amount) }})</span>
+          <span>ชำระภายใน {{ dueDate(bill) | date:'d MMM yy' }} · {{ statusLabel(bill.payment_status) }}</span>
           <span>ผู้รับเงิน ..................</span>
         </div>
       </div>
