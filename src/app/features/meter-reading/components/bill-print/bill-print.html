@@ -1,0 +1,188 @@
+<!-- ใบแจ้งหนี้เต็มหน้า A4 สำหรับพิมพ์ทีละใบ (กดได้จากในตารางเลย) -->
+@if (print.billToPrint(); as bill) {
+  <div id="bill-print">
+    <div class="rc-doc">
+      <!-- หัวเอกสาร: ชื่อหน่วยงาน + เลขที่ -->
+      <div class="rc-head">
+        <div class="rc-org">
+          <div class="rc-org-name">{{ print.orgName }}</div>
+          <div class="rc-org-line">{{ print.orgAddress }}</div>
+          <div class="rc-org-line">{{ print.orgPhone }}</div>
+        </div>
+        <div class="rc-no">
+          <div>เลขที่ <strong>{{ bill.id }}</strong></div>
+          <div>ประจำเดือน <strong>{{ print.monthLabel(bill.billing_month, bill.billing_year) }}</strong></div>
+          <div class="rc-status-tag">{{ print.statusLabel(bill.payment_status) }}</div>
+        </div>
+      </div>
+
+      <div class="rc-doctitle">ใบแจ้งหนี้ / ใบเสร็จรับเงินค่าน้ำประปา</div>
+
+      <!-- ข้อมูลผู้ใช้น้ำ -->
+      <div class="rc-section">
+        <div class="rc-section-title">ข้อมูลผู้ใช้น้ำ</div>
+        <div class="rc-rows">
+          <div class="rc-r">
+            <span>บ้านเลขที่</span>
+            <span class="rc-strong">{{ bill.member?.house_no || '—' }}</span>
+          </div>
+          <div class="rc-r">
+            <span>ชื่อผู้ใช้น้ำ</span>
+            <span>{{ print.ownerName(bill) }}</span>
+          </div>
+          <div class="rc-r">
+            <span>โทรศัพท์</span>
+            <span>{{ bill.member?.phone || '—' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- การใช้น้ำ: อ่านเป็นภาพเดียวจบ -->
+      <div class="rc-section">
+        <div class="rc-section-title">การใช้น้ำประจำรอบ</div>
+        <div class="rc-usage">
+          <div class="rc-ubox">
+            <div class="rc-unum">{{ bill.previous_unit }}</div>
+            <div class="rc-ulabel">เลขมาตรครั้งก่อน</div>
+          </div>
+          <div class="rc-uop">→</div>
+          <div class="rc-ubox">
+            <div class="rc-unum">{{ bill.current_unit }}</div>
+            <div class="rc-ulabel">เลขมาตรครั้งนี้</div>
+          </div>
+          <div class="rc-uop">=</div>
+          <div class="rc-ubox rc-ubox-result">
+            <div class="rc-unum">{{ bill.usage_unit }}</div>
+            <div class="rc-ulabel">หน่วยที่ใช้ (ลบ.ม.)</div>
+          </div>
+        </div>
+        <div class="rc-readdate">
+          วันที่จดมาตร
+          {{ print.dateLabel(bill.meter_reading?.reading_date) }}
+        </div>
+      </div>
+
+      <!-- ตารางคำนวณค่าน้ำ -->
+      <div class="rc-section">
+        <div class="rc-section-title">รายการคำนวณค่าน้ำ</div>
+        <table class="rc-table">
+          <thead>
+            <tr>
+              <th>รายการ</th>
+              <th>จำนวนหน่วย</th>
+              <th>อัตรา/หน่วย (บาท)</th>
+              <th>จำนวนเงิน (บาท)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="rc-left">ค่าน้ำประปา</td>
+              <td>{{ bill.usage_unit }}</td>
+              <td>{{ bill.price_per_unit ? (bill.price_per_unit | number:'1.2-2') : '—' }}</td>
+              <td class="rc-right">{{ bill.total_amount | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="rc-right rc-strong">รวมเงินทั้งสิ้น</td>
+              <td class="rc-right rc-strong">{{ bill.total_amount | number:'1.2-2' }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- ยอดที่ต้องชำระ: ตัวใหญ่สุดของเอกสาร -->
+      <div class="rc-grand">
+        <div class="rc-grand-label">ยอดที่ต้องชำระ</div>
+        <div class="rc-grand-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</div>
+        <div class="rc-grand-words">({{ print.bahtText(bill.total_amount) }})</div>
+      </div>
+
+      <div class="rc-pay">
+        <span>โปรดชำระภายในวันที่ <strong>{{ print.dateLabel(print.dueDate(bill)) }}</strong></span>
+        <span>สถานะ: <strong>{{ print.statusLabel(bill.payment_status) }}</strong></span>
+      </div>
+
+      <!-- ลงนาม -->
+      <div class="rc-signs">
+        <div class="rc-sign">
+          <div class="rc-sign-line">ลงชื่อ ..............................</div>
+          <div class="rc-sign-role">ผู้จดมาตร / ผู้ออกบิล</div>
+        </div>
+        <div class="rc-sign">
+          <div class="rc-sign-line">ลงชื่อ ..............................</div>
+          <div class="rc-sign-role">เจ้าหน้าที่การเงิน / ผู้รับเงิน</div>
+        </div>
+      </div>
+
+      <div class="rc-issued">ออกบิล ณ วันที่ {{ print.dateLabel(bill.create_date) }}</div>
+    </div>
+  </div>
+}
+
+<!-- สลิปบิลหลายใบสำหรับพิมพ์ลง A4 แล้วตัดตามเส้นประ (รายละเอียดเหมือนใบเต็ม) -->
+@if (print.billsToPrint().length > 0) {
+  <div id="bills-print-all">
+    @for (bill of print.billsToPrint(); track bill.id) {
+      <div class="slip">
+        <div class="slip-head">
+          <span class="slip-org">{{ print.orgName }}</span>
+          <span>เลขที่ {{ bill.id }} · {{ print.monthLabel(bill.billing_month, bill.billing_year) }}</span>
+        </div>
+
+        <div class="slip-title">ใบแจ้งค่าน้ำประปา</div>
+
+        <!-- ข้อมูลผู้ใช้น้ำ -->
+        <div class="slip-rows">
+          <div class="slip-r">
+            <span>บ้านเลขที่</span>
+            <span class="slip-strong">{{ bill.member?.house_no || '—' }}</span>
+          </div>
+          <div class="slip-r">
+            <span>ชื่อผู้ใช้น้ำ</span>
+            <span>{{ print.ownerName(bill) }}</span>
+          </div>
+          <div class="slip-r">
+            <span>โทรศัพท์</span>
+            <span>{{ bill.member?.phone || '—' }}</span>
+          </div>
+        </div>
+
+        <!-- การใช้น้ำ -->
+        <div class="slip-rows">
+          <div class="slip-r">
+            <span>เลขมาตรครั้งก่อน</span>
+            <span>{{ bill.previous_unit }} ลบ.ม.</span>
+          </div>
+          <div class="slip-r">
+            <span>เลขมาตรครั้งนี้</span>
+            <span>{{ bill.current_unit }} ลบ.ม.</span>
+          </div>
+          <div class="slip-r">
+            <span>หน่วยที่ใช้</span>
+            <span class="slip-strong">{{ bill.usage_unit }} ลบ.ม.</span>
+          </div>
+          @if (bill.price_per_unit) {
+            <div class="slip-r">
+              <span>อัตราค่าน้ำ</span>
+              <span>{{ bill.price_per_unit | number:'1.2-2' }} บาท / ลบ.ม.</span>
+            </div>
+          }
+        </div>
+
+        <!-- ยอดที่ต้องชำระ -->
+        <div class="slip-total">
+          <span class="slip-total-label">ยอดที่ต้องชำระ</span>
+          <span class="slip-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</span>
+        </div>
+        <div class="slip-words">({{ print.bahtText(bill.total_amount) }})</div>
+
+        <div class="slip-foot">
+          <span>ชำระภายใน {{ print.dateLabel(print.dueDate(bill)) }} · {{ print.statusLabel(bill.payment_status) }}</span>
+          <span>ผู้รับเงิน ..................</span>
+        </div>
+      </div>
+    }
+  </div>
+}
+

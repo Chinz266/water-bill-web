@@ -231,6 +231,13 @@ p {
   margin-top: var(--sp-2);
 }
 
+/* ช่องกรอกที่วางคู่กันในแถวเดียว (grid) ต้องไม่มีระยะบน
+   ไม่งั้นช่องที่สองจะเลื่อนต่ำกว่าช่องแรกจนหัวข้อไม่ตรงแนวกัน */
+.form-row .field + .field,
+.picker-fields .field + .field {
+  margin-top: 0;
+}
+
 .field-label {
   display: block;
   margin-bottom: var(--sp-1);
@@ -288,6 +295,15 @@ select.field-input {
   background-position: right 14px center;
   background-size: 20px;
   cursor: pointer;
+}
+
+/* ช่องค้นหา — ใส่รูปแว่นขยายไว้ในช่องให้รู้ทันทีว่าพิมพ์เพื่อค้นหาได้ */
+.search-input {
+  padding-left: 46px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 15px center;
+  background-size: 20px;
 }
 
 .field-error {
@@ -704,55 +720,6 @@ button.chip:hover {
   text-decoration: none;
 }
 
-/* แถบการใช้น้ำ: ครั้งก่อน → ครั้งนี้ = หน่วยที่ใช้ */
-.usage-flow {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  align-items: center;
-  gap: 6px;
-}
-
-.usage-box {
-  padding: 12px 6px;
-  text-align: center;
-  background: var(--line-soft);
-  border-radius: var(--radius-sm);
-}
-
-.usage-box.is-result {
-  background: var(--primary-soft-2);
-}
-
-.usage-num {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.usage-label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.usage-op {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-/* บรรทัดวิธีคิดเงิน */
-.calc-line {
-  padding: 12px 16px;
-  text-align: center;
-  font-size: 16px;
-  background: var(--line-soft);
-  border-radius: var(--radius-sm);
-}
-
-.calc-result {
-  font-weight: 700;
-}
-
 /* รายการข้อมูลเอกสาร */
 .detail-list {
   margin: 0;
@@ -800,13 +767,23 @@ button.chip:hover {
 }
 
 @media print {
-  /* ซ่อนหน้าจอปกติทั้งหมด เหลือเฉพาะเอกสารที่จะพิมพ์
+  /* ซ่อนทุกอย่างบนหน้าจอ เหลือเฉพาะเอกสารที่จะพิมพ์
+     ต้องซ่อนที่ระดับลูกของ app-root ทั้งหมด ไม่ใช่ไล่ระบุทีละหน้า
+     เพราะ main.main-content มี padding ที่ถูกพิมพ์ติดไปด้วยจนกระดาษเหลือไม่พอ
      (ใช้ display ไม่ใช่ visibility เพราะเอกสารหลายใบต้องไหลข้ามหน้าได้) */
-  app-navbar,
-  ngx-sonner-toaster,
-  .history,
-  .modal-overlay {
+  app-root > *:not(app-bill-print) {
     display: none !important;
+  }
+
+  /* ล้างขอบของหน้าเว็บออกให้หมด ให้เหลือแต่ระยะขอบของกระดาษจริง */
+  html,
+  body,
+  app-root,
+  app-bill-print {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
   }
 
   #bill-print,
@@ -880,20 +857,18 @@ button.chip:hover {
     border-bottom: 1px solid #999;
   }
 
-  /* ข้อมูลผู้ใช้น้ำ */
-  .rc-info {
-    width: 100%;
-    border-collapse: collapse;
+  /* รายการข้อมูล: หัวข้อซ้าย ค่าขวา (แบบเดียวกับสลิปบิลรวม) */
+  .rc-rows {
+    padding: 2px 0;
   }
 
-  .rc-info td {
-    padding: 3px 0;
+  .rc-r {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 2px 0;
     font-size: 14px;
-    width: 50%;
-  }
-
-  .rc-label {
-    font-weight: 600;
   }
 
   /* การใช้น้ำแบบเห็นภาพ: ครั้งก่อน → ครั้งนี้ = หน่วยที่ใช้ */
@@ -1033,16 +1008,25 @@ button.chip:hover {
      A4 สูง 29.7 ซม. หักขอบบน-ล่าง 2.4 ซม. เหลือ 27.3 ซม.
      ใบละ 9 ซม. × 3 ใบ = 27 ซม. → ลงตัวพอดี 3 ใบต่อแผ่น
      (อยากได้ 4 ใบต่อแผ่นแบบเดิม เปลี่ยน height เป็น 6.7cm แต่รายละเอียดจะแน่นขึ้น) */
+  /* 8.2 ซม. x 3 = 24.6 ซม. — เผื่อไว้เพราะเบราว์เซอร์มักใช้ระยะขอบเริ่มต้นของตัวเอง
+     (~1.9 ซม./ด้าน) แทนค่า @page ด้านล่าง ถ้าตั้ง 8.8 ซม. ใบที่ 3 จะตกไปหน้าถัดไป */
   .slip {
-    height: 9cm;
+    height: 8.2cm;
     box-sizing: border-box;
-    padding: 4mm 6mm;
+    padding: 3mm 6mm;
     border-bottom: 1px dashed #777;
     overflow: hidden;
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5px;
+    line-height: 1.35;
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* บังคับขึ้นแผ่นใหม่ทุก 3 ใบ — กันใบที่ 3 หล่นไปหน้าถัดไปเวลาเครื่องพิมพ์เผื่อขอบต่างกัน
+     (ไม่ตัดหลังใบสุดท้าย ไม่งั้นจะได้กระดาษเปล่าเพิ่มมาอีกแผ่น) */
+  .slip:nth-child(3n):not(:last-child) {
+    break-after: page;
+    page-break-after: always;
   }
 
   .slip-head {

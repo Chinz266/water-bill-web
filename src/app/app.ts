@@ -4,11 +4,12 @@ import { NgxSonnerToaster } from 'ngx-sonner';
 import { RouterModule } from '@angular/router';
 import { Navbar } from './layout/navbar/navbar'; // 🌟 ดึง Navbar มาใช้
 import { AuthService } from './features/auth/services/auth.service';
+import { BillPrintComponent } from './features/meter-reading/components/bill-print/bill-print';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [NgxSonnerToaster, RouterModule, Navbar], // 🌟 เอามาใส่ใน imports
+  imports: [NgxSonnerToaster, RouterModule, Navbar, BillPrintComponent], // 🌟 เอามาใส่ใน imports
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
