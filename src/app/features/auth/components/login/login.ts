@@ -54,8 +54,9 @@ export class LoginComponent {
     this.form.disable();
 
     this.auth.login(this.form.getRawValue()).subscribe({
-      next: (admin) => {
-        toast.success(`ยินดีต้อนรับ ${admin.fname}`, { id: 'login-success' });
+      next: (result) => {
+        // หลังบ้านคืน { access_token, user } แล้ว — ชื่ออยู่ใน user
+        toast.success(`ยินดีต้อนรับ ${result.user.fname}`, { id: 'login-success' });
         // ถ้าถูกเด้งมาจากหน้าที่ต้องล็อกอิน ให้พากลับไปหน้านั้น ไม่งั้นเข้า home
         const redirectTo = this.route.snapshot.queryParamMap.get('redirectTo');
         this.router.navigateByUrl(redirectTo || '/home');

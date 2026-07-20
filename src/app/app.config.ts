@@ -1,7 +1,8 @@
 import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
+import { authInterceptor } from './features/auth/interceptors/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -9,6 +10,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     // 🌟 withFetch() = ให้ HttpClient ใช้ fetch แทน XHR
     // จำเป็นตอนทำ SSR เพราะ XHR ฝั่ง server ถูกประกาศเลิกใช้แล้ว (NG02801)
-    provideHttpClient(withFetch())
+    // 🔐 withInterceptors([authInterceptor]) = แนบ JWT ให้ทุก request อัตโนมัติ
+    //    ถ้าไม่มีตัวนี้ ทุกหน้าจะได้ 401 เพราะหลังบ้านเปิด guard แบบ global แล้ว
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor]))
   ]
 };
