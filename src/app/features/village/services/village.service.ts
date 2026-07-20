@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { API_BASE_URL } from '../../../core/api.config';
 
 // ตรงกับ VillageEntity ฝั่งหลังบ้าน
 export interface Village {
@@ -32,7 +33,7 @@ export interface UpdateVillagePayload {
 
 @Injectable({ providedIn: 'root' })
 export class VillageService {
-  private baseUrl = 'http://localhost:3000/villages';
+  private baseUrl = `${API_BASE_URL}/villages`;
   private http = inject(HttpClient);
 
   getVillages(): Observable<Village[]> {

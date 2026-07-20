@@ -111,6 +111,18 @@
         <button type="button" class="modal-close" (click)="closeAddModal()" aria-label="ปิด">✕</button>
       </div>
 
+      @if (villages.length > 1) {
+        <div class="field">
+          <label class="field-label" for="add-village">หมู่บ้าน <span class="field-required">*</span></label>
+          <select id="add-village" class="field-input" [(ngModel)]="newMember.villages_id">
+            <option [ngValue]="null" disabled>— เลือกหมู่บ้าน —</option>
+            @for (village of villages; track village.id) {
+              <option [ngValue]="village.id">{{ villageLabel(village) }}</option>
+            }
+          </select>
+        </div>
+      }
+
       <div class="field">
         <label class="field-label" for="add-house">บ้านเลขที่ <span class="field-required">*</span></label>
         <input
@@ -199,6 +211,17 @@
         <h2 class="modal-title">แก้ไขข้อมูลบ้านเลขที่ {{ editingMember.house_no }}</h2>
         <button type="button" class="modal-close" (click)="closeEditModal()" aria-label="ปิด">✕</button>
       </div>
+
+      @if (villages.length > 1) {
+        <div class="field">
+          <label class="field-label" for="edit-village">หมู่บ้าน <span class="field-required">*</span></label>
+          <select id="edit-village" class="field-input" [(ngModel)]="editingMember.villages_id">
+            @for (village of villages; track village.id) {
+              <option [ngValue]="village.id">{{ villageLabel(village) }}</option>
+            }
+          </select>
+        </div>
+      }
 
       <div class="field">
         <label class="field-label" for="edit-house">บ้านเลขที่ <span class="field-required">*</span></label>

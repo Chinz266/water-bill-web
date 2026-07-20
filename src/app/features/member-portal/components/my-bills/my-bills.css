@@ -1,0 +1,236 @@
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- แถบบนของพอร์ทัลลูกบ้าน ---------- */
+.portal-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.portal-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  font-size: 22px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+
+.portal-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.portal-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.portal-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- เนื้อหา ---------- */
+.portal-content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.house-picker {
+  margin-bottom: 16px;
+}
+
+/* การ์ดยอดค้างชำระ — จุดเด่นของหน้า */
+.due-card {
+  text-align: center;
+  margin-bottom: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--warning-soft) 140%);
+}
+
+.due-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.due-amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.due-amount .big-value {
+  font-size: 48px;
+}
+
+.due-note {
+  font-weight: 600;
+  color: #b45309;
+}
+
+.due-hint {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* การ์ดจ่ายครบแล้ว */
+.paid-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--success-soft) 140%);
+}
+
+.paid-emoji {
+  font-size: 36px;
+}
+
+.paid-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--success);
+}
+
+/* ---------- รายการบิล ---------- */
+.section-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.bill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* การ์ดบิลกดได้ทั้งใบ — ปุ่มใหญ่กดง่ายบนมือถือ */
+.bill-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  font-family: inherit;
+  font-size: 16px;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.bill-item:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.bill-item-main {
+  min-width: 0;
+}
+
+.bill-month {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.bill-house {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.bill-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bill-amount {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---------- รายละเอียดบิล (ใช้โครงเดียวกับฝั่งเจ้าหน้าที่) ---------- */
+.detail-sub {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.detail-total {
+  text-align: center;
+}
+
+.detail-amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.detail-heading {
+  margin: 24px 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.detail-list {
+  margin: 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.detail-row dt {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.detail-row dd {
+  margin: 0;
+  text-align: right;
+}

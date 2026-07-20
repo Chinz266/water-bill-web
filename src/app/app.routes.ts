@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { MeterCropperComponent } from './features/meter-reading/components/meter-cropper/meter-cropper';
 import { BillingHistoryComponent } from './features/meter-reading/components/billing-history/billing-history';
 import { HomeComponent } from './features/home/home';
-import { authGuard, guestGuard } from './features/auth/guards/auth.guard';
+import { authGuard, guestGuard, memberGuard } from './features/auth/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -32,5 +32,17 @@ export const routes: Routes = [
     path: 'village-settings',
     canActivate: [authGuard],
     loadComponent: () => import('./features/village/components/village-settings/village-settings').then(m => m.VillageSettingsComponent),
+  },
+
+  // 🏠 พอร์ทัลลูกบ้าน — URL แยกจากฝั่งเจ้าหน้าที่ ล็อกอินด้วยเบอร์โทร
+  {
+    path: 'member/login',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/member-portal/components/member-login/member-login').then(m => m.MemberLoginComponent),
+  },
+  {
+    path: 'member/bills',
+    canActivate: [memberGuard],
+    loadComponent: () => import('./features/member-portal/components/my-bills/my-bills').then(m => m.MyBillsComponent),
   },
 ];

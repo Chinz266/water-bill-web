@@ -1,0 +1,91 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">🏠</div>
+      <h1>{{ isRegisterMode() ? 'สมัครบัญชีลูกบ้าน' : 'ดูบิลค่าน้ำบ้านของคุณ' }}</h1>
+      <p>
+        {{ isRegisterMode()
+            ? 'ใช้เบอร์โทรที่แจ้งไว้กับหมู่บ้านตอนลงทะเบียนบ้าน'
+            : 'เข้าสู่ระบบด้วยเบอร์โทรที่แจ้งไว้กับหมู่บ้าน' }}
+      </p>
+    </div>
+
+    <form class="auth-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="field">
+        <label for="phone">เบอร์โทรศัพท์</label>
+        <input
+          id="phone"
+          type="tel"
+          formControlName="phone"
+          placeholder="เช่น 0812345678"
+          autocomplete="tel"
+          inputmode="tel"
+          [class.invalid]="phone.invalid && phone.touched"
+        />
+        @if (phone.touched && phone.hasError('required')) {
+          <div class="field-error">กรุณากรอกเบอร์โทรศัพท์</div>
+        } @else if (phone.touched && phone.hasError('pattern')) {
+          <div class="field-error">เบอร์โทรไม่ถูกต้อง (ต้องมี 9-10 หลัก เช่น 0812345678)</div>
+        }
+      </div>
+
+      <div class="field">
+        <label for="password">รหัสผ่าน</label>
+        <div class="password-wrap">
+          <input
+            id="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            [placeholder]="isRegisterMode() ? 'ตั้งรหัสผ่าน อย่างน้อย 6 ตัวอักษร' : 'กรอกรหัสผ่าน'"
+            [autocomplete]="isRegisterMode() ? 'new-password' : 'current-password'"
+            [class.invalid]="password.invalid && password.touched"
+          />
+          <button
+            type="button"
+            class="toggle-password"
+            (click)="togglePassword()"
+            [attr.aria-label]="showPassword() ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+          >
+            {{ showPassword() ? '🙈' : '👁️' }}
+          </button>
+        </div>
+        @if (password.touched && password.hasError('required')) {
+          <div class="field-error">กรุณากรอกรหัสผ่าน</div>
+        } @else if (password.touched && password.hasError('minlength')) {
+          <div class="field-error">รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร</div>
+        }
+      </div>
+
+      @if (errorMessage()) {
+        <div class="alert" role="alert">
+          <span>⚠️</span>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <button type="submit" class="submit-btn" [disabled]="submitting()">
+        @if (submitting()) {
+          <span class="btn-spinner"></span>
+          {{ isRegisterMode() ? 'กำลังสมัครบัญชี...' : 'กำลังเข้าสู่ระบบ...' }}
+        } @else {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+          {{ isRegisterMode() ? 'สมัครบัญชี' : 'เข้าสู่ระบบ' }}
+        }
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      @if (isRegisterMode()) {
+        มีบัญชีอยู่แล้ว?
+        <a href="javascript:void(0)" (click)="switchMode()">เข้าสู่ระบบ</a>
+      } @else {
+        ยังไม่เคยเข้าใช้งาน?
+        <a href="javascript:void(0)" (click)="switchMode()">สมัครบัญชีครั้งแรก</a>
+      }
+    </div>
+
+    <p class="staff-link">
+      เป็นเจ้าหน้าที่หมู่บ้าน? <a routerLink="/login">เข้าสู่ระบบเจ้าหน้าที่</a>
+    </p>
+  </div>
+</div>

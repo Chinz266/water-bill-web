@@ -16,6 +16,7 @@ import { BillPrintComponent } from './features/meter-reading/components/bill-pri
 export class AppComponent {
   title = 'water-bill-web';
 
-  // 🌟 ใช้ตัดสินใจว่าจะโชว์ navbar ไหม — หน้า login/register ไม่ต้องมี navbar
-  readonly isLoggedIn = inject(AuthService).isLoggedIn;
+  // 🌟 navbar เจ้าหน้าที่โชว์เฉพาะตอนล็อกอินเป็น admin เท่านั้น
+  //    ลูกบ้าน (role member) มีแถบบนของตัวเองในหน้า my-bills — เมนูสแกน/ลูกบ้านไม่เกี่ยวกับเขา
+  readonly isAdmin = inject(AuthService).isAdmin;
 }

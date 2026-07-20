@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { API_BASE_URL } from '../../../core/api.config';
 
 // เรทค่าน้ำที่ใช้อยู่จริงในระบบ (หลังบ้านคืน price_per_unit มาเป็น string เช่น '15.00')
 export interface WaterRate {
   id: number;
   price_per_unit: string | number;
   status: string;
+  create_date?: string;
 }
 
 // การจดมิเตอร์ 1 ครั้งของบ้าน 1 หลัง
@@ -21,8 +23,7 @@ export interface MeterReading {
   providedIn: 'root'
 })
 export class MeterReadingService {
-  // เปลี่ยน URL ให้ตรงกับพอร์ตของ NestJS หลังบ้าน
-  private apiUrl = 'http://localhost:3000'; // 🌟 แก้ไข URL ให้ตรงกับพอร์ตของ NestJS หลังบ้าน
+  private apiUrl = API_BASE_URL;
 
   constructor(private http: HttpClient) { }
 
@@ -34,6 +35,20 @@ export class MeterReadingService {
   // 🌟 2. ดึงเรทค่าน้ำที่ใช้งานอยู่ตอนนี้ (ห้าม hardcode id เพราะเรทเปลี่ยนได้ทุกปี)
   getActiveWaterRate(): Observable<WaterRate> {
     return this.http.get<WaterRate>(`${this.apiUrl}/water-rates/active`);
+  }
+
+  // ประวัติเรทค่าน้ำทั้งหมด (ใหม่สุดก่อน) — ใช้ในหน้าตั้งค่า
+  getWaterRates(): Observable<WaterRate[]> {
+    return this.http.get<WaterRate[]>(`${this.apiUrl}/water-rates`);
+  }
+
+  // ตั้งเรทค่าน้ำใหม่ — หลังบ้านจะปิดเรทเก่าให้อัตโนมัติ เรทใหม่มีผลกับบิลที่ออกหลังจากนี้
+  createWaterRate(pricePerUnit: number, createBy: number): Observable<WaterRate> {
+    return this.http.post<WaterRate>(`${this.apiUrl}/water-rates`, {
+      price_per_unit: pricePerUnit,
+      status: 'Active',
+      create_by: createBy
+    });
   }
 
   // 🌟 3. ดึงประวัติการจดมิเตอร์ของบ้านหลังหนึ่ง (เรียงใหม่สุดมาก่อน) เอาไว้หาเลขมิเตอร์เดือนที่แล้ว

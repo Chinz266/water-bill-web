@@ -1,0 +1,173 @@
+<!-- แถบบนแบบเรียบง่ายของฝั่งลูกบ้าน (ไม่มีเมนูอื่น เพราะมีหน้าเดียว) -->
+<header class="portal-bar">
+  <div class="portal-brand">
+    <span class="portal-mark">💧</span>
+    <div class="portal-text">
+      <span class="portal-title">บิลค่าน้ำบ้านของฉัน</span>
+      <span class="portal-sub">สวัสดี, {{ displayName() }}</span>
+    </div>
+  </div>
+  <button type="button" class="btn btn-ghost btn-sm" (click)="onLogout()">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+    ออกจากระบบ
+  </button>
+</header>
+
+<div class="portal-content">
+  <!-- กำลังโหลด -->
+  @if (isLoading) {
+    <div class="card">
+      <p class="loading-note">
+        <span class="loading-dot"></span> กำลังโหลดบิลของคุณ รอสักครู่นะครับ...
+      </p>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>
+  }
+
+  @if (!isLoading) {
+    <!-- ดูแลหลายบ้าน → เลือกบ้านก่อน -->
+    @if (houses.length > 1) {
+      <div class="card house-picker">
+        <label class="field-label" for="house-select">เลือกบ้านที่ต้องการดู</label>
+        <select id="house-select" class="field-input" [(ngModel)]="selectedHouseId">
+          <option value="">ทุกบ้านที่ฉันดูแล ({{ houses.length }} หลัง)</option>
+          @for (house of houses; track house.id) {
+            <option [value]="house.id">บ้านเลขที่ {{ house.house_no }}</option>
+          }
+        </select>
+      </div>
+    }
+
+    <!-- การ์ดสรุปยอดค้างชำระ — สิ่งแรกที่ลูกบ้านอยากรู้ -->
+    @if (unpaidCount > 0) {
+      <div class="card due-card">
+        <span class="due-label">ยอดที่ต้องชำระตอนนี้</span>
+        <p class="due-amount">
+          <span class="big-value">{{ unpaidTotal | number:'1.2-2' }}</span>
+          <span class="value-unit">บาท</span>
+        </p>
+        <p class="due-note">
+          ค้างชำระ {{ unpaidCount }} รายการ
+          @if (latestUnpaid && dueDate(latestUnpaid)) {
+            · ชำระภายใน {{ dateLabel(dueDate(latestUnpaid)) }}
+          }
+        </p>
+        <p class="due-hint text-muted">ชำระได้ที่ที่ทำการหมู่บ้าน หรือติดต่อเจ้าหน้าที่เก็บค่าน้ำ</p>
+      </div>
+    } @else if (visibleBills.length > 0) {
+      <div class="card paid-card">
+        <span class="paid-emoji">🎉</span>
+        <div>
+          <p class="paid-title">ชำระครบทุกรายการแล้ว</p>
+          <p class="text-muted">ขอบคุณที่ชำระตรงเวลานะครับ</p>
+        </div>
+      </div>
+    }
+
+    <!-- รายการบิลทั้งหมด -->
+    @if (visibleBills.length > 0) {
+      <h2 class="section-title">บิลทั้งหมด</h2>
+      <div class="bill-list">
+        @for (bill of visibleBills; track bill.id) {
+          <button type="button" class="card bill-item" (click)="openDetail(bill)">
+            <div class="bill-item-main">
+              <p class="bill-month">{{ monthLabel(bill.billing_month, bill.billing_year) }}</p>
+              <p class="text-muted bill-house">
+                บ้านเลขที่ {{ bill.member?.house_no || '—' }} · ใช้น้ำ {{ bill.usage_unit }} ลบ.ม.
+              </p>
+            </div>
+            <div class="bill-item-side">
+              <p class="bill-amount">{{ bill.total_amount | number:'1.2-2' }} <span class="value-unit">บาท</span></p>
+              <span
+                class="chip"
+                [class.chip-success]="bill.payment_status === 'Paid'"
+                [class.chip-warning]="bill.payment_status !== 'Paid'"
+              >
+                {{ statusLabel(bill.payment_status) }}
+              </span>
+            </div>
+          </button>
+        }
+      </div>
+    } @else {
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-art">💧</div>
+          <h2 class="empty-title">ยังไม่มีบิลค่าน้ำ</h2>
+          <p class="empty-text">เมื่อเจ้าหน้าที่จดมิเตอร์และออกบิลของบ้านคุณแล้ว บิลจะมาแสดงที่นี่ครับ</p>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- รายละเอียดบิลแบบเต็ม -->
+@if (selectedBill) {
+  <div class="modal-overlay" (click)="closeDetail()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">บิลรอบ{{ monthLabel(selectedBill.billing_month, selectedBill.billing_year) }}</h2>
+          <p class="text-muted detail-sub">บ้านเลขที่ {{ selectedBill.member?.house_no || '—' }}</p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeDetail()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="detail-total card-soft">
+        <span class="due-label">ยอดที่ต้องชำระ</span>
+        <p class="detail-amount">
+          <span class="big-value">{{ selectedBill.total_amount | number:'1.2-2' }}</span>
+          <span class="value-unit">บาท</span>
+        </p>
+        <span
+          class="chip"
+          [class.chip-success]="selectedBill.payment_status === 'Paid'"
+          [class.chip-warning]="selectedBill.payment_status !== 'Paid'"
+        >
+          {{ statusLabel(selectedBill.payment_status) }}
+        </span>
+        @if (selectedBill.payment_status !== 'Paid' && dueDate(selectedBill)) {
+          <p class="field-hint">ชำระภายใน {{ dateLabel(dueDate(selectedBill)) }}</p>
+        }
+      </div>
+
+      <h3 class="detail-heading">การใช้น้ำ</h3>
+      <dl class="detail-list">
+        <div class="detail-row">
+          <dt>วันที่จดมิเตอร์</dt>
+          <dd>{{ dateLabel(selectedBill.meter_reading?.reading_date) }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>เลขมิเตอร์ครั้งก่อน</dt>
+          <dd>{{ selectedBill.previous_unit }} ลบ.ม.</dd>
+        </div>
+        <div class="detail-row">
+          <dt>เลขมิเตอร์ครั้งนี้</dt>
+          <dd class="cell-strong">{{ selectedBill.current_unit }} ลบ.ม.</dd>
+        </div>
+        <div class="detail-row">
+          <dt>ใช้น้ำไปทั้งหมด</dt>
+          <dd class="cell-strong">{{ selectedBill.usage_unit }} ลบ.ม.</dd>
+        </div>
+        @if (selectedBill.price_per_unit) {
+          <div class="detail-row">
+            <dt>วิธีคิด</dt>
+            <dd class="text-muted">
+              {{ selectedBill.usage_unit }} ลบ.ม. × {{ selectedBill.price_per_unit | number:'1.2-2' }} บาท
+              = {{ selectedBill.total_amount | number:'1.2-2' }} บาท
+            </dd>
+          </div>
+        }
+      </dl>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeDetail()">ปิด</button>
+        <button type="button" class="btn btn-primary" (click)="printBill(selectedBill)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+          พิมพ์ / บันทึกบิล
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -7,6 +7,7 @@ import { MemberService } from '../../services/member.service';
 import { MeterReadingService } from '../../../meter-reading/services/meter-reading.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
+import { Village, VillageService } from '../../../village/services/village.service';
 
 @Component({
   selector: 'app-member-list',
@@ -20,12 +21,15 @@ export class MemberListComponent implements OnInit {
   isLoading = true;
   isFetching = false;
 
+  // 🌟 หมู่บ้านจริงจากระบบ — บ้านทุกหลังต้องสังกัดหมู่บ้าน (เลิก hardcode villages_id: 1)
+  villages: Village[] = [];
+
   showAddModal: boolean = false;
   // initial_unit = เลขมิเตอร์ ณ วันลงทะเบียน เอาไว้เป็นจุดตั้งต้นให้บิลเดือนแรกคิดถูก
-  newMember: any = { house_no: '', fname: '', lname: '', phone: '', villages_id: 1, initial_unit: null };
+  newMember: any = { house_no: '', fname: '', lname: '', phone: '', villages_id: null, initial_unit: null };
 
   showEditModal: boolean = false;
-  editingMember: any = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: 1 };
+  editingMember: any = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: null };
 
   // 🌟 ลูกบ้านที่กำลังจะลบ — ใช้เปิดหน้าต่างยืนยันก่อนลบจริง
   memberToDelete: any = null;
@@ -38,11 +42,27 @@ export class MemberListComponent implements OnInit {
 
   constructor(
     private memberService: MemberService,
-    private meterReadingService: MeterReadingService
+    private meterReadingService: MeterReadingService,
+    private villageService: VillageService
   ) { }
 
   ngOnInit(): void {
     this.loadMembers();
+
+    this.villageService.getVillages().subscribe({
+      next: (villages) => {
+        this.villages = villages ?? [];
+      },
+      error: (err) => {
+        console.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ:', err);
+        toast.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ กรุณาลองเปิดหน้านี้ใหม่', { id: 'village-load-error' });
+      }
+    });
+  }
+
+  /** ชื่อหมู่บ้านไว้โชว์ใน dropdown เช่น "หมู่ 4 — หมู่บ้านอยู่สบาย" */
+  villageLabel(village: Village): string {
+    return [village.village_no, village.village_name].filter(Boolean).join(' — ');
   }
 
   loadMembers() {
@@ -92,17 +112,26 @@ export class MemberListComponent implements OnInit {
 
   // --- การจัดการเพิ่มข้อมูล ---
   openAddModal() {
+    // มีหมู่บ้านเดียว (กรณีปกติของระบบหมู่บ้านเดี่ยว) เลือกให้เลย ไม่ต้องให้ผู้ใช้กดเอง
+    if (this.newMember.villages_id === null && this.villages.length === 1) {
+      this.newMember.villages_id = this.villages[0].id;
+    }
     this.showAddModal = true;
   }
 
   closeAddModal() {
     this.showAddModal = false;
-    this.newMember = { house_no: '', fname: '', lname: '', phone: '', villages_id: 1, initial_unit: null };
+    this.newMember = { house_no: '', fname: '', lname: '', phone: '', villages_id: null, initial_unit: null };
     this.addErrors = { house_no: '', fname: '', phone: '' }; // ล้าง error ทิ้ง
   }
 
   saveMember() {
     if (!this.validateMember(this.newMember, this.addErrors)) return;
+
+    if (!this.newMember.villages_id) {
+      toast.error('กรุณาเลือกหมู่บ้านก่อนบันทึกนะครับ', { id: 'need-village' });
+      return;
+    }
 
     const adminId = this.auth.admin()?.id;
 
@@ -165,7 +194,7 @@ export class MemberListComponent implements OnInit {
 
   closeEditModal() {
     this.showEditModal = false;
-    this.editingMember = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: 1 };
+    this.editingMember = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: null };
     this.editErrors = { house_no: '', fname: '', phone: '' }; // ล้าง error ทิ้ง
   }
 

@@ -1,9 +1,109 @@
 <div class="page-head">
   <h1 class="page-title">⚙️ ตั้งค่าหมู่บ้าน</h1>
   <p class="page-subtitle">
-    ข้อมูลในหน้านี้จะถูกนำไปแสดงบนใบเสร็จค่าน้ำ และใช้กำหนดรอบการออกบิล
+    ข้อมูลในหน้านี้จะถูกนำไปแสดงบนใบเสร็จค่าน้ำ และใช้กำหนดรอบการออกบิลกับเรทค่าน้ำ
   </p>
 </div>
+
+<!-- 💧 เรทค่าน้ำ — ราคาต่อหน่วยที่ใช้คิดบิลทุกใบ -->
+<div class="card rate-card">
+  <h2 class="section-heading">เรทค่าน้ำ</h2>
+
+  @if (activeRate) {
+    <div class="rate-current">
+      <span class="rate-label">ราคาที่ใช้คิดเงินตอนนี้</span>
+      <p class="rate-value">
+        <span class="big-value">{{ +activeRate.price_per_unit | number:'1.2-2' }}</span>
+        <span class="value-unit">บาท ต่อ 1 ลบ.ม.</span>
+      </p>
+    </div>
+  } @else {
+    <div class="alert alert-warning">
+      <span>⚠️</span>
+      <span>ยังไม่มีเรทค่าน้ำในระบบ — ต้องตั้งเรทก่อนถึงจะออกบิลได้</span>
+    </div>
+  }
+
+  <div class="rate-form">
+    <div class="field rate-field">
+      <label class="field-label" for="new-rate">ตั้งราคาใหม่ (บาทต่อหน่วย)</label>
+      <input
+        id="new-rate"
+        class="field-input"
+        type="number"
+        inputmode="decimal"
+        min="0"
+        step="0.25"
+        [(ngModel)]="newPrice"
+        placeholder="เช่น 15"
+      />
+      <p class="field-hint">มีผลกับบิลที่ออกหลังจากนี้ บิลเก่าไม่เปลี่ยน</p>
+    </div>
+    <button
+      type="button"
+      class="btn btn-primary rate-btn"
+      (click)="askSaveRate()"
+      [disabled]="isSavingRate() || !newPrice"
+    >
+      @if (isSavingRate()) {
+        <span class="btn-spinner"></span> กำลังบันทึก...
+      } @else {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+        บันทึกเรทใหม่
+      }
+    </button>
+  </div>
+
+  @if (rates().length > 1) {
+    <h3 class="rate-history-title">ประวัติการปรับราคา</h3>
+    <ul class="rate-history">
+      @for (rate of rates().slice(0, 5); track rate.id) {
+        <li class="rate-history-row">
+          <span class="rate-history-price">{{ +rate.price_per_unit | number:'1.2-2' }} บาท/หน่วย</span>
+          <span class="text-muted">{{ rateDateLabel(rate.create_date) }}</span>
+          @if (rate.status === 'Active') {
+            <span class="chip chip-success">ใช้อยู่</span>
+          } @else {
+            <span class="chip chip-muted">เลิกใช้แล้ว</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+<!-- กล่องยืนยันก่อนเปลี่ยนเรท (เรื่องเงิน ต้องยืนยันก่อน) -->
+@if (showRateConfirm) {
+  <div class="modal-overlay" (click)="cancelSaveRate()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">เปลี่ยนเรทค่าน้ำใช่ไหมครับ?</h2>
+        <button type="button" class="modal-close" (click)="cancelSaveRate()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>💧</span>
+        <span>
+          @if (activeRate) {
+            ราคาจะเปลี่ยนจาก <strong>{{ +activeRate.price_per_unit | number:'1.2-2' }}</strong>
+            เป็น <strong>{{ newPrice }}</strong> บาทต่อหน่วย
+          } @else {
+            ตั้งราคา <strong>{{ newPrice }}</strong> บาทต่อหน่วย
+          }
+          — บิลที่ออกหลังจากนี้จะคิดด้วยราคาใหม่ทันที
+        </span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="cancelSaveRate()">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="confirmSaveRate()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+          ยืนยันเปลี่ยนเรท
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
 @if (isLoading()) {
   <div class="card">

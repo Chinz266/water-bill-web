@@ -1,19 +1,23 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toast } from 'ngx-sonner';
 import { VillageService, Village } from '../../services/village.service';
+import { MeterReadingService, WaterRate } from '../../../meter-reading/services/meter-reading.service';
+import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 
 @Component({
   selector: 'app-village-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './village-settings.html',
   styleUrls: ['./village-settings.css'],
 })
 export class VillageSettingsComponent implements OnInit {
   private villageService = inject(VillageService);
+  private meterReadingService = inject(MeterReadingService);
+  private auth = inject(AuthService);
   private fb = inject(FormBuilder);
 
   readonly isLoading = signal(true);
@@ -35,8 +39,82 @@ export class VillageSettingsComponent implements OnInit {
   get villageName() { return this.form.controls.village_name; }
   get villageNo() { return this.form.controls.village_no; }
 
+  // ==========================================
+  // 💧 ส่วนเรทค่าน้ำ — ราคาต่อหน่วยที่ใช้คิดบิลทุกใบ
+  // ==========================================
+  readonly rates = signal<WaterRate[]>([]);
+  readonly isSavingRate = signal(false);
+  // ราคาที่กำลังจะตั้งใหม่ (ngModel) และสถานะเปิด/ปิดกล่องยืนยัน
+  newPrice: number | null = null;
+  showRateConfirm = false;
+
+  /** เรทที่ใช้คิดเงินอยู่ตอนนี้ (ตัว Active ล่าสุด) */
+  get activeRate(): WaterRate | null {
+    return this.rates().find((r) => r.status === 'Active') ?? null;
+  }
+
   ngOnInit(): void {
     this.loadVillage();
+    this.loadRates();
+  }
+
+  private loadRates(): void {
+    this.meterReadingService.getWaterRates().subscribe({
+      next: (rates) => this.rates.set(rates ?? []),
+      error: (err) => {
+        console.error('โหลดเรทค่าน้ำไม่สำเร็จ:', err);
+        toast.error(extractErrorMessage(err, 'โหลดเรทค่าน้ำไม่สำเร็จ'), { id: 'rate-load-error' });
+      },
+    });
+  }
+
+  /** กดปุ่มบันทึกเรท → เช็คค่าก่อน แล้วเปิดกล่องยืนยัน (เรื่องเงินต้องยืนยันก่อนเสมอ) */
+  askSaveRate(): void {
+    const price = Number(this.newPrice);
+    if (!price || isNaN(price) || price <= 0) {
+      toast.error('กรุณากรอกราคาต่อหน่วยเป็นตัวเลขมากกว่า 0', { id: 'rate-invalid' });
+      return;
+    }
+    this.showRateConfirm = true;
+  }
+
+  cancelSaveRate(): void {
+    this.showRateConfirm = false;
+  }
+
+  confirmSaveRate(): void {
+    const price = Number(this.newPrice);
+    const adminId = this.auth.admin()?.id;
+    if (!price || !adminId) return;
+
+    this.showRateConfirm = false;
+    this.isSavingRate.set(true);
+
+    this.meterReadingService.createWaterRate(price, adminId).subscribe({
+      next: () => {
+        this.isSavingRate.set(false);
+        this.newPrice = null;
+        this.loadRates();
+        toast.success(`ตั้งเรทค่าน้ำใหม่ ${price} บาท/หน่วย เรียบร้อยแล้ว`, { id: 'rate-saved' });
+      },
+      error: (err) => {
+        this.isSavingRate.set(false);
+        toast.error(extractErrorMessage(err, 'ตั้งเรทค่าน้ำไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'rate-save-error' });
+      },
+    });
+  }
+
+  /** '2026-07-21' → '21 กรกฎาคม 2569' สำหรับตารางประวัติเรท */
+  private readonly thMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+
+  rateDateLabel(value: string | undefined): string {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '—';
+    return `${d.getDate()} ${this.thMonths[d.getMonth()]} ${d.getFullYear() + 543}`;
   }
 
   private loadVillage(): void {

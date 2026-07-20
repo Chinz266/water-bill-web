@@ -359,6 +359,11 @@ select.field-input {
   background: var(--primary-soft-2);
 }
 
+.chip-muted {
+  color: var(--text-muted);
+  background: var(--line-soft);
+}
+
 button.chip {
   font-family: inherit;
   border: none;

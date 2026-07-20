@@ -1,33 +1,125 @@
-/* ใช้ตัวแปรสีจากธีม Sci-Fi ใน styles.css เป็นหลัก ไม่กำหนดสีนอกกรอบ */
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .village-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .section-heading {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-soft, rgba(255, 255, 255, 0.08));
+  padding-bottom: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--line-soft);
 }
 
 /* เว้นบนให้หัวข้อชุดที่สองเป็นต้นไป ให้แยกกลุ่มเห็นชัด */
 .section-heading + .section-hint {
-  margin-top: -0.75rem;
+  margin-top: -12px;
 }
 
 .village-form .section-heading:not(:first-child) {
-  margin-top: 0.75rem;
+  margin-top: 12px;
+}
+
+/* ---------- การ์ดเรทค่าน้ำ ---------- */
+.rate-card {
+  margin-bottom: 24px;
+}
+
+.rate-current {
+  margin: 16px 0;
+  padding: 16px 24px;
+  text-align: center;
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
+}
+
+.rate-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rate-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rate-form {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.rate-field {
+  flex: 1;
+}
+
+/* จัดปุ่มให้อยู่แนวเดียวกับช่องกรอก (เผื่อ label ด้านบนช่อง) */
+.rate-btn {
+  margin-top: 34px;
+  flex-shrink: 0;
+}
+
+.rate-history-title {
+  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.rate-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rate-history-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.rate-history-price {
+  flex: 1;
+  font-weight: 600;
 }
 
 /* จอเล็กให้ฟิลด์เรียงลงมาทีละอัน ไม่บีบกันจนอ่านยาก */
 @media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .rate-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rate-btn {
+    margin-top: 0;
   }
 }

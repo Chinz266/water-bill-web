@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { toast } from 'ngx-sonner';
 import { AuthService } from '../services/auth.service';
+import { API_BASE_URL } from '../../../core/api.config';
 
 /**
  * แนบ token ไปกับทุก request ที่ยิงไปหลังบ้าน
@@ -24,7 +25,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = authService.getToken();
 
   // ไม่ต้องแนบ token ให้ request ที่ไม่ได้ยิงหาหลังบ้านของเรา (เช่นโหลดไฟล์ static)
-  const isApiCall = req.url.startsWith('http://localhost:3000');
+  const isApiCall = req.url.startsWith(API_BASE_URL);
 
   const request = token && isApiCall
     ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })

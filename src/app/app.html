@@ -1,7 +1,7 @@
 <ngx-sonner-toaster [position]="'top-center'" [richColors]="true" [duration]="3000"></ngx-sonner-toaster>
 
-<!-- 🌟 ยังไม่ได้ล็อกอิน = ไม่ต้องโชว์ navbar (หน้า login/register จะเต็มจอ) -->
-@if (isLoggedIn()) {
+<!-- 🌟 navbar เจ้าหน้าที่โชว์เฉพาะ admin — หน้า login/register และพอร์ทัลลูกบ้านจะเต็มจอ -->
+@if (isAdmin()) {
   <app-navbar></app-navbar>
 
   <main class="main-content">
