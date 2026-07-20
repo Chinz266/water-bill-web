@@ -1,0 +1,133 @@
+<div class="page-head">
+  <h1 class="page-title">⚙️ ตั้งค่าหมู่บ้าน</h1>
+  <p class="page-subtitle">
+    ข้อมูลในหน้านี้จะถูกนำไปแสดงบนใบเสร็จค่าน้ำ และใช้กำหนดรอบการออกบิล
+  </p>
+</div>
+
+@if (isLoading()) {
+  <div class="card">
+    <div class="skeleton-row"><div class="skeleton"></div></div>
+    <div class="skeleton-row"><div class="skeleton"></div></div>
+    <div class="skeleton-row"><div class="skeleton"></div></div>
+    <p class="loading-note">กำลังโหลดข้อมูลหมู่บ้าน...</p>
+  </div>
+} @else if (loadError()) {
+  <div class="alert alert-danger">{{ loadError() }}</div>
+} @else {
+  <form class="card village-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+
+    <h2 class="section-heading">ข้อมูลหมู่บ้าน</h2>
+
+    <div class="form-row">
+      <div class="field">
+        <label class="field-label" for="village_name">
+          ชื่อหมู่บ้าน <span class="field-required">*</span>
+        </label>
+        <input
+          id="village_name"
+          class="field-input"
+          type="text"
+          formControlName="village_name"
+          placeholder="เช่น หมู่บ้านอยู่สบาย"
+          [class.invalid]="villageName.invalid && villageName.touched"
+        />
+        @if (villageName.touched && villageName.hasError('required')) {
+          <div class="field-error">กรุณากรอกชื่อหมู่บ้าน</div>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="village_no">
+          หมู่ที่ <span class="field-required">*</span>
+        </label>
+        <input
+          id="village_no"
+          class="field-input"
+          type="text"
+          formControlName="village_no"
+          placeholder="เช่น หมู่ 4"
+          [class.invalid]="villageNo.invalid && villageNo.touched"
+        />
+        @if (villageNo.touched && villageNo.hasError('required')) {
+          <div class="field-error">กรุณากรอกหมู่ที่</div>
+        }
+      </div>
+    </div>
+
+    <h2 class="section-heading">ผู้ดูแลหมู่บ้าน</h2>
+    <p class="field-hint section-hint">ชื่อที่กรอกไว้จะถูกนำไปแสดงบนใบเสร็จค่าน้ำ</p>
+
+    <div class="form-row">
+      <div class="field">
+        <label class="field-label" for="headman_name">ชื่อผู้ใหญ่บ้าน</label>
+        <input
+          id="headman_name"
+          class="field-input"
+          type="text"
+          formControlName="headman_name"
+          placeholder="เช่น นายสมชาย ใจดี"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="deputy_headman_name">ชื่อผู้ช่วยผู้ใหญ่บ้าน</label>
+        <input
+          id="deputy_headman_name"
+          class="field-input"
+          type="text"
+          formControlName="deputy_headman_name"
+          placeholder="เช่น นายสมปอง รักสงบ"
+        />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label class="field-label" for="phone">เบอร์โทรติดต่อหมู่บ้าน</label>
+        <input
+          id="phone"
+          class="field-input"
+          type="tel"
+          inputmode="tel"
+          formControlName="phone"
+          placeholder="เช่น 0812345678"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="billing_month">รอบการออกบิล</label>
+        <input
+          id="billing_month"
+          class="field-input"
+          type="text"
+          formControlName="billing_month"
+          placeholder="เช่น EVERY_MONTH"
+        />
+        <div class="field-hint">ใส่ EVERY_MONTH หากออกบิลทุกเดือน</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button
+        type="button"
+        class="btn btn-ghost"
+        (click)="onReset()"
+        [disabled]="isSaving() || form.pristine"
+      >
+        ยกเลิกการแก้ไข
+      </button>
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="isSaving() || form.pristine"
+      >
+        @if (isSaving()) {
+          <span class="btn-spinner"></span> กำลังบันทึก...
+        } @else {
+          บันทึกข้อมูล
+        }
+      </button>
+    </div>
+  </form>
+}

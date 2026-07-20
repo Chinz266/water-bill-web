@@ -1,0 +1,33 @@
+/* ใช้ตัวแปรสีจากธีม Sci-Fi ใน styles.css เป็นหลัก ไม่กำหนดสีนอกกรอบ */
+
+.village-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.section-heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-soft, rgba(255, 255, 255, 0.08));
+}
+
+/* เว้นบนให้หัวข้อชุดที่สองเป็นต้นไป ให้แยกกลุ่มเห็นชัด */
+.section-heading + .section-hint {
+  margin-top: -0.75rem;
+}
+
+.village-form .section-heading:not(:first-child) {
+  margin-top: 0.75rem;
+}
+
+/* จอเล็กให้ฟิลด์เรียงลงมาทีละอัน ไม่บีบกันจนอ่านยาก */
+@media (max-width: 640px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}

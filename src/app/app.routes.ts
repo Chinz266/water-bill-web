@@ -28,4 +28,9 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/member/components/member-list/member-list').then(m => m.MemberListComponent),
   },
+  {
+    path: 'village-settings',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/village/components/village-settings/village-settings').then(m => m.VillageSettingsComponent),
+  },
 ];
