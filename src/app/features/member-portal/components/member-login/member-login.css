@@ -1,19 +1,1 @@
 /* สไตล์หลักอยู่ใน auth-shared.css — ไฟล์นี้ไว้ปรับเฉพาะหน้าลูกบ้าน */
-
-/* ลิงก์เล็ก ๆ พาเจ้าหน้าที่ที่หลงมากลับไปหน้าของตัวเอง */
-.staff-link {
-  margin-top: 16px;
-  text-align: center;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.staff-link a {
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: underline;
-}
-
-.staff-link a:hover {
-  color: var(--primary);
-}

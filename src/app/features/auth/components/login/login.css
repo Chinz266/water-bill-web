@@ -1,19 +1,1 @@
 /* สไตล์หลักอยู่ใน auth-shared.css — ไฟล์นี้ไว้ปรับเฉพาะหน้า login */
-
-/* ลิงก์เล็ก ๆ พาลูกบ้านที่หลงมาไปหน้าพอร์ทัลของตัวเอง */
-.member-link {
-  margin-top: 16px;
-  text-align: center;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.member-link a {
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: underline;
-}
-
-.member-link a:hover {
-  color: var(--primary);
-}

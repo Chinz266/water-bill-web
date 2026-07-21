@@ -1,7 +1,13 @@
 <div class="auth-page">
   <div class="auth-card">
+    <a class="back-link" routerLink="/welcome" queryParamsHandling="preserve">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+      เลือกประเภทผู้ใช้
+    </a>
+
     <div class="auth-header">
       <div class="auth-logo">🏠</div>
+      <span class="role-badge">สำหรับลูกบ้าน</span>
       <h1>{{ isRegisterMode() ? 'สมัครบัญชีลูกบ้าน' : 'ดูบิลค่าน้ำบ้านของคุณ' }}</h1>
       <p>
         {{ isRegisterMode()
@@ -84,8 +90,8 @@
       }
     </div>
 
-    <p class="staff-link">
-      เป็นเจ้าหน้าที่หมู่บ้าน? <a routerLink="/login">เข้าสู่ระบบเจ้าหน้าที่</a>
-    </p>
+    <a class="switch-role-btn" routerLink="/login" queryParamsHandling="preserve">
+      🧑‍💼 เป็นเจ้าหน้าที่หมู่บ้าน? เข้าสู่ระบบเจ้าหน้าที่ที่นี่
+    </a>
   </div>
 </div>

@@ -15,8 +15,9 @@ export const authGuard: CanActivateFn = (_route, state) => {
   if (auth.isAdmin()) return true;
   if (auth.isMember()) return router.createUrlTree(['/member/bills']);
 
-  // จำหน้าที่ผู้ใช้ตั้งใจจะเข้าไว้ พอล็อกอินเสร็จจะพากลับมาที่เดิม
-  return router.createUrlTree(['/login'], { queryParams: { redirectTo: state.url } });
+  // ยังไม่ได้ล็อกอิน → พาไปหน้าทางเข้าให้เลือกก่อนว่าเป็นลูกบ้านหรือเจ้าหน้าที่
+  // (redirectTo ถูกส่งต่อผ่านปุ่มบนหน้า welcome ไปถึงหน้า login พอสำเร็จจะพากลับมาที่เดิม)
+  return router.createUrlTree(['/welcome'], { queryParams: { redirectTo: state.url } });
 };
 
 // กันหน้าฝั่งลูกบ้าน — ต้องล็อกอินด้วยบัญชีลูกบ้าน (role member)

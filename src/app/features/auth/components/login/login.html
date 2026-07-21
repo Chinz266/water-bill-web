@@ -1,9 +1,15 @@
 <div class="auth-page">
   <div class="auth-card">
+    <a class="back-link" routerLink="/welcome" queryParamsHandling="preserve">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+      เลือกประเภทผู้ใช้
+    </a>
+
     <div class="auth-header">
-      <div class="auth-logo">💧</div>
-      <h1>ยินดีต้อนรับกลับมา</h1>
-      <p>ระบบจัดการค่าน้ำประปาหมู่บ้าน</p>
+      <div class="auth-logo">🧑‍💼</div>
+      <span class="role-badge">สำหรับเจ้าหน้าที่หมู่บ้าน</span>
+      <h1>เข้าสู่ระบบเจ้าหน้าที่</h1>
+      <p>จดมิเตอร์ ออกบิล และจัดการลูกบ้าน</p>
     </div>
 
     <form class="auth-form" [formGroup]="form" (ngSubmit)="onSubmit()">
@@ -73,8 +79,8 @@
       <a routerLink="/register">สมัครสมาชิก</a>
     </div>
 
-    <p class="member-link">
-      เป็นลูกบ้าน? <a routerLink="/member/login">ดูบิลค่าน้ำบ้านของคุณที่นี่</a>
-    </p>
+    <a class="switch-role-btn" routerLink="/member/login" queryParamsHandling="preserve">
+      🏠 เป็นลูกบ้าน? เข้าดูบิลบ้านของคุณที่นี่
+    </a>
   </div>
 </div>

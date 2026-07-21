@@ -7,7 +7,12 @@ import { authGuard, guestGuard, memberGuard } from './features/auth/guards/auth.
 export const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
 
-  // 🌟 หน้าที่เข้าได้ตอนยังไม่ได้ล็อกอิน (ถ้าล็อกอินอยู่แล้วจะเด้งไป /home)
+  // 🌟 หน้าที่เข้าได้ตอนยังไม่ได้ล็อกอิน (ถ้าล็อกอินอยู่แล้วจะเด้งไปหน้าแรกตาม role)
+  {
+    path: 'welcome',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/auth/components/welcome/welcome').then(m => m.WelcomeComponent),
+  },
   {
     path: 'login',
     canActivate: [guestGuard],
