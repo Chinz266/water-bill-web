@@ -13,6 +13,21 @@
 
   @if (members$ | async; as members) {
     @if (members.length > 0) {
+      <!-- 🔍 ช่องค้นหา — พิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทร -->
+      <div class="card search-card">
+        <label class="field-label" for="member-search">ค้นหาบ้านหรือเจ้าของบ้าน</label>
+        <input
+          id="member-search"
+          class="field-input"
+          type="search"
+          [(ngModel)]="searchTerm"
+          placeholder="เช่น 99/1, สมชาย หรือ 0812345678"
+        />
+      </div>
+
+      @let visibleMembers = filterMembers(members);
+
+      @if (visibleMembers.length > 0) {
       <!-- จอใหญ่: ตาราง -->
       <div class="table-card desktop-only">
         <div class="table-scroll">
@@ -26,7 +41,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (member of members; track member.id) {
+              @for (member of visibleMembers; track member.id) {
                 <tr>
                   <td class="cell-strong">{{ member.house_no }}</td>
                   <td>{{ member.fname }} {{ member.lname }}</td>
@@ -52,7 +67,7 @@
 
       <!-- มือถือ: การ์ดใบใหญ่ -->
       <div class="member-cards mobile-only">
-        @for (member of members; track member.id) {
+        @for (member of visibleMembers; track member.id) {
           <div class="card member-card">
             <div class="member-top">
               <span class="chip chip-info">บ้านเลขที่ {{ member.house_no }}</span>
@@ -75,6 +90,19 @@
           </div>
         }
       </div>
+      } @else {
+        <!-- ค้นหาแล้วไม่เจอ -->
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-art">🔍</div>
+            <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
+            <p class="empty-text">ลองพิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทรใหม่อีกครั้งนะครับ</p>
+            <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">
+              ล้างคำค้นหา
+            </button>
+          </div>
+        </div>
+      }
     } @else {
       <!-- ยังไม่มีข้อมูล -->
       <div class="card">

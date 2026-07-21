@@ -12,7 +12,12 @@
     </div>
 
     <label class="field-label" for="member-select">บ้านเลขที่ <span class="field-required">*</span></label>
-    <select id="member-select" class="field-input" [(ngModel)]="selectedMemberId">
+    <select
+      id="member-select"
+      class="field-input"
+      [(ngModel)]="selectedMemberId"
+      (ngModelChange)="onMemberChange()"
+    >
       <option [ngValue]="null" disabled>— เลือกบ้านเลขที่ —</option>
       @for (member of members; track member.id) {
         <option [ngValue]="member.id">
@@ -22,6 +27,18 @@
     </select>
     @if (members.length === 0) {
       <p class="field-hint">ยังไม่มีบ้านในระบบ กรุณาไปเพิ่มบ้านที่หน้า "ลูกบ้าน" ก่อนนะครับ</p>
+    } @else if (selectedMemberId && isLoadingPrevious) {
+      <p class="field-hint">
+        <span class="loading-dot"></span> กำลังดูเลขมิเตอร์ครั้งก่อน...
+      </p>
+    } @else if (selectedMemberId && previousReading !== null) {
+      <div class="prev-note">
+        เลขมิเตอร์ครั้งก่อนของบ้านนี้คือ
+        <strong>{{ previousReading | number }}</strong> หน่วย
+        @if (previousReading === 0) {
+          <span class="text-muted">(ยังไม่เคยจด ระบบจะคิดจาก 0)</span>
+        }
+      </div>
     } @else {
       <p class="field-hint">ระบบจะคิดค่าน้ำจากเลขมิเตอร์ครั้งก่อนของบ้านหลังนี้ให้เอง</p>
     }
@@ -164,24 +181,68 @@
         <p class="conf-text">{{ confidenceLabel }}</p>
       </div>
 
-      <label class="field-label meter-label" for="meter-value">เลขมิเตอร์ที่อ่านได้ (แก้ไขได้ถ้าไม่ตรง)</label>
-      <div class="meter-box">
-        <input
-          id="meter-value"
-          class="meter-input"
-          type="number"
-          inputmode="decimal"
-          [(ngModel)]="aiResult.read_unit"
-          placeholder="0"
-        />
-        <span class="meter-unit">หน่วย (ลบ.ม.)</span>
-      </div>
-      <p class="field-hint">ตรวจสอบกับหน้าปัดอีกครั้งนะครับ ถ้าไม่ตรงแก้ตัวเลขได้เลย</p>
+      <!-- รูปที่ถ่ายวางคู่ช่องกรอก ให้เทียบเลขกับหน้าปัดด้วยตาได้ทันที -->
+      <div class="verify">
+        <div class="verify-photo">
+          <span class="verify-cap">รูปที่ถ่าย</span>
+          <img [src]="croppedImage" alt="รูปมิเตอร์ที่ถ่าย" />
+        </div>
 
-      @if (saveSuccess) {
-        <div class="alert alert-success save-alert">
-          <span>🎉</span>
-          <span>บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้วครับ</span>
+        <div class="verify-input">
+          <label class="field-label meter-label" for="meter-value">เลขที่อ่านได้ (แก้ได้ถ้าไม่ตรง)</label>
+          <div class="meter-box">
+            <input
+              id="meter-value"
+              class="meter-input"
+              type="number"
+              inputmode="decimal"
+              [(ngModel)]="aiResult.read_unit"
+              [disabled]="saveSuccess"
+              placeholder="0"
+            />
+            <span class="meter-unit">หน่วย</span>
+          </div>
+          <p class="field-hint">ดูรูปทางซ้ายเทียบกับตัวเลขนี้นะครับ ถ้าไม่ตรงแก้ได้เลย</p>
+        </div>
+      </div>
+
+      <!-- สรุปการใช้น้ำสด ๆ ขณะแก้เลข -->
+      @if (previousReading !== null && usageUnit !== null && !isBelowPrevious) {
+        <div class="usage-summary">
+          <div class="usage-cell">
+            <span class="usage-cap">เดือนก่อน</span>
+            <span class="usage-val">{{ previousReading | number }}</span>
+          </div>
+          <span class="usage-op">→</span>
+          <div class="usage-cell">
+            <span class="usage-cap">เดือนนี้</span>
+            <span class="usage-val">{{ currentUnitValue | number }}</span>
+          </div>
+          <span class="usage-op">=</span>
+          <div class="usage-cell usage-total">
+            <span class="usage-cap">ใช้ไป</span>
+            <span class="usage-val">{{ usageUnit | number }} <small>หน่วย</small></span>
+          </div>
+        </div>
+      }
+
+      <!-- เตือนก่อนบันทึก: เลขถอยหลัง / ใช้น้ำพุ่งผิดปกติ -->
+      @if (isBelowPrevious) {
+        <div class="alert alert-danger save-alert">
+          <span>⚠️</span>
+          <span>
+            เลขที่กรอก (<strong>{{ currentUnitValue | number }}</strong>)
+            น้อยกว่าเลขเดือนก่อน (<strong>{{ previousReading | number }}</strong>)
+            มิเตอร์ไม่เดินถอยหลัง กรุณาตรวจสอบตัวเลขอีกครั้งนะครับ
+          </span>
+        </div>
+      } @else if (isAbnormalJump) {
+        <div class="alert alert-warning save-alert">
+          <span>⚠️</span>
+          <span>
+            เดือนนี้ใช้น้ำ <strong>{{ usageUnit | number }}</strong> หน่วย
+            มากกว่าปกติหลายเท่า ลองเทียบกับรูปอีกครั้งก่อนบันทึกนะครับ
+          </span>
         </div>
       }
 
@@ -192,23 +253,42 @@
         </div>
       }
 
-      <button
-        type="button"
-        class="btn btn-primary btn-block main-action"
-        (click)="confirmAndSave()"
-        [disabled]="isSaving || saveSuccess || !aiResult.read_unit || !selectedMemberId"
-      >
-        @if (isSaving) {
-          <span class="btn-spinner"></span>
-          กำลังบันทึก...
-        } @else if (saveSuccess) {
-          <svg class="btn-icon" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>
-          บันทึกแล้ว
-        } @else {
-          <svg class="btn-icon" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>
-          บันทึกและสร้างบิลค่าน้ำ
-        }
-      </button>
+      <!-- บันทึกสำเร็จ + ปุ่มยกเลิก (undo) ภายในรอบบิล -->
+      @if (saveSuccess) {
+        <div class="alert alert-success save-alert">
+          <span>🎉</span>
+          <span>บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้วครับ</span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-danger-soft btn-block main-action"
+          (click)="undoSave()"
+          [disabled]="isUndoing"
+        >
+          @if (isUndoing) {
+            <span class="btn-spinner dark"></span>
+            กำลังยกเลิก...
+          } @else {
+            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+            บันทึกผิด? กดยกเลิกบิลนี้
+          }
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn btn-primary btn-block main-action"
+          (click)="confirmAndSave()"
+          [disabled]="isSaving || !aiResult.read_unit || !selectedMemberId || isBelowPrevious"
+        >
+          @if (isSaving) {
+            <span class="btn-spinner"></span>
+            กำลังบันทึก...
+          } @else {
+            <svg class="btn-icon" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>
+            บันทึกและสร้างบิลค่าน้ำ
+          }
+        </button>
+      }
     </section>
   }
 </div>

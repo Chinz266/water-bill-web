@@ -29,6 +29,15 @@ export interface UpdateVillagePayload {
   deputy_headman_name?: string;
   phone?: string;
   billing_month?: string;
+  provinces_id?: number;
+  districts_id?: number;
+  subdistricts_id?: number;
+}
+
+/** จังหวัด/อำเภอ/ตำบล จากตารางอ้างอิง — ใช้ทำ dropdown เลือกที่อยู่ */
+export interface LocationOption {
+  id: number;
+  name_in_thai: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,5 +56,18 @@ export class VillageService {
   // PATCH /villages/:id — modify_by หลังบ้านอ่านจาก token เอง ไม่ต้องส่งมา
   updateVillage(id: number, payload: UpdateVillagePayload): Observable<Village> {
     return this.http.patch<Village>(`${this.baseUrl}/${id}`, payload);
+  }
+
+  // ---------- รายชื่อเขตการปกครอง (เลือกเป็นชั้น: จังหวัด → อำเภอ → ตำบล) ----------
+  getProvinces(): Observable<LocationOption[]> {
+    return this.http.get<LocationOption[]>(`${API_BASE_URL}/locations/provinces`);
+  }
+
+  getDistricts(provinceId: number): Observable<LocationOption[]> {
+    return this.http.get<LocationOption[]>(`${API_BASE_URL}/locations/districts/${provinceId}`);
+  }
+
+  getSubdistricts(districtId: number): Observable<LocationOption[]> {
+    return this.http.get<LocationOption[]>(`${API_BASE_URL}/locations/subdistricts/${districtId}`);
   }
 }

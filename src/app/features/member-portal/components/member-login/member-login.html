@@ -8,12 +8,8 @@
     <div class="auth-header">
       <div class="auth-logo">🏠</div>
       <span class="role-badge">สำหรับลูกบ้าน</span>
-      <h1>{{ isRegisterMode() ? 'สมัครบัญชีลูกบ้าน' : 'ดูบิลค่าน้ำบ้านของคุณ' }}</h1>
-      <p>
-        {{ isRegisterMode()
-            ? 'ใช้เบอร์โทรที่แจ้งไว้กับหมู่บ้านตอนลงทะเบียนบ้าน'
-            : 'เข้าสู่ระบบด้วยเบอร์โทรที่แจ้งไว้กับหมู่บ้าน' }}
-      </p>
+      <h1>ดูบิลค่าน้ำบ้านของคุณ</h1>
+      <p>กรอกเบอร์โทรที่แจ้งไว้กับหมู่บ้าน แล้วกดเข้าดูได้เลย ไม่ต้องใช้รหัสผ่าน</p>
     </div>
 
     <form class="auth-form" [formGroup]="form" (ngSubmit)="onSubmit()">
@@ -35,33 +31,6 @@
         }
       </div>
 
-      <div class="field">
-        <label for="password">รหัสผ่าน</label>
-        <div class="password-wrap">
-          <input
-            id="password"
-            [type]="showPassword() ? 'text' : 'password'"
-            formControlName="password"
-            [placeholder]="isRegisterMode() ? 'ตั้งรหัสผ่าน อย่างน้อย 6 ตัวอักษร' : 'กรอกรหัสผ่าน'"
-            [autocomplete]="isRegisterMode() ? 'new-password' : 'current-password'"
-            [class.invalid]="password.invalid && password.touched"
-          />
-          <button
-            type="button"
-            class="toggle-password"
-            (click)="togglePassword()"
-            [attr.aria-label]="showPassword() ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
-          >
-            {{ showPassword() ? '🙈' : '👁️' }}
-          </button>
-        </div>
-        @if (password.touched && password.hasError('required')) {
-          <div class="field-error">กรุณากรอกรหัสผ่าน</div>
-        } @else if (password.touched && password.hasError('minlength')) {
-          <div class="field-error">รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร</div>
-        }
-      </div>
-
       @if (errorMessage()) {
         <div class="alert" role="alert">
           <span>⚠️</span>
@@ -72,23 +41,18 @@
       <button type="submit" class="submit-btn" [disabled]="submitting()">
         @if (submitting()) {
           <span class="btn-spinner"></span>
-          {{ isRegisterMode() ? 'กำลังสมัครบัญชี...' : 'กำลังเข้าสู่ระบบ...' }}
+          กำลังเข้าสู่ระบบ...
         } @else {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
-          {{ isRegisterMode() ? 'สมัครบัญชี' : 'เข้าสู่ระบบ' }}
+          เข้าดูบิลของฉัน
         }
       </button>
     </form>
 
-    <div class="auth-footer">
-      @if (isRegisterMode()) {
-        มีบัญชีอยู่แล้ว?
-        <a href="javascript:void(0)" (click)="switchMode()">เข้าสู่ระบบ</a>
-      } @else {
-        ยังไม่เคยเข้าใช้งาน?
-        <a href="javascript:void(0)" (click)="switchMode()">สมัครบัญชีครั้งแรก</a>
-      }
-    </div>
+    <p class="member-help">
+      เข้าไม่ได้ใช่ไหมครับ? เบอร์ของคุณอาจยังไม่ได้ลงทะเบียนกับบ้าน
+      กรุณาติดต่อผู้ดูแลหมู่บ้านเพื่อแจ้งเบอร์โทรไว้กับบ้านของคุณก่อน
+    </p>
 
     <a class="switch-role-btn" routerLink="/login" queryParamsHandling="preserve">
       🧑‍💼 เป็นเจ้าหน้าที่หมู่บ้าน? เข้าสู่ระบบเจ้าหน้าที่ที่นี่

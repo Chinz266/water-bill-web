@@ -1,1 +1,12 @@
 /* สไตล์หลักอยู่ใน auth-shared.css — ไฟล์นี้ไว้ปรับเฉพาะหน้าลูกบ้าน */
+
+/* คำแนะนำเมื่อเข้าไม่ได้ — ทางออกเดียวคือให้เจ้าหน้าที่ลงทะเบียนเบอร์ให้ */
+.member-help {
+  margin-top: 16px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+}

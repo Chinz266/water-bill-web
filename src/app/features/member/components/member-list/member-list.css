@@ -23,6 +23,10 @@ svg {
   text-align: right;
 }
 
+.search-card {
+  margin-bottom: 16px;
+}
+
 /* การ์ดลูกบ้านสำหรับมือถือ */
 .member-cards {
   display: flex;

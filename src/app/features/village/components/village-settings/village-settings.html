@@ -55,20 +55,33 @@
   </div>
 
   @if (rates().length > 1) {
-    <h3 class="rate-history-title">ประวัติการปรับราคา</h3>
-    <ul class="rate-history">
-      @for (rate of rates().slice(0, 5); track rate.id) {
-        <li class="rate-history-row">
-          <span class="rate-history-price">{{ +rate.price_per_unit | number:'1.2-2' }} บาท/หน่วย</span>
-          <span class="text-muted">{{ rateDateLabel(rate.create_date) }}</span>
-          @if (rate.status === 'Active') {
-            <span class="chip chip-success">ใช้อยู่</span>
-          } @else {
-            <span class="chip chip-muted">เลิกใช้แล้ว</span>
-          }
-        </li>
-      }
-    </ul>
+    <button
+      type="button"
+      class="rate-history-toggle"
+      (click)="showRateHistory.set(!showRateHistory())"
+      [attr.aria-expanded]="showRateHistory()"
+    >
+      <span class="rate-history-title">ประวัติการปรับราคา ({{ rates().length }} ครั้ง)</span>
+      <svg class="rate-history-caret" [class.open]="showRateHistory()" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+    </button>
+
+    @if (showRateHistory()) {
+      <ul class="rate-history">
+        @for (rate of rates().slice(0, 5); track rate.id) {
+          <li class="rate-history-row">
+            <span class="rate-history-price">{{ +rate.price_per_unit | number:'1.2-2' }} บาท/หน่วย</span>
+            <span class="text-muted">{{ rateDateLabel(rate.create_date) }}</span>
+            @if (rate.status === 'Active') {
+              <span class="chip chip-success">ใช้อยู่</span>
+            } @else {
+              <span class="chip chip-muted">เลิกใช้แล้ว</span>
+            }
+          </li>
+        }
+      </ul>
+    }
   }
 </div>
 
@@ -129,11 +142,13 @@
           class="field-input"
           type="text"
           formControlName="village_name"
-          placeholder="เช่น หมู่บ้านอยู่สบาย"
+          placeholder="เช่น โนนกราด"
           [class.invalid]="villageName.invalid && villageName.touched"
         />
         @if (villageName.touched && villageName.hasError('required')) {
           <div class="field-error">กรุณากรอกชื่อหมู่บ้าน</div>
+        } @else {
+          <div class="field-hint">ใส่เฉพาะชื่อ ไม่ต้องพิมพ์คำว่า "หมู่บ้าน" นำหน้า</div>
         }
       </div>
 
@@ -145,18 +160,73 @@
           id="village_no"
           class="field-input"
           type="text"
+          inputmode="numeric"
           formControlName="village_no"
-          placeholder="เช่น หมู่ 4"
+          placeholder="เช่น 1"
           [class.invalid]="villageNo.invalid && villageNo.touched"
         />
         @if (villageNo.touched && villageNo.hasError('required')) {
           <div class="field-error">กรุณากรอกหมู่ที่</div>
+        } @else if (villageNo.touched && villageNo.hasError('pattern')) {
+          <div class="field-error">ใส่เป็นตัวเลขอย่างเดียว เช่น 1</div>
+        } @else {
+          <div class="field-hint">ใส่เฉพาะตัวเลข ไม่ต้องพิมพ์คำว่า "หมู่"</div>
         }
       </div>
     </div>
 
+    <!-- 🗺️ ที่อยู่หมู่บ้าน — เลือกเป็นชั้น จังหวัดก่อน แล้วอำเภอ/ตำบลจะกรองตามให้เอง -->
+    <div class="form-row">
+      <div class="field">
+        <label class="field-label" for="provinces_id">จังหวัด <span class="field-required">*</span></label>
+        <select
+          id="provinces_id"
+          class="field-input"
+          formControlName="provinces_id"
+          (change)="onProvinceChange()"
+        >
+          <option [ngValue]="null" disabled>— เลือกจังหวัด —</option>
+          @for (province of provinces(); track province.id) {
+            <option [ngValue]="province.id">{{ province.name_in_thai }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="districts_id">อำเภอ <span class="field-required">*</span></label>
+        <select
+          id="districts_id"
+          class="field-input"
+          formControlName="districts_id"
+          (change)="onDistrictChange()"
+        >
+          <option [ngValue]="null" disabled>
+            {{ form.controls.provinces_id.value ? '— เลือกอำเภอ —' : 'เลือกจังหวัดก่อนนะครับ' }}
+          </option>
+          @for (district of districts(); track district.id) {
+            <option [ngValue]="district.id">{{ district.name_in_thai }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label class="field-label" for="subdistricts_id">ตำบล <span class="field-required">*</span></label>
+        <select id="subdistricts_id" class="field-input" formControlName="subdistricts_id">
+          <option [ngValue]="null" disabled>
+            {{ form.controls.districts_id.value ? '— เลือกตำบล —' : 'เลือกอำเภอก่อนนะครับ' }}
+          </option>
+          @for (subdistrict of subdistricts(); track subdistrict.id) {
+            <option [ngValue]="subdistrict.id">{{ subdistrict.name_in_thai }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field"></div>
+    </div>
+
     <h2 class="section-heading">ผู้ดูแลหมู่บ้าน</h2>
-    <p class="field-hint section-hint">ชื่อที่กรอกไว้จะถูกนำไปแสดงบนใบเสร็จค่าน้ำ</p>
 
     <div class="form-row">
       <div class="field">
@@ -195,17 +265,7 @@
         />
       </div>
 
-      <div class="field">
-        <label class="field-label" for="billing_month">รอบการออกบิล</label>
-        <input
-          id="billing_month"
-          class="field-input"
-          type="text"
-          formControlName="billing_month"
-          placeholder="เช่น EVERY_MONTH"
-        />
-        <div class="field-hint">ใส่ EVERY_MONTH หากออกบิลทุกเดือน</div>
-      </div>
+      <div class="field"></div>
     </div>
 
     <div class="modal-actions">

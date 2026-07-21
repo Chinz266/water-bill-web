@@ -1,5 +1,5 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { toast } from 'ngx-sonner';
@@ -35,10 +35,19 @@ export class MyBillsComponent implements OnInit {
   // ดูแลหลายบ้าน → เลือกดูทีละหลังได้ ('' = ทุกหลัง)
   selectedHouseId: number | '' = '';
 
+  // เลือกดูบิลทีละเดือนได้ ('' = ทุกเดือน)
+  selectedMonthKey: string = '';
+
   // บิลที่เปิดดูรายละเอียดเต็ม
   selectedBill: any = null;
 
+  // ตอน prerender (SSR) ยังไม่มี token ใน localStorage ยิง API ไปก็ได้ 401 เปล่า ๆ
+  // ต้องข้ามไปก่อน แล้วให้ฝั่ง browser โหลดจริง ไม่งั้น build จะพังตอน prerender
+  private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   ngOnInit(): void {
+    if (!this.isBrowser) return;
+
     this.loadData();
   }
 
@@ -68,10 +77,35 @@ export class MyBillsComponent implements OnInit {
     });
   }
 
-  /** บิลตามบ้านที่เลือก (ค่าว่าง = ทุกหลัง) */
+  private monthKey(bill: any): string {
+    return `${bill.billing_year}-${bill.billing_month}`;
+  }
+
+  /** เดือนทั้งหมดที่มีบิล (ใหม่สุดก่อน ตามลำดับที่หลังบ้านส่งมา) ไว้ทำ dropdown เลือกเดือน */
+  get monthOptions(): { key: string; label: string; count: number }[] {
+    const options: { key: string; label: string; count: number }[] = [];
+    for (const bill of this.bills) {
+      const key = this.monthKey(bill);
+      const existing = options.find((o) => o.key === key);
+      if (existing) {
+        existing.count++;
+      } else {
+        options.push({ key, label: this.monthLabel(bill.billing_month, bill.billing_year), count: 1 });
+      }
+    }
+    return options;
+  }
+
+  /** บิลตามบ้านและเดือนที่เลือก (ค่าว่าง = ทั้งหมด) */
   get visibleBills(): any[] {
-    if (this.selectedHouseId === '') return this.bills;
-    return this.bills.filter((bill) => bill.member?.id === Number(this.selectedHouseId));
+    let bills = this.bills;
+    if (this.selectedHouseId !== '') {
+      bills = bills.filter((bill) => bill.member?.id === Number(this.selectedHouseId));
+    }
+    if (this.selectedMonthKey !== '') {
+      bills = bills.filter((bill) => this.monthKey(bill) === this.selectedMonthKey);
+    }
+    return bills;
   }
 
   /** บิลล่าสุดที่ยังไม่ชำระ — เอาไว้ชูเป็นการ์ดเด่นบนสุด */
@@ -90,16 +124,100 @@ export class MyBillsComponent implements OnInit {
     return this.visibleBills.filter((bill) => bill.payment_status !== 'Paid').length;
   }
 
+  // ==========================================
+  // 📊 กราฟปริมาณการใช้น้ำย้อนหลัง (แท่งเดียวต่อเดือน)
+  // ==========================================
+  readonly chartW = 340;
+  readonly chartH = 184;
+  private readonly chartTop = 30;
+  private readonly chartBottom = 26;
+
+  private readonly shortMonths = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+
+  /** เส้นฐานของกราฟ (ล่างสุดของแท่ง) */
+  get chartBaseline(): number {
+    return this.chartH - this.chartBottom;
+  }
+
+  /**
+   * รวมปริมาณการใช้น้ำต่อเดือนจากบิลที่กำลังดูอยู่ เรียงเก่า→ใหม่ เอา 6 เดือนล่าสุด
+   * คืน geometry พร้อมใช้ (x, y, สูง, path มุมบนโค้ง, ตำแหน่ง label) ให้ template วาดได้เลย
+   */
+  get usageChart(): any[] {
+    const byMonth = new Map<string, { label: string; usage: number; order: number }>();
+    for (const bill of this.visibleBills) {
+      const key = this.monthKey(bill);
+      const order = Number(bill.billing_year) * 12 + Number(bill.billing_month);
+      const usage = Number(bill.usage_unit) || 0;
+      const existing = byMonth.get(key);
+      if (existing) {
+        existing.usage += usage;
+      } else {
+        const m = Number(bill.billing_month);
+        byMonth.set(key, { label: this.shortMonths[m - 1] ?? `เดือน${m}`, usage, order });
+      }
+    }
+
+    const rows = [...byMonth.values()].sort((a, b) => a.order - b.order).slice(-6);
+    if (rows.length === 0) return [];
+
+    const maxUsage = Math.max(1, ...rows.map((r) => r.usage));
+    const plot = this.chartH - this.chartTop - this.chartBottom;
+    const slot = this.chartW / rows.length;
+    const barW = Math.min(46, slot * 0.55);
+
+    return rows.map((row) => {
+      const cx = (rows.indexOf(row) + 0.5) * slot;
+      const h = (row.usage / maxUsage) * plot;
+      const x = cx - barW / 2;
+      const y = this.chartTop + (plot - h);
+      const r = Math.min(5, barW / 2, Math.max(0, h));
+      // path แท่งที่โค้งเฉพาะมุมบน (ปลายข้อมูล) ยึดกับเส้นฐาน
+      const d =
+        `M${x},${y + r} a${r},${r} 0 0 1 ${r},-${r}` +
+        ` h${barW - 2 * r} a${r},${r} 0 0 1 ${r},${r}` +
+        ` v${h - r} h-${barW} Z`;
+      return {
+        label: row.label,
+        usage: row.usage,
+        d,
+        cx,
+        valueY: y - 8,
+        monthY: this.chartH - 8
+      };
+    });
+  }
+
+  /**
+   * ชื่อที่ใช้ทักทาย — บัญชีลูกบ้านไม่มีชื่อ (ล็อกอินด้วยเบอร์) เลยหยิบชื่อเจ้าของบ้านมาแทน
+   * ถ้ากำลังเลือกดูบ้านหลังไหนอยู่ ใช้ชื่อเจ้าของหลังนั้น ไม่งั้นใช้หลังแรก
+   * ระหว่างที่รายชื่อบ้านยังโหลดไม่เสร็จ ค่อยถอยไปใช้เบอร์โทรตามเดิม
+   */
+  get greetingName(): string {
+    const house =
+      this.houses.find((h) => h.id === Number(this.selectedHouseId)) ?? this.houses[0];
+    const name = house ? `${house.fname ?? ''} ${house.lname ?? ''}`.trim() : '';
+    // เติม "คุณ" เฉพาะตอนได้ชื่อจริง — ถ้ายังโหลดไม่เสร็จจะเป็นเบอร์โทร ไม่ควรกลายเป็น "คุณ08x..."
+    return name ? `คุณ${name}` : this.displayName();
+  }
+
+  /** ชื่อหมู่บ้านของบ้านที่บัญชีนี้ดูแล (ปกติมีหมู่บ้านเดียว ถ้าหลายที่ก็คั่นด้วยจุด) */
+  get villageName(): string {
+    const names = this.houses
+      .map((house) => house.village?.village_name)
+      .filter((name: string | null | undefined): name is string => !!name);
+    return [...new Set(names)].join(' · ');
+  }
+
   openDetail(bill: any): void {
     this.selectedBill = bill;
   }
 
   closeDetail(): void {
     this.selectedBill = null;
-  }
-
-  printBill(bill: any): void {
-    this.print.printSingle(bill);
   }
 
   onLogout(): void {

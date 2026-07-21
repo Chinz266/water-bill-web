@@ -4,7 +4,12 @@
     <span class="portal-mark">💧</span>
     <div class="portal-text">
       <span class="portal-title">บิลค่าน้ำบ้านของฉัน</span>
-      <span class="portal-sub">สวัสดี, {{ displayName() }}</span>
+      <span class="portal-sub">
+        @if (villageName) {
+          {{ villageName }} ·
+        }
+        สวัสดี, {{ greetingName }}
+      </span>
     </div>
   </div>
   <button type="button" class="btn btn-ghost btn-sm" (click)="onLogout()">
@@ -26,16 +31,32 @@
   }
 
   @if (!isLoading) {
-    <!-- ดูแลหลายบ้าน → เลือกบ้านก่อน -->
-    @if (houses.length > 1) {
+    <!-- ตัวเลือกดูบิล: เลือกบ้าน (ถ้าดูแลหลายหลัง) และเลือกเดือน -->
+    @if (bills.length > 0) {
       <div class="card house-picker">
-        <label class="field-label" for="house-select">เลือกบ้านที่ต้องการดู</label>
-        <select id="house-select" class="field-input" [(ngModel)]="selectedHouseId">
-          <option value="">ทุกบ้านที่ฉันดูแล ({{ houses.length }} หลัง)</option>
-          @for (house of houses; track house.id) {
-            <option [value]="house.id">บ้านเลขที่ {{ house.house_no }}</option>
+        <div class="picker-fields">
+          @if (houses.length > 1) {
+            <div class="field">
+              <label class="field-label" for="house-select">เลือกบ้านที่ต้องการดู</label>
+              <select id="house-select" class="field-input" [(ngModel)]="selectedHouseId">
+                <option value="">ทุกบ้านที่ฉันดูแล ({{ houses.length }} หลัง)</option>
+                @for (house of houses; track house.id) {
+                  <option [value]="house.id">บ้านเลขที่ {{ house.house_no }}</option>
+                }
+              </select>
+            </div>
           }
-        </select>
+
+          <div class="field">
+            <label class="field-label" for="month-select">เลือกเดือนที่ต้องการดู</label>
+            <select id="month-select" class="field-input" [(ngModel)]="selectedMonthKey">
+              <option value="">ทุกเดือน ({{ bills.length }} บิล)</option>
+              @for (option of monthOptions; track option.key) {
+                <option [value]="option.key">{{ option.label }} ({{ option.count }} บิล)</option>
+              }
+            </select>
+          </div>
+        </div>
       </div>
     }
 
@@ -65,6 +86,35 @@
       </div>
     }
 
+    <!-- กราฟปริมาณการใช้น้ำย้อนหลัง -->
+    @if (usageChart.length > 1) {
+      <div class="card usage-card">
+        <h2 class="usage-title">ปริมาณการใช้น้ำย้อนหลัง</h2>
+        <p class="text-muted usage-sub">หน่วยเป็น ลูกบาศก์เมตร (ลบ.ม.) ต่อเดือน</p>
+
+        <svg
+          class="usage-svg"
+          [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH"
+          role="img"
+          aria-label="กราฟปริมาณการใช้น้ำย้อนหลังรายเดือน"
+        >
+          <!-- เส้นฐาน -->
+          <line
+            [attr.x1]="0" [attr.x2]="chartW"
+            [attr.y1]="chartBaseline" [attr.y2]="chartBaseline"
+            class="usage-axis"
+          />
+          @for (bar of usageChart; track bar.label) {
+            <path [attr.d]="bar.d" class="usage-bar">
+              <title>{{ bar.label }}: ใช้น้ำ {{ bar.usage | number }} ลบ.ม.</title>
+            </path>
+            <text [attr.x]="bar.cx" [attr.y]="bar.valueY" class="usage-value">{{ bar.usage | number }}</text>
+            <text [attr.x]="bar.cx" [attr.y]="bar.monthY" class="usage-month">{{ bar.label }}</text>
+          }
+        </svg>
+      </div>
+    }
+
     <!-- รายการบิลทั้งหมด -->
     @if (visibleBills.length > 0) {
       <h2 class="section-title">บิลทั้งหมด</h2>
@@ -89,6 +139,18 @@
             </div>
           </button>
         }
+      </div>
+    } @else if (bills.length > 0) {
+      <!-- มีบิลอยู่ แต่เดือน/บ้านที่เลือกไม่มีบิล -->
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-art">🔍</div>
+          <h2 class="empty-title">ไม่มีบิลในเดือนที่เลือก</h2>
+          <p class="empty-text">ลองเลือกเดือนอื่น หรือกดดูทุกเดือนอีกครั้งนะครับ</p>
+          <button type="button" class="btn btn-secondary" (click)="selectedMonthKey = ''; selectedHouseId = ''">
+            ดูบิลทั้งหมด
+          </button>
+        </div>
       </div>
     } @else {
       <div class="card">
@@ -162,11 +224,7 @@
       </dl>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="closeDetail()">ปิด</button>
-        <button type="button" class="btn btn-primary" (click)="printBill(selectedBill)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-          พิมพ์ / บันทึกบิล
-        </button>
+        <button type="button" class="btn btn-primary" (click)="closeDetail()">ปิด</button>
       </div>
     </div>
   </div>

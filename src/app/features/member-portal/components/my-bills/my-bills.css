@@ -72,6 +72,17 @@ svg {
   margin-bottom: 16px;
 }
 
+/* ช่องเลือกบ้าน + เลือกเดือน วางคู่กัน (จอเล็กเรียงลงมา) */
+.picker-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.picker-fields .field + .field {
+  margin-top: 0;
+}
+
 /* การ์ดยอดค้างชำระ — จุดเด่นของหน้า */
 .due-card {
   text-align: center;
@@ -132,6 +143,55 @@ svg {
   font-size: 17px;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+/* ---------- กราฟปริมาณการใช้น้ำ ---------- */
+.usage-card {
+  margin-bottom: 24px;
+}
+
+.usage-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.usage-sub {
+  margin: 2px 0 8px;
+  font-size: 14px;
+}
+
+.usage-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* เส้นฐานจาง ๆ ไม่แย่งสายตากับแท่ง */
+.usage-axis {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+/* แท่งเดียวโทนน้ำเงินหลัก — ปริมาณมาก = สูง */
+.usage-bar {
+  fill: var(--primary);
+}
+
+/* ตัวเลขและชื่อเดือนใช้สีตัวอักษร ไม่ใช้สีแท่ง (identity ไม่พึ่งสีอย่างเดียว) */
+.usage-value {
+  fill: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.usage-month {
+  fill: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
 }
 
 .bill-list {

@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MemberService } from '../member/services/member.service'; // 🌟 ดึง Service ลูกบ้านมาใช้
 
@@ -22,7 +22,13 @@ export class HomeComponent implements OnInit {
     this.currentMonth = months[new Date().getMonth()];
   }
 
+  // ตอน prerender (SSR) ยังไม่มี token ใน localStorage ยิง API ไปก็ได้ 401 เปล่า ๆ
+  // ต้องข้ามไปก่อน แล้วให้ฝั่ง browser โหลดจริง ไม่งั้น build จะพังตอน prerender
+  private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   ngOnInit(): void {
+    if (!this.isBrowser) return;
+
     // 🌟 วิ่งไปถามหลังบ้าน (NestJS) ว่าตอนนี้มีข้อมูลลูกบ้านกี่หลัง
     this.memberService.getMembers().subscribe({
       next: (members) => {

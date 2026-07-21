@@ -1,5 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, catchError, of } from 'rxjs';
 import { toast } from 'ngx-sonner';
@@ -24,6 +24,18 @@ export class MemberListComponent implements OnInit {
   // 🌟 หมู่บ้านจริงจากระบบ — บ้านทุกหลังต้องสังกัดหมู่บ้าน (เลิก hardcode villages_id: 1)
   villages: Village[] = [];
 
+  // 🔍 คำค้นหา — กรองจากบ้านเลขที่ ชื่อ-นามสกุล หรือเบอร์โทร
+  searchTerm = '';
+
+  filterMembers(members: any[]): any[] {
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return members;
+    return members.filter((m) =>
+      [m.house_no, m.fname, m.lname, `${m.fname ?? ''} ${m.lname ?? ''}`, m.phone]
+        .some((value) => (value ?? '').toString().toLowerCase().includes(term))
+    );
+  }
+
   showAddModal: boolean = false;
   // initial_unit = เลขมิเตอร์ ณ วันลงทะเบียน เอาไว้เป็นจุดตั้งต้นให้บิลเดือนแรกคิดถูก
   newMember: any = { house_no: '', fname: '', lname: '', phone: '', villages_id: null, initial_unit: null };
@@ -46,7 +58,13 @@ export class MemberListComponent implements OnInit {
     private villageService: VillageService
   ) { }
 
+  // ตอน prerender (SSR) ยังไม่มี token ใน localStorage ยิง API ไปก็ได้ 401 เปล่า ๆ
+  // ต้องข้ามไปก่อน แล้วให้ฝั่ง browser โหลดจริง ไม่งั้น build จะพังตอน prerender
+  private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   ngOnInit(): void {
+    if (!this.isBrowser) return;
+
     this.loadMembers();
 
     this.villageService.getVillages().subscribe({
@@ -60,9 +78,12 @@ export class MemberListComponent implements OnInit {
     });
   }
 
-  /** ชื่อหมู่บ้านไว้โชว์ใน dropdown เช่น "หมู่ 4 — หมู่บ้านอยู่สบาย" */
+  /** ชื่อหมู่บ้านไว้โชว์ใน dropdown เช่น "หมู่ 1 — โนนกราด" */
   villageLabel(village: Village): string {
-    return [village.village_no, village.village_name].filter(Boolean).join(' — ');
+    const no = (village.village_no ?? '').toString().trim();
+    // ช่องตั้งค่าเก็บเลขหมู่ล้วน ๆ — เติมคำว่า "หมู่" ตอนแสดง (กันซ้ำเผื่อข้อมูลเก่าพิมพ์มาเต็ม)
+    const moo = no ? (no.startsWith('หมู่') ? no : `หมู่ ${no}`) : '';
+    return [moo, village.village_name].filter(Boolean).join(' — ');
   }
 
   loadMembers() {

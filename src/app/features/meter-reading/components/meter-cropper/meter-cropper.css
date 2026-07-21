@@ -240,7 +240,8 @@ input[type='file'] {
   color: var(--success);
 }
 
-/* ช่องเลขมิเตอร์ — ต้องใหญ่ อ่านง่าย และแก้ด้วยมือได้ */
+/* ช่องเลขมิเตอร์ — ต้องใหญ่ อ่านง่าย และแก้ด้วยมือได้
+   (สไตล์ .prev-note / .verify / .usage-summary อยู่ใน styles.css กลาง เพราะไฟล์นี้เต็ม budget) */
 .meter-label {
   font-size: 16px;
 }

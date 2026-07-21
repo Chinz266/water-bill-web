@@ -1,5 +1,6 @@
 .welcome-page {
   min-height: 100vh;
+  min-height: 100dvh; /* มือถือ: คิดพื้นที่จริงหลังหักแถบ URL */
   display: flex;
   align-items: center;
   justify-content: center;

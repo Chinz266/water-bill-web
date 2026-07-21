@@ -33,10 +33,9 @@ export interface RegisterPayload {
   password: string;
 }
 
-/** ลูกบ้านใช้เบอร์โทรเป็นชื่อผู้ใช้ ทั้งตอนสมัครและตอนเข้าสู่ระบบ */
+/** ลูกบ้านเข้าระบบด้วยเบอร์โทรอย่างเดียว (ไม่มีรหัสผ่าน) */
 export interface MemberAuthPayload {
   phone: string;
-  password: string;
 }
 
 // หลังบ้านคืน { access_token, user } ทั้งตอน login และ register

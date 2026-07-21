@@ -7,8 +7,8 @@ import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 
 /**
- * หน้าเข้าสู่ระบบ/สมัครบัญชีของลูกบ้าน — ใช้เบอร์โทรแทนอีเมล
- * หน้าเดียวสลับได้ 2 โหมด เพราะช่องกรอกเหมือนกันเกือบทั้งหมด (เบอร์ + รหัสผ่าน)
+ * หน้าเข้าสู่ระบบของลูกบ้าน — ใช้เบอร์โทรอย่างเดียว ไม่มีรหัสผ่าน
+ * เบอร์ต้องถูกลงทะเบียนไว้กับบ้านโดยเจ้าหน้าที่ก่อน ระบบจะเปิดบัญชีให้เองตอนเข้าครั้งแรก
  */
 @Component({
   selector: 'app-member-login',
@@ -26,31 +26,14 @@ export class MemberLoginComponent {
   // ใช้ signal เพราะแอปเป็น zoneless — ตั้งค่าปกติแล้วหน้าจอจะไม่อัปเดตตาม
   submitting = signal(false);
   errorMessage = signal('');
-  showPassword = signal(false);
-  // false = เข้าสู่ระบบ, true = สมัครบัญชีครั้งแรก
-  isRegisterMode = signal(false);
 
   form = this.fb.nonNullable.group({
     // เบอร์ไทย: ขึ้นต้น 0 ตามด้วยเลข 8-9 ตัว (ตรงกับกติกาที่หน้าเพิ่มลูกบ้านใช้)
-    phone: ['', [Validators.required, Validators.pattern(/^0\d{8,9}$/)]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    phone: ['', [Validators.required, Validators.pattern(/^0\d{8,9}$/)]]
   });
 
   get phone() {
     return this.form.controls.phone;
-  }
-
-  get password() {
-    return this.form.controls.password;
-  }
-
-  togglePassword(): void {
-    this.showPassword.update((v) => !v);
-  }
-
-  switchMode(): void {
-    this.isRegisterMode.update((v) => !v);
-    this.errorMessage.set('');
   }
 
   onSubmit(): void {
@@ -65,17 +48,9 @@ export class MemberLoginComponent {
     this.errorMessage.set('');
     this.form.disable();
 
-    const payload = this.form.getRawValue();
-    const request$ = this.isRegisterMode()
-      ? this.auth.registerMember(payload)
-      : this.auth.loginMember(payload);
-
-    request$.subscribe({
+    this.auth.loginMember(this.form.getRawValue()).subscribe({
       next: () => {
-        toast.success(
-          this.isRegisterMode() ? 'สมัครบัญชีเรียบร้อย ยินดีต้อนรับครับ' : 'ยินดีต้อนรับครับ',
-          { id: 'member-login-success' }
-        );
+        toast.success('ยินดีต้อนรับครับ', { id: 'member-login-success' });
         // ถ้าถูกเด้งมาจากหน้าที่ต้องล็อกอิน ให้พากลับไปหน้านั้น ไม่งั้นเข้าหน้าบิลของตัวเอง
         const redirectTo = this.route.snapshot.queryParamMap.get('redirectTo');
         this.router.navigateByUrl(redirectTo || '/member/bills');
@@ -84,12 +59,7 @@ export class MemberLoginComponent {
         this.submitting.set(false);
         this.form.enable();
         this.errorMessage.set(
-          extractErrorMessage(
-            err,
-            this.isRegisterMode()
-              ? 'สมัครบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
-              : 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
-          )
+          extractErrorMessage(err, 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
         );
       }
     });

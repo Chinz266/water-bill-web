@@ -1,5 +1,5 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ImageCropperComponent, ImageTransform, OutputFormat } from 'ngx-image-cropper';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
@@ -39,6 +39,16 @@ export class MeterCropperComponent implements OnInit {
   members: any[] = [];
   selectedMemberId: number | null = null;
 
+  // เลขมิเตอร์ครั้งก่อนของบ้านที่เลือก — โหลดไว้ล่วงหน้าเพื่อคำนวณ/เตือน "ก่อน" กดบันทึก
+  previousReading: number | null = null;
+  isLoadingPrevious = false;
+  // หน่วยที่ใช้ครั้งก่อน (ไว้เทียบว่าครั้งนี้กระโดดผิดปกติไหม) — ต้องมีประวัติ ≥ 2 ครั้งถึงคำนวณได้
+  private previousUsage: number | null = null;
+
+  // บิลที่เพิ่งสร้าง — เก็บไว้ให้กด "ยกเลิก" ย้อนได้ทันทีถ้าบันทึกผิด
+  savedBill: any = null;
+  isUndoing = false;
+
   private auth = inject(AuthService);
 
   constructor(
@@ -48,7 +58,13 @@ export class MeterCropperComponent implements OnInit {
     private cdr: ChangeDetectorRef
   ) {}
 
+  // ตอน prerender (SSR) ยังไม่มี token ใน localStorage ยิง API ไปก็ได้ 401 เปล่า ๆ
+  // ต้องข้ามไปก่อน แล้วให้ฝั่ง browser โหลดจริง ไม่งั้น build จะพังตอน prerender
+  private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   ngOnInit(): void {
+    if (!this.isBrowser) return;
+
     this.memberService.getMembers().subscribe({
       next: (members) => {
         this.members = members ?? [];
@@ -57,6 +73,33 @@ export class MeterCropperComponent implements OnInit {
       error: (err) => {
         console.error('ดึงรายชื่อลูกบ้านไม่สำเร็จ:', err);
         toast.error(extractErrorMessage(err, 'โหลดรายชื่อบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-load-error' });
+      }
+    });
+  }
+
+  // เลือกบ้านแล้วรีบไปถามเลขมิเตอร์ครั้งก่อน เอาไว้คำนวณและเตือนก่อนบันทึก
+  onMemberChange(): void {
+    this.previousReading = null;
+    this.previousUsage = null;
+    if (!this.selectedMemberId) return;
+
+    this.isLoadingPrevious = true;
+    this.meterReadingService.getReadingsByMember(Number(this.selectedMemberId)).subscribe({
+      next: (readings) => {
+        this.isLoadingPrevious = false;
+        // หลังบ้านเรียงครั้งล่าสุดมาก่อน — ตัวแรกคือเลขเดือนที่แล้ว
+        this.previousReading = readings?.length ? Number(readings[0].meter_unit) : 0;
+        // ถ้ามีอย่างน้อย 2 ครั้ง คำนวณว่าเดือนก่อนใช้ไปเท่าไร ไว้เทียบความผิดปกติ
+        this.previousUsage =
+          readings && readings.length >= 2
+            ? Number(readings[0].meter_unit) - Number(readings[1].meter_unit)
+            : null;
+        this.cdr?.detectChanges();
+      },
+      error: (err) => {
+        this.isLoadingPrevious = false;
+        console.error('ดึงเลขมิเตอร์ครั้งก่อนไม่สำเร็จ:', err);
+        this.cdr?.detectChanges();
       }
     });
   }
@@ -157,6 +200,34 @@ export class MeterCropperComponent implements OnInit {
   }
 
   // ==========================================
+  // โซนคำนวณสด + เตือนก่อนบันทึก (เทียบกับเลขเดือนก่อน)
+  // ==========================================
+
+  /** เลขที่กรอกในช่อง (แปลงเป็นตัวเลข) — null ถ้ายังว่างหรือไม่ใช่ตัวเลข */
+  get currentUnitValue(): number | null {
+    const raw = this.aiResult?.read_unit;
+    const value = typeof raw === 'string' ? parseFloat(raw) : raw;
+    return typeof value === 'number' && !isNaN(value) ? value : null;
+  }
+
+  /** หน่วยที่ใช้เดือนนี้ = เลขนี้ − เลขเดือนก่อน (โชว์ให้เห็นสด ๆ ขณะแก้เลข) */
+  get usageUnit(): number | null {
+    if (this.currentUnitValue === null || this.previousReading === null) return null;
+    return this.currentUnitValue - this.previousReading;
+  }
+
+  /** เลขน้อยกว่าเดือนก่อน = ผิดแน่ (มิเตอร์ไม่เดินถอยหลัง) — กันไว้ก่อนบันทึก */
+  get isBelowPrevious(): boolean {
+    return this.usageUnit !== null && this.usageUnit < 0;
+  }
+
+  /** ใช้น้ำมากผิดปกติ = กระโดดเกิน 3 เท่าของเดือนก่อน และต่างกันเยอะพอ (กันเตือนพร่ำเพรื่อกับเลขน้อย ๆ) */
+  get isAbnormalJump(): boolean {
+    if (this.usageUnit === null || this.previousUsage === null || this.previousUsage <= 0) return false;
+    return this.usageUnit > this.previousUsage * 3 && this.usageUnit - this.previousUsage >= 30;
+  }
+
+  // ==========================================
   // โซนฟังก์ชันคุยกับหลังบ้าน (NestJS)
   // ==========================================
 
@@ -245,9 +316,10 @@ export class MeterCropperComponent implements OnInit {
         })
       )
       .subscribe({
-        next: () => {
+        next: (bill) => {
           this.isSaving = false;
           this.saveSuccess = true;
+          this.savedBill = bill; // เก็บไว้ให้กดยกเลิกย้อนได้
           this.cdr?.detectChanges();
           toast.success('บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้ว', { id: 'save-success' });
         },
@@ -258,5 +330,29 @@ export class MeterCropperComponent implements OnInit {
           toast.error(extractErrorMessage(err, 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'save-error' });
         }
       });
+  }
+
+  // 3. ยกเลิกบิลที่เพิ่งสร้าง (undo) — เผื่อกดบันทึกผิด ลบทิ้งแล้วเริ่มจดใหม่ได้เลย
+  undoSave(): void {
+    if (!this.savedBill?.id || this.isUndoing) return;
+
+    this.isUndoing = true;
+    this.meterReadingService.deleteBill(this.savedBill.id).subscribe({
+      next: () => {
+        this.isUndoing = false;
+        this.savedBill = null;
+        this.saveSuccess = false;
+        // โหลดเลขเดือนก่อนใหม่ เพราะการจดครั้งนี้ถูกลบไปแล้ว
+        this.onMemberChange();
+        this.cdr?.detectChanges();
+        toast.success('ยกเลิกบิลเรียบร้อยแล้ว จดใหม่ได้เลยครับ', { id: 'undo-success' });
+      },
+      error: (err) => {
+        this.isUndoing = false;
+        console.error('Undo error:', err);
+        this.cdr?.detectChanges();
+        toast.error(extractErrorMessage(err, 'ยกเลิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'undo-error' });
+      }
+    });
   }
 }
