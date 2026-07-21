@@ -30,6 +30,7 @@ export class MyBillsComponent implements OnInit {
 
   bills: any[] = [];
   houses: any[] = [];
+  admins: any[] = [];
   isLoading = true;
 
   // ดูแลหลายบ้าน → เลือกดูทีละหลังได้ ('' = ทุกหลัง)
@@ -60,6 +61,15 @@ export class MyBillsComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: (err) => console.error('โหลดรายชื่อบ้านไม่สำเร็จ:', err)
+    });
+
+    this.portal.getAdmins().subscribe({
+      next: (admins) => {
+        // เอาเฉพาะผู้ดูแลที่มีเบอร์โทรให้ติดต่อได้
+        this.admins = (admins ?? []).filter((a) => a.phone);
+        this.cdr.detectChanges();
+      },
+      error: (err) => console.error('โหลดข้อมูลผู้ดูแลไม่สำเร็จ:', err)
     });
 
     this.portal.getMyBills().subscribe({
@@ -210,6 +220,12 @@ export class MyBillsComponent implements OnInit {
       .map((house) => house.village?.village_name)
       .filter((name: string | null | undefined): name is string => !!name);
     return [...new Set(names)].join(' · ');
+  }
+
+  /** ชื่อผู้ดูแลแบบเต็ม — ถ้าไม่มีชื่อใช้คำว่า "ผู้ดูแลระบบ" แทน */
+  adminName(admin: any): string {
+    const name = `${admin?.fname ?? ''} ${admin?.lname ?? ''}`.trim();
+    return name || 'ผู้ดูแลระบบ';
   }
 
   openDetail(bill: any): void {

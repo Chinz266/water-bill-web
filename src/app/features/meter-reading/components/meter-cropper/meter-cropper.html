@@ -51,12 +51,31 @@
       <h2 class="step-title">เลือกรูปมิเตอร์</h2>
     </div>
 
-    <label class="dropzone" [class.compact]="imageChangedEvent" for="file-upload">
-      <span class="dropzone-art">📸</span>
-      <span class="dropzone-title">{{ imageChangedEvent ? 'เปลี่ยนรูปใหม่' : 'แตะเพื่อถ่ายรูป หรือเลือกรูปจากเครื่อง' }}</span>
-      <span class="dropzone-hint">รองรับไฟล์ภาพ เช่น .jpg .png — ถ่ายให้เห็นตัวเลขชัด ๆ นะครับ</span>
+    <!-- ปุ่มหลัก: เปิดกล้องถ่ายเลย (capture=environment = กล้องหลัง) -->
+    <label class="dropzone" [class.compact]="imageChangedEvent" for="camera-input">
+      <span class="dropzone-art">📷</span>
+      <span class="dropzone-title">{{ imageChangedEvent ? 'ถ่ายรูปใหม่' : 'แตะเพื่อเปิดกล้องถ่ายมิเตอร์' }}</span>
+      <span class="dropzone-hint">เล็งให้เห็นตัวเลขบนหน้าปัดชัด ๆ นะครับ</span>
     </label>
-    <input id="file-upload" type="file" (change)="fileChangeEvent($event)" accept="image/*" />
+    <input
+      id="camera-input"
+      type="file"
+      (change)="fileChangeEvent($event)"
+      accept="image/*"
+      capture="environment"
+    />
+
+    <!-- ทางเลือก: ใช้รูปที่ถ่ายไว้แล้วในเครื่อง -->
+    <label class="gallery-link" for="gallery-input">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+      หรือเลือกรูปจากคลังภาพ
+    </label>
+    <input
+      id="gallery-input"
+      type="file"
+      (change)="fileChangeEvent($event)"
+      accept="image/*"
+    />
   </section>
 
   @if (imageChangedEvent) {

@@ -1,8 +1,6 @@
 <div class="page-head">
-  <h1 class="page-title">⚙️ ตั้งค่าหมู่บ้าน</h1>
-  <p class="page-subtitle">
-    ข้อมูลในหน้านี้จะถูกนำไปแสดงบนใบเสร็จค่าน้ำ และใช้กำหนดรอบการออกบิลกับเรทค่าน้ำ
-  </p>
+  <h1 class="page-title">ตั้งค่าหมู่บ้าน</h1>
+  <p class="page-subtitle">ตั้งเรทค่าน้ำ และแก้ไขชื่อกับที่อยู่ของหมู่บ้าน</p>
 </div>
 
 <!-- 💧 เรทค่าน้ำ — ราคาต่อหน่วยที่ใช้คิดบิลทุกใบ -->
@@ -221,48 +219,6 @@
             <option [ngValue]="subdistrict.id">{{ subdistrict.name_in_thai }}</option>
           }
         </select>
-      </div>
-
-      <div class="field"></div>
-    </div>
-
-    <h2 class="section-heading">ผู้ดูแลหมู่บ้าน</h2>
-
-    <div class="form-row">
-      <div class="field">
-        <label class="field-label" for="headman_name">ชื่อผู้ใหญ่บ้าน</label>
-        <input
-          id="headman_name"
-          class="field-input"
-          type="text"
-          formControlName="headman_name"
-          placeholder="เช่น นายสมชาย ใจดี"
-        />
-      </div>
-
-      <div class="field">
-        <label class="field-label" for="deputy_headman_name">ชื่อผู้ช่วยผู้ใหญ่บ้าน</label>
-        <input
-          id="deputy_headman_name"
-          class="field-input"
-          type="text"
-          formControlName="deputy_headman_name"
-          placeholder="เช่น นายสมปอง รักสงบ"
-        />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="field">
-        <label class="field-label" for="phone">เบอร์โทรติดต่อหมู่บ้าน</label>
-        <input
-          id="phone"
-          class="field-input"
-          type="tel"
-          inputmode="tel"
-          formControlName="phone"
-          placeholder="เช่น 0812345678"
-        />
       </div>
 
       <div class="field"></div>

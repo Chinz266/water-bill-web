@@ -16,6 +16,7 @@ export class Navbar {
   private router = inject(Router);
 
   readonly displayName = this.auth.displayName;
+  readonly photo = this.auth.user; // เอา user มาอ่าน .photo ในเทมเพลต
 
   onLogout(): void {
     this.auth.logout();

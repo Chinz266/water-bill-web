@@ -32,7 +32,19 @@
   </nav>
 
   <div class="topbar-user">
-    <span class="user-name">สวัสดี, {{ displayName() }}</span>
+    <a class="user-meta" routerLink="/account" routerLinkActive="is-active" title="ตั้งค่าผู้ดูแล">
+      <span class="user-avatar">
+        @if (photo()?.photo) {
+          <img [src]="photo()!.photo" alt="รูปผู้ดูแล" />
+        } @else {
+          🧑‍💼
+        }
+      </span>
+      <span class="user-text">
+        <span class="user-name">{{ displayName() }}</span>
+        <span class="user-role">ผู้ดูแลระบบ · ตั้งค่า</span>
+      </span>
+    </a>
     <button type="button" class="btn btn-ghost btn-sm logout-btn" (click)="onLogout()">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
       <span class="logout-text">ออกจากระบบ</span>

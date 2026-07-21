@@ -101,6 +101,8 @@ input[type='file'] {
   color: var(--text-muted);
 }
 
+/* (.gallery-link อยู่ใน styles.css กลาง เพราะไฟล์นี้เต็ม budget) */
+
 /* ---------- กรอบครอบตัด ---------- */
 .crop-frame {
   overflow: hidden;

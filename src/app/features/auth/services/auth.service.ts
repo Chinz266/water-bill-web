@@ -15,6 +15,7 @@ export interface AppUser {
   lname?: string | null;
   email?: string | null;
   phone?: string | null;
+  photo?: string | null;
   role: UserRole;
 }
 
@@ -132,6 +133,17 @@ export class AuthService {
   /** token ที่ interceptor เอาไปแนบกับทุก request */
   getToken(): string | null {
     return this.currentToken();
+  }
+
+  /** อัปเดตข้อมูลผู้ใช้ที่เก็บไว้ (เช่นหลังแก้โปรไฟล์) ให้ชื่อบนแถบเมนูเปลี่ยนตามทันที */
+  patchUser(patch: Partial<AppUser>): void {
+    const current = this.currentAdmin();
+    if (!current) return;
+    const updated = { ...current, ...patch };
+    this.currentAdmin.set(updated);
+    if (this.isBrowser) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
   }
 
   private storeSession(result: AuthResult): void {
