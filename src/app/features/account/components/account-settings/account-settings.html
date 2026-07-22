@@ -1,0 +1,108 @@
+<div class="account">
+  <div class="page-head">
+    <h1 class="page-title">ตั้งค่าผู้ดูแลหมู่บ้าน</h1>
+    <p class="page-subtitle">แก้ไขชื่อและเบอร์โทรของบัญชีผู้ดูแลที่ใช้อยู่</p>
+  </div>
+
+  <!-- การ์ดโปรไฟล์ -->
+  <form class="card account-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="account-avatar">
+      <div class="avatar-pic">
+        @if (photo()) {
+          <img [src]="photo()" alt="รูปโปรไฟล์ผู้ดูแล" />
+        } @else {
+          <span class="avatar-icon">🧑‍💼</span>
+        }
+      </div>
+      <div class="avatar-meta">
+        <p class="avatar-name">{{ fname.value }} {{ lname.value }}</p>
+        <span class="chip chip-info">ผู้ดูแลระบบ</span>
+        <div class="avatar-actions">
+          <label class="btn btn-secondary btn-sm" for="photo-input">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><circle cx="12" cy="13" r="2.5"/></svg>
+            {{ photo() ? 'เปลี่ยนรูป' : 'อัปโหลดรูป' }}
+          </label>
+          <input id="photo-input" type="file" accept="image/*" (change)="onPhotoSelected($event)" />
+          @if (photo()) {
+            <button type="button" class="btn btn-ghost btn-sm" (click)="removePhoto()">ลบรูป</button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="acc-email">อีเมล (ใช้เข้าสู่ระบบ)</label>
+      <input id="acc-email" class="field-input" type="email" [value]="email()" disabled />
+      <p class="field-hint">อีเมลใช้สำหรับเข้าสู่ระบบ จึงแก้ไขไม่ได้ที่นี่</p>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label class="field-label" for="acc-fname">ชื่อจริง <span class="field-required">*</span></label>
+        <input
+          id="acc-fname"
+          class="field-input"
+          type="text"
+          formControlName="fname"
+          placeholder="เช่น สมหญิง"
+          [class.is-invalid]="fname.invalid && fname.touched"
+        />
+        @if (fname.touched && fname.hasError('required')) {
+          <p class="field-error">กรุณากรอกชื่อจริง</p>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="acc-lname">นามสกุล <span class="field-required">*</span></label>
+        <input
+          id="acc-lname"
+          class="field-input"
+          type="text"
+          formControlName="lname"
+          placeholder="เช่น รักไทย"
+          [class.is-invalid]="lname.invalid && lname.touched"
+        />
+        @if (lname.touched && lname.hasError('required')) {
+          <p class="field-error">กรุณากรอกนามสกุล</p>
+        }
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="acc-phone">เบอร์โทรศัพท์</label>
+      <input
+        id="acc-phone"
+        class="field-input"
+        type="tel"
+        inputmode="tel"
+        formControlName="phone"
+        placeholder="เช่น 0812345678"
+        [class.is-invalid]="phone.invalid && phone.touched"
+      />
+      @if (phone.touched && phone.hasError('pattern')) {
+        <p class="field-error">เบอร์โทรไม่ถูกต้อง (ต้องมี 9-10 หลัก เช่น 0812345678)</p>
+      } @else {
+        <p class="field-hint">ไม่กรอกก็ได้ครับ</p>
+      }
+    </div>
+
+    <button
+      type="submit"
+      class="btn btn-primary btn-block save-btn"
+      [disabled]="isSaving() || form.pristine"
+    >
+      @if (isSaving()) {
+        <span class="btn-spinner"></span> กำลังบันทึก...
+      } @else {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+        บันทึกข้อมูล
+      }
+    </button>
+  </form>
+
+  <!-- ออกจากระบบ -->
+  <button type="button" class="btn btn-danger-soft btn-block logout-block" (click)="onLogout()">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+    ออกจากระบบ
+  </button>
+</div>

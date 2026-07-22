@@ -8,8 +8,9 @@
         @if (villageName) {
           {{ villageName }} ·
         }
-        สวัสดี, {{ greetingName }}
+        {{ greetingName }}
       </span>
+      <span class="portal-role">สมาชิก</span>
     </div>
   </div>
   <button type="button" class="btn btn-ghost btn-sm" (click)="onLogout()">
@@ -159,6 +160,33 @@
           <h2 class="empty-title">ยังไม่มีบิลค่าน้ำ</h2>
           <p class="empty-text">เมื่อเจ้าหน้าที่จดมิเตอร์และออกบิลของบ้านคุณแล้ว บิลจะมาแสดงที่นี่ครับ</p>
         </div>
+      </div>
+    }
+
+    <!-- ติดต่อผู้ดูแล — ไว้สอบถามเรื่องบิลหรือการชำระเงิน -->
+    @if (admins.length > 0) {
+      <h2 class="section-title">ติดต่อผู้ดูแลหมู่บ้าน</h2>
+      <div class="card admin-card">
+        <p class="admin-intro text-muted">มีข้อสงสัยเรื่องบิลหรือการชำระเงิน โทรหาผู้ดูแลได้เลยครับ</p>
+        @for (admin of admins; track admin.id) {
+          <a class="admin-row" href="tel:{{ admin.phone }}">
+            <span class="admin-avatar">
+              @if (admin.photo) {
+                <img [src]="admin.photo" alt="รูปผู้ดูแล" />
+              } @else {
+                🧑‍💼
+              }
+            </span>
+            <span class="admin-info">
+              <span class="admin-name">{{ adminName(admin) }}</span>
+              <span class="admin-role text-muted">ผู้ดูแลหมู่บ้าน</span>
+            </span>
+            <span class="admin-phone">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 5.2 2 2 0 0 1 6 3Z"/></svg>
+              {{ admin.phone }}
+            </span>
+          </a>
+        }
       </div>
     }
   }

@@ -61,6 +61,13 @@ svg {
   white-space: nowrap;
 }
 
+/* ป้ายบอกบทบาท ใต้ชื่อ */
+.portal-role {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-hover);
+}
+
 /* ---------- เนื้อหา ---------- */
 .portal-content {
   max-width: 640px;
@@ -105,7 +112,8 @@ svg {
 }
 
 .due-amount .big-value {
-  font-size: 48px;
+  /* ยอดเงินก้อนใหญ่สุดของหน้า — ย่อตามจอกันเลขหลักล้านล้นขอบ */
+  font-size: clamp(34px, 12vw, 48px);
 }
 
 .due-note {
@@ -199,6 +207,8 @@ svg {
   flex-direction: column;
   gap: 8px;
 }
+
+/* การ์ดติดต่อผู้ดูแล — สไตล์ .admin-* อยู่ใน styles.css กลาง (ไฟล์นี้เต็ม budget) */
 
 /* การ์ดบิลกดได้ทั้งใบ — ปุ่มใหญ่กดง่ายบนมือถือ */
 .bill-item {

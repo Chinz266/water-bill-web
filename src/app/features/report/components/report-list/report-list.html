@@ -1,0 +1,225 @@
+<div class="page-head">
+  <h1 class="page-title">เรื่องที่ลูกบ้านแจ้ง</h1>
+  <p class="page-subtitle">
+    @if (openCount > 0) {
+      มี {{ openCount }} เรื่องที่ยังไม่เสร็จ — กดที่เรื่องเพื่อตอบกลับลูกบ้าน
+    } @else {
+      ดูแลครบทุกเรื่องแล้วครับ 👍
+    }
+  </p>
+</div>
+
+<!-- ตัวกรองสถานะ + ค้นหา -->
+<div class="card filter-card">
+  <div class="status-tabs">
+    <button
+      type="button"
+      class="status-tab"
+      [class.is-active]="selectedStatus === ''"
+      (click)="selectedStatus = ''"
+    >
+      ทั้งหมด <span class="tab-count">{{ reports.length }}</span>
+    </button>
+    @for (s of statuses; track s.value) {
+      <button
+        type="button"
+        class="status-tab"
+        [class.is-active]="selectedStatus === s.value"
+        (click)="selectedStatus = s.value"
+      >
+        {{ s.label }} <span class="tab-count">{{ countByStatus(s.value) }}</span>
+      </button>
+    }
+  </div>
+
+  <!-- ต้องมีทั้ง field-input (หน้าตาช่องกรอก) และ search-input (ไอคอนแว่นขยาย)
+       .search-input ใส่ให้แค่ไอคอน ถ้าใส่คลาสเดียวจะได้ input ดิบของเบราว์เซอร์ -->
+  <input
+    type="search"
+    class="field-input search-input report-search"
+    placeholder="ค้นหาบ้านเลขที่ ชื่อ หรือข้อความ"
+    [(ngModel)]="searchTerm"
+  />
+</div>
+
+@if (isLoading) {
+  <div class="card">
+    <p class="loading-note"><span class="loading-dot"></span> กำลังโหลดข้อมูล รอสักครู่นะครับ...</p>
+    <div class="skeleton skeleton-row"></div>
+    <div class="skeleton skeleton-row"></div>
+  </div>
+}
+
+@if (!isLoading) {
+  @if (visibleReports.length === 0) {
+    <div class="card empty-state">
+      <div class="empty-art">📭</div>
+      <p class="empty-title">
+        @if (reports.length === 0) {
+          ยังไม่มีเรื่องที่ลูกบ้านแจ้งเข้ามา
+        } @else {
+          ไม่พบเรื่องที่ตรงกับที่ค้นหา
+        }
+      </p>
+      <p class="empty-text">
+        @if (reports.length === 0) {
+          เมื่อลูกบ้านแจ้งเรื่องผ่านหน้าพอร์ทัล เรื่องจะมาโผล่ที่นี่ทันที
+        } @else {
+          ลองเปลี่ยนคำค้นหา หรือกดดู "ทั้งหมด" ดูนะครับ
+        }
+      </p>
+    </div>
+  } @else {
+    <div class="report-grid">
+      @for (report of visibleReports; track report.id) {
+        <article class="card report-card">
+          <header class="rc-head">
+            <span class="rc-icon">{{ categoryIcon(report.category) }}</span>
+            <div class="rc-title-wrap">
+              <h3 class="rc-title">{{ categoryLabel(report.category) }}</h3>
+              <span class="rc-house">
+                บ้านเลขที่ {{ report.member?.house_no ?? '—' }} · {{ ownerName(report) }}
+              </span>
+            </div>
+            <span class="chip" [class]="'chip ' + statusChip(report.status)">
+              {{ statusLabel(report.status) }}
+            </span>
+          </header>
+
+          <p class="rc-detail">{{ report.detail }}</p>
+
+          @if (report.photo) {
+            <img class="rc-photo" [src]="report.photo" alt="รูปประกอบเรื่องที่แจ้ง" />
+          }
+
+          <div class="rc-meta">
+            <span>แจ้งเมื่อ {{ dateLabel(report.create_date) }}</span>
+            @if (report.member?.phone) {
+              <a class="rc-phone" [href]="'tel:' + report.member!.phone">
+                📞 {{ report.member!.phone }}
+              </a>
+            }
+          </div>
+
+          @if (report.admin_reply) {
+            <div class="rc-reply">
+              <span class="rc-reply-head">💬 ตอบกลับแล้ว</span>
+              <p class="rc-reply-text">{{ report.admin_reply }}</p>
+            </div>
+          }
+
+          <div class="rc-actions">
+            <button type="button" class="btn btn-primary btn-sm" (click)="openReply(report)">
+              @if (report.admin_reply) { แก้คำตอบ } @else { ตอบกลับ }
+            </button>
+
+            <!-- ปุ่มลัดเปลี่ยนสถานะ โดยไม่ต้องเปิดกล่องตอบ -->
+            @if (report.status === 'Pending') {
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                (click)="changeStatus(report, 'InProgress')"
+              >
+                รับเรื่อง
+              </button>
+            }
+            @if (report.status !== 'Resolved') {
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                (click)="changeStatus(report, 'Resolved')"
+              >
+                ปิดเรื่อง
+              </button>
+            }
+
+            <button type="button" class="btn btn-danger-soft btn-sm" (click)="askDelete(report)">
+              ลบ
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+}
+
+<!-- ================= กล่องตอบกลับ ================= -->
+@if (selectedReport) {
+  <div class="modal-overlay" (click)="closeReply()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          ตอบกลับ — {{ categoryLabel(selectedReport.category) }}
+        </h3>
+        <button type="button" class="modal-close" (click)="closeReply()" aria-label="ปิด">✕</button>
+      </div>
+
+      <p class="modal-house">
+        บ้านเลขที่ {{ selectedReport.member?.house_no ?? '—' }} · {{ ownerName(selectedReport) }}
+      </p>
+
+      <div class="quote-box">
+        <span class="quote-label">เรื่องที่ลูกบ้านแจ้ง</span>
+        <p class="quote-text">{{ selectedReport.detail }}</p>
+      </div>
+
+      @if (selectedReport.photo) {
+        <img class="rc-photo" [src]="selectedReport.photo" alt="รูปประกอบเรื่องที่แจ้ง" />
+      }
+
+      <div class="field">
+        <label class="field-label" for="admin-reply">ข้อความตอบกลับถึงลูกบ้าน</label>
+        <textarea
+          id="admin-reply"
+          class="field-input reply-textarea"
+          rows="4"
+          placeholder="เช่น ช่างเข้าไปตรวจแล้วครับ คาดว่าน้ำจะไหลปกติภายในเย็นนี้"
+          [(ngModel)]="replyText"
+        ></textarea>
+        <span class="field-hint">
+          {{ replyText.length }} / {{ detailMax }} ตัวอักษร · ลบข้อความให้ว่างแล้วบันทึก = ล้างคำตอบเดิม
+        </span>
+      </div>
+
+      <div class="modal-actions modal-actions-wrap">
+        <button type="button" class="btn btn-secondary" (click)="closeReply()" [disabled]="isSaving">
+          ยกเลิก
+        </button>
+        <button type="button" class="btn btn-secondary" (click)="saveReply()" [disabled]="isSaving">
+          @if (isSaving) { <span class="btn-spinner"></span> กำลังบันทึก... } @else { บันทึกคำตอบ }
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="saveReply('Resolved')"
+          [disabled]="isSaving"
+        >
+          บันทึก + ปิดเรื่อง
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= ยืนยันก่อนลบ ================= -->
+@if (reportToDelete) {
+  <div class="modal-overlay" (click)="cancelDelete()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">ยืนยันการลบเรื่อง</h3>
+        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-danger">
+        ลบเรื่อง "{{ categoryLabel(reportToDelete.category) }}" ของบ้านเลขที่
+        {{ reportToDelete.member?.house_no ?? '—' }} ใช่ไหมครับ?<br />
+        ลบแล้วเรียกคืนไม่ได้ และลูกบ้านจะไม่เห็นเรื่องนี้อีก
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="cancelDelete()">ยกเลิก</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDelete()">ลบเรื่อง</button>
+      </div>
+    </div>
+  </div>
+}

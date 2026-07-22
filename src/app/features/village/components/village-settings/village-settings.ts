@@ -34,9 +34,6 @@ export class VillageSettingsComponent implements OnInit {
     provinces_id: [null as number | null, [Validators.required]],
     districts_id: [null as number | null, [Validators.required]],
     subdistricts_id: [null as number | null, [Validators.required]],
-    headman_name: ['', [Validators.maxLength(45)]],
-    deputy_headman_name: ['', [Validators.maxLength(45)]],
-    phone: ['', [Validators.maxLength(45)]],
   });
 
   get villageName() { return this.form.controls.village_name; }
@@ -205,9 +202,6 @@ export class VillageSettingsComponent implements OnInit {
       provinces_id: village.provinces_id ?? null,
       districts_id: village.districts_id ?? null,
       subdistricts_id: village.subdistricts_id ?? null,
-      headman_name: village.headman_name ?? '',
-      deputy_headman_name: village.deputy_headman_name ?? '',
-      phone: village.phone ?? '',
     });
     this.form.markAsPristine();
 

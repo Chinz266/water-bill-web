@@ -21,4 +21,9 @@ export class MemberPortalService {
   getMyBills(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/me/bills`);
   }
+
+  /** ข้อมูลผู้ดูแลไว้ติดต่อ (ชื่อ + เบอร์โทร) */
+  getAdmins(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/me/admins`);
+  }
 }
