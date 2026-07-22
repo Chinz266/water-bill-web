@@ -127,27 +127,34 @@ export class BillPrintService {
   // ==========================================
   // สั่งพิมพ์ — ต้อง tick() ให้เอกสารขึ้น DOM ก่อน ไม่งั้นจะพิมพ์หน้าเปล่า
   // ==========================================
+  /**
+   * 🌟 ทำไมถึง "ไม่ล้าง" เอกสารทิ้งหลังสั่งพิมพ์
+   *
+   * บนคอม window.print() จะค้างรอจนปิดหน้าต่างพิมพ์ ล้างต่อท้ายได้ปลอดภัย
+   * แต่บนมือถือมันไม่รอ — คืนค่าทันทีแล้วค่อยเรนเดอร์หน้าพิมพ์ทีหลัง
+   * (บางรุ่นยิง afterprint ทันทีระหว่าง print() ด้วยซ้ำ)
+   * ถ้าล้างข้อมูลตอนไหนก็ตาม เอกสารมีสิทธิ์หายก่อนถูกพิมพ์ → ได้กระดาษเปล่า
+   *
+   * เอกสารถูก display:none ซ่อนบนจออยู่แล้ว (ดู styles.css) ปล่อยค้างไว้จึงไม่กวนอะไร
+   * และจะถูกแทนที่เองเมื่อสั่งพิมพ์ครั้งถัดไป — วิธีนี้ไม่มีการแข่งจังหวะให้พลาด
+   */
   printSingle(bill: any): void {
     if (typeof window === 'undefined' || !bill) return;
 
+    this.billsToPrint.set([]); // กันสลิปชุดก่อนหน้าค้างมาพิมพ์ซ้อน
     this.billToPrint.set(bill);
     this.appRef.tick();
 
     window.print();
-
-    this.billToPrint.set(null);
-    this.appRef.tick();
   }
 
   printMany(bills: any[]): void {
     if (typeof window === 'undefined' || !bills?.length) return;
 
+    this.billToPrint.set(null); // กันใบเต็มหน้าก่อนหน้าค้างมาพิมพ์ซ้อน
     this.billsToPrint.set(bills);
     this.appRef.tick();
 
     window.print();
-
-    this.billsToPrint.set([]);
-    this.appRef.tick();
   }
 }

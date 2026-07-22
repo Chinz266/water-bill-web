@@ -1058,7 +1058,9 @@ button.chip:hover {
     display: none !important;
   }
 
-  /* ล้างขอบของหน้าเว็บออกให้หมด ให้เหลือแต่ระยะขอบของกระดาษจริง */
+  /* ล้างขอบของหน้าเว็บออกให้หมด ให้เหลือแต่ระยะขอบของกระดาษจริง
+     overflow ต้องเป็น visible ด้วย — overflow-x:hidden ที่ใช้กันจอเลื่อนบนมือถือ
+     จะกลายเป็นกล่องตัดเนื้อหา ทำให้เอกสารหลายใบไหลข้ามหน้าไม่ได้ */
   html,
   body,
   app-root,
@@ -1066,6 +1068,7 @@ button.chip:hover {
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
     background: #fff !important;
   }
 

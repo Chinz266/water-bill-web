@@ -44,7 +44,22 @@ describe('BillPrintComponent', () => {
     service.printMany([billOf(1, '99/1'), billOf(2, '99/2')]);
 
     expect(slipsAtPrintTime).toBe(2);
-    // พิมพ์เสร็จต้องเก็บเอกสารออกจากหน้าจอ ไม่ค้างไว้
+
+    // 🌟 บนมือถือ window.print() ไม่ค้างรอเหมือนบนคอม (บางรุ่นยิง afterprint ทันทีด้วยซ้ำ)
+    //    เอกสารจึงต้องค้างอยู่ ห้ามล้างทิ้ง ไม่งั้นหายก่อนถูกพิมพ์ = ได้กระดาษเปล่า
+    //    (ไม่กวนผู้ใช้ เพราะถูก display:none ซ่อนบนจออยู่แล้ว)
+    expect(fixture.nativeElement.querySelectorAll('.slip').length).toBe(2);
+  });
+
+  it('สั่งพิมพ์ชุดใหม่ต้องแทนที่ชุดเก่า ไม่พิมพ์ซ้อนกัน', () => {
+    window.print = () => {};
+
+    service.printMany([billOf(1, '99/1'), billOf(2, '99/2')]);
+    service.printSingle(billOf(9, '77/7'));
+
+    const html = fixture.nativeElement.innerHTML;
+    expect(html).toContain('77/7');
+    expect(html).not.toContain('99/1');
     expect(fixture.nativeElement.querySelectorAll('.slip').length).toBe(0);
   });
 
