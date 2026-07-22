@@ -1,4 +1,4 @@
-import { Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MemberService } from '../member/services/member.service'; // 🌟 ดึง Service ลูกบ้านมาใช้
@@ -16,7 +16,10 @@ export class HomeComponent implements OnInit {
   // ตัวแปรเก็บชื่อเดือนปัจจุบัน
   currentMonth: string = '';
 
-  constructor(private memberService: MemberService) {
+  constructor(
+    private memberService: MemberService,
+    private cdr: ChangeDetectorRef
+  ) {
     // โค้ดดึงชื่อเดือนปัจจุบัน (ภาษาไทย) แบบเรียลไทม์
     const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
     this.currentMonth = months[new Date().getMonth()];
@@ -34,10 +37,14 @@ export class HomeComponent implements OnInit {
       next: (members) => {
         // นับจำนวนข้อมูลที่ได้มา แล้วเอาไปโชว์
         this.realTotalHouses = members ? members.length : 0;
+        // แอปเป็น zoneless — การ set ค่าใน callback ของ HttpClient ไม่ trigger change detection เอง
+        // ถ้าไม่สั่งเอง การ์ดจะค้างอยู่ที่ "กำลังโหลด" ทั้งที่ข้อมูลมาถึงแล้ว
+        this.cdr?.detectChanges();
       },
       error: (err) => {
         console.error('ดึงข้อมูลจริงไม่สำเร็จ:', err);
         this.realTotalHouses = 0; // ถ้าหลังบ้านพัง ให้โชว์เป็น 0 ไปก่อน
+        this.cdr?.detectChanges();
       }
     });
   }

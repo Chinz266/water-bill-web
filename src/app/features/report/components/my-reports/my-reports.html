@@ -1,0 +1,246 @@
+<!-- แถบบนของพอร์ทัลลูกบ้าน (หน้าตาเดียวกับหน้าบิล — สไตล์อยู่ที่ portal-shared.css) -->
+<header class="portal-bar">
+  <div class="portal-brand">
+    <span class="portal-mark">📣</span>
+    <div class="portal-text">
+      <span class="portal-title">แจ้งเรื่องถึงผู้ดูแล</span>
+      <span class="portal-sub">{{ displayName() }}</span>
+      <span class="portal-role">สมาชิก</span>
+    </div>
+  </div>
+  <button type="button" class="btn btn-ghost btn-sm" (click)="onLogout()">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+    ออกจากระบบ
+  </button>
+</header>
+
+<!-- สลับไปมาระหว่างหน้าบิลกับหน้าแจ้งเรื่อง -->
+<nav class="portal-tabs" aria-label="เมนูลูกบ้าน">
+  <a routerLink="/member/bills" routerLinkActive="is-active">🧾 บิลของฉัน</a>
+  <a routerLink="/member/reports" routerLinkActive="is-active">📣 แจ้งเรื่อง</a>
+</nav>
+
+<div class="portal-content">
+  <!-- ปุ่มแจ้งเรื่องใหม่ วางบนสุดให้กดง่ายที่สุด -->
+  <button type="button" class="btn btn-primary btn-block new-report-btn" (click)="openForm()">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+    แจ้งเรื่องใหม่
+  </button>
+
+  @if (isLoading) {
+    <div class="card">
+      <p class="loading-note">
+        <span class="loading-dot"></span> กำลังโหลดเรื่องที่แจ้งไว้ รอสักครู่นะครับ...
+      </p>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>
+  }
+
+  @if (!isLoading) {
+    @if (reports.length === 0) {
+      <div class="card empty-state">
+        <div class="empty-art">📭</div>
+        <p class="empty-title">ยังไม่มีเรื่องที่แจ้งไว้</p>
+        <p class="empty-text">
+          ถ้าน้ำไม่ไหล น้ำขุ่น ท่อรั่ว หรือบิลมีอะไรไม่ถูกต้อง<br />
+          กดปุ่ม "แจ้งเรื่องใหม่" ด้านบนได้เลยครับ
+        </p>
+      </div>
+    } @else {
+      <h2 class="section-title">
+        เรื่องที่แจ้งไว้ ({{ reports.length }})
+        @if (openCount > 0) {
+          <span class="chip chip-warning">ยังไม่เสร็จ {{ openCount }}</span>
+        }
+      </h2>
+
+      <div class="report-list">
+        @for (report of reports; track report.id) {
+          <button type="button" class="report-item" (click)="openDetail(report)">
+            <span class="report-icon">{{ categoryIcon(report.category) }}</span>
+
+            <span class="report-main">
+              <span class="report-cat">{{ categoryLabel(report.category) }}</span>
+              <span class="report-detail">{{ report.detail }}</span>
+              <span class="report-meta">
+                {{ dateLabel(report.create_date) }}
+                @if (houses.length > 1 && report.member) {
+                  · บ้านเลขที่ {{ report.member.house_no }}
+                }
+              </span>
+              <!-- มีคำตอบแล้วต้องเห็นตั้งแต่หน้ารายการ ไม่งั้นลูกบ้านไม่รู้ว่าถูกตอบแล้ว -->
+              @if (report.admin_reply) {
+                <span class="report-replied">💬 ผู้ดูแลตอบกลับแล้ว</span>
+              }
+            </span>
+
+            <span class="report-side">
+              <span class="chip" [class]="'chip ' + statusChip(report.status)">
+                {{ statusLabel(report.status) }}
+              </span>
+              @if (report.photo) {
+                <span class="report-haspic">📎 มีรูป</span>
+              }
+            </span>
+          </button>
+        }
+      </div>
+    }
+  }
+</div>
+
+<!-- ================= ฟอร์มแจ้งเรื่องใหม่ ================= -->
+@if (showForm) {
+  <div class="modal-overlay" (click)="closeForm()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">แจ้งเรื่องใหม่</h3>
+        <button type="button" class="modal-close" (click)="closeForm()" aria-label="ปิด">✕</button>
+      </div>
+
+      <!-- เลือกบ้าน เฉพาะคนที่ดูแลหลายหลัง -->
+      @if (houses.length > 1) {
+        <div class="field">
+          <label class="field-label" for="report-house">แจ้งให้บ้านหลังไหน</label>
+          <select id="report-house" class="field-input" [(ngModel)]="form.members_id">
+            @for (house of houses; track house.id) {
+              <option [ngValue]="house.id">
+                บ้านเลขที่ {{ house.house_no }} — {{ house.fname }} {{ house.lname }}
+              </option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- เลือกหมวดด้วยการกดการ์ด กดด้วยนิ้วโป้งง่ายกว่า dropdown -->
+      <div class="field">
+        <span class="field-label">เรื่องที่ต้องการแจ้ง <span class="field-required">*</span></span>
+        <div class="cat-grid">
+          @for (cat of categories; track cat.value) {
+            <button
+              type="button"
+              class="cat-card"
+              [class.is-picked]="form.category === cat.value"
+              (click)="pickCategory(cat.value)"
+            >
+              <span class="cat-icon">{{ cat.icon }}</span>
+              <span class="cat-label">{{ cat.label }}</span>
+            </button>
+          }
+        </div>
+        @if (formErrors.category) {
+          <span class="field-error">{{ formErrors.category }}</span>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="report-detail">
+          รายละเอียด <span class="field-required">*</span>
+        </label>
+        <textarea
+          id="report-detail"
+          class="field-input report-textarea"
+          rows="4"
+          placeholder="เล่าให้ผู้ดูแลฟังหน่อยครับ ว่าเกิดอะไรขึ้น ตั้งแต่เมื่อไหร่"
+          [(ngModel)]="form.detail"
+        ></textarea>
+        <span class="field-hint">{{ form.detail.length }} / {{ detailMax }} ตัวอักษร</span>
+        @if (formErrors.detail) {
+          <span class="field-error">{{ formErrors.detail }}</span>
+        }
+      </div>
+
+      <div class="field">
+        <span class="field-label">แนบรูป (ถ้ามี)</span>
+        @if (photo) {
+          <div class="photo-preview">
+            <img [src]="photo" alt="รูปที่แนบ" />
+            <button type="button" class="btn btn-danger-soft btn-sm" (click)="removePhoto()">
+              ลบรูป
+            </button>
+          </div>
+        } @else {
+          <label class="photo-picker">
+            <input type="file" accept="image/*" (change)="onPhotoSelected($event)" hidden />
+            <span class="photo-picker-icon">📷</span>
+            <span>ถ่ายรูป หรือเลือกรูปจากเครื่อง</span>
+          </label>
+          <span class="field-hint">มีรูปประกอบจะช่วยให้ผู้ดูแลเห็นภาพและแก้ได้เร็วขึ้นครับ</span>
+        }
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeForm()" [disabled]="isSending">
+          ยกเลิก
+        </button>
+        <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="isSending">
+          @if (isSending) {
+            <span class="btn-spinner"></span> กำลังส่ง...
+          } @else {
+            ส่งเรื่อง
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= รายละเอียดเรื่อง ================= -->
+@if (selectedReport) {
+  <div class="modal-overlay" (click)="closeDetail()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          {{ categoryIcon(selectedReport.category) }} {{ categoryLabel(selectedReport.category) }}
+        </h3>
+        <button type="button" class="modal-close" (click)="closeDetail()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="detail-row">
+        <span class="chip" [class]="'chip ' + statusChip(selectedReport.status)">
+          {{ statusLabel(selectedReport.status) }}
+        </span>
+        <span class="detail-date">แจ้งเมื่อ {{ dateLabel(selectedReport.create_date) }}</span>
+      </div>
+
+      <p class="detail-house">{{ houseLabel(selectedReport) }}</p>
+
+      <div class="detail-block">
+        <span class="detail-label">รายละเอียดที่แจ้ง</span>
+        <p class="detail-text">{{ selectedReport.detail }}</p>
+      </div>
+
+      @if (selectedReport.photo) {
+        <div class="detail-block">
+          <span class="detail-label">รูปประกอบ</span>
+          <img class="detail-photo" [src]="selectedReport.photo" alt="รูปประกอบเรื่องที่แจ้ง" />
+        </div>
+      }
+
+      <!-- คำตอบจากผู้ดูแล — จุดสำคัญที่สุดของหน้านี้ ต้องเด่น -->
+      @if (selectedReport.admin_reply) {
+        <div class="reply-box">
+          <span class="reply-head">
+            💬 ผู้ดูแลตอบกลับ
+            @if (selectedReport.replier) {
+              — {{ selectedReport.replier.fname }} {{ selectedReport.replier.lname }}
+            }
+          </span>
+          <p class="reply-text">{{ selectedReport.admin_reply }}</p>
+          @if (selectedReport.replied_date) {
+            <span class="reply-date">{{ dateLabel(selectedReport.replied_date) }}</span>
+          }
+        </div>
+      } @else {
+        <div class="alert alert-warning">
+          ผู้ดูแลยังไม่ได้ตอบกลับ เรื่องนี้อยู่ในคิวแล้วครับ
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-block" (click)="closeDetail()">ปิด</button>
+      </div>
+    </div>
+  </div>
+}
