@@ -34,30 +34,24 @@ describe('BillPrintComponent', () => {
     expect(document.querySelectorAll('#bill-print').length).toBe(0);
   });
 
-  it('สั่งพิมพ์หลายใบแล้วต้องมีสลิปครบทุกบิล "ก่อน" ที่ไดอะล็อกพิมพ์จะเปิด', () => {
-    let slipsAtPrintTime = -1;
-    // จับภาพ DOM ณ วินาทีที่เบราว์เซอร์ถูกสั่งพิมพ์ — จุดที่พลาดแล้วจะได้กระดาษเปล่า
-    window.print = () => {
-      slipsAtPrintTime = fixture.nativeElement.querySelectorAll('.slip').length;
-    };
-
+  it('สั่งพิมพ์หลายใบแล้วต้องมีสลิปครบทุกบิลอยู่ในหน้า และค้างไว้จนพิมพ์เสร็จ', () => {
     service.printMany([billOf(1, '99/1'), billOf(2, '99/2')]);
 
-    expect(slipsAtPrintTime).toBe(2);
-    // พิมพ์เสร็จต้องเก็บเอกสารออกจากหน้าจอ ไม่ค้างไว้
+    // เอกสารต้องถูก render ครบตั้งแต่ก่อนสั่งพิมพ์ ไม่งั้นได้กระดาษเปล่า
+    expect(fixture.nativeElement.querySelectorAll('.slip').length).toBe(2);
+
+    // ⚠️ ห้ามล้างทันทีหลังสั่งพิมพ์ — บนมือถือคำสั่งพิมพ์คืนค่าก่อนหน้าตัวอย่างจะถูกวาด
+    //    ล้างเลยจะได้กระดาษเปล่า ต้องรอ afterprint
+    window.dispatchEvent(new Event('afterprint'));
     expect(fixture.nativeElement.querySelectorAll('.slip').length).toBe(0);
   });
 
   it('สั่งพิมพ์ใบเดียวต้องได้ใบเต็มหน้า A4 พร้อมยอดเงินเป็นตัวอักษรไทย', () => {
-    let htmlAtPrintTime = '';
-    window.print = () => {
-      htmlAtPrintTime = fixture.nativeElement.innerHTML;
-    };
-
     service.printSingle(billOf(7, '99/1/2'));
 
-    expect(htmlAtPrintTime).toContain('99/1/2');
-    expect(htmlAtPrintTime).toContain('สามร้อยหกสิบบาทถ้วน');
+    const html = fixture.nativeElement.innerHTML;
+    expect(html).toContain('99/1/2');
+    expect(html).toContain('สามร้อยหกสิบบาทถ้วน');
   });
 
   it('กำหนดชำระต้องเป็นวันที่ 1 ของเดือนถัดจากรอบบิล และข้ามปีได้ถูก', () => {
@@ -71,14 +65,10 @@ describe('BillPrintComponent', () => {
   });
 
   it('สลิปของแต่ละบ้านต้องแสดงเฉพาะบ้านที่ส่งเข้าไป', () => {
-    let htmlAtPrintTime = '';
-    window.print = () => {
-      htmlAtPrintTime = fixture.nativeElement.innerHTML;
-    };
-
     service.printMany([billOf(5, '42/7')]);
 
-    expect(htmlAtPrintTime).toContain('42/7');
-    expect(htmlAtPrintTime).not.toContain('99/1');
+    const html = fixture.nativeElement.innerHTML;
+    expect(html).toContain('42/7');
+    expect(html).not.toContain('99/1');
   });
 });

@@ -1058,7 +1058,14 @@ button.chip:hover {
     display: none !important;
   }
 
-  /* ล้างขอบของหน้าเว็บออกให้หมด ให้เหลือแต่ระยะขอบของกระดาษจริง */
+  /* ล้างขอบของหน้าเว็บออกให้หมด ให้เหลือแต่ระยะขอบของกระดาษจริง
+
+     ⚠️ overflow ต้องปลดเป็น visible ด้วย ห้ามลืม
+     ด้านบนสุดของไฟล์ตั้ง html,body { overflow-x: hidden } ไว้กันจอเลื่อนแนวนอนบนมือถือ
+     ผลข้างเคียงคือ body กลายเป็นกล่องที่ "ตัดสิ่งที่ล้นออก" เวลาพิมพ์ เบราว์เซอร์จะได้
+     เนื้อหาแค่หน้าจอเดียวแล้วตัดที่เหลือทิ้ง — บนคอมจอใหญ่บิลใบเดียวพอดีเลยไม่เห็นปัญหา
+     แต่บนมือถือจอเตี้ยจะได้กระดาษเปล่าหรือได้แค่หน้าแรก
+     height/position ก็ต้องปลด กันหน้าที่ตั้ง min-height ไว้ไปบังคับความสูงกระดาษ */
   html,
   body,
   app-root,
@@ -1067,6 +1074,10 @@ button.chip:hover {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    position: static !important;
   }
 
   #bill-print,

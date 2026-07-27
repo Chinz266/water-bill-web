@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { toast } from 'ngx-sonner';
 import { MemberPortalService } from '../../services/member-portal.service';
 import { AuthService } from '../../../auth/services/auth.service';
@@ -9,15 +9,16 @@ import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
 
 /**
- * หน้าเดียวของฝั่งลูกบ้าน — ดูบิลบ้านตัวเอง (ทุกหลังที่บัญชีนี้ดูแล)
+ * หน้าแรกของฝั่งลูกบ้าน — ดูบิลบ้านตัวเอง (ทุกหลังที่บัญชีนี้ดูแล)
  * อ่านอย่างเดียว: เปลี่ยนสถานะ/ลบบิลทำไม่ได้ นั่นเป็นงานของเจ้าหน้าที่
  */
 @Component({
   selector: 'app-my-bills',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive],
   templateUrl: './my-bills.html',
-  styleUrls: ['./my-bills.css']
+  // แถบบน (.portal-*) และแถบสลับหน้าใช้ร่วมกับหน้าแจ้งเรื่อง สองหน้าจะได้หน้าตาไม่เพี้ยนกัน
+  styleUrls: ['../../portal-shared.css', './my-bills.css']
 })
 export class MyBillsComponent implements OnInit {
   private portal = inject(MemberPortalService);

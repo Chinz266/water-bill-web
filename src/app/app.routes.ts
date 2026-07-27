@@ -43,6 +43,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/account/components/account-settings/account-settings').then(m => m.AccountSettingsComponent),
   },
+  {
+    path: 'reports',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/report/components/report-list/report-list').then(m => m.ReportListComponent),
+  },
 
   // 🏠 พอร์ทัลลูกบ้าน — URL แยกจากฝั่งเจ้าหน้าที่ ล็อกอินด้วยเบอร์โทร
   {
@@ -54,5 +59,10 @@ export const routes: Routes = [
     path: 'member/bills',
     canActivate: [memberGuard],
     loadComponent: () => import('./features/member-portal/components/my-bills/my-bills').then(m => m.MyBillsComponent),
+  },
+  {
+    path: 'member/reports',
+    canActivate: [memberGuard],
+    loadComponent: () => import('./features/report/components/my-reports/my-reports').then(m => m.MyReportsComponent),
   },
 ];

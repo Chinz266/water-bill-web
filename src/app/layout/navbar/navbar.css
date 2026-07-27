@@ -201,7 +201,7 @@ svg {
     z-index: 100;
     display: grid;
     /* จำนวนช่องต้องตามจำนวนเมนูจริง ไม่งั้นเมนูสุดท้ายตกไปแถวสอง */
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     background: #fff;
     border-top: 1px solid var(--line);

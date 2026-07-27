@@ -3,12 +3,13 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ImageCropperComponent, ImageTransform, OutputFormat } from 'ngx-image-cropper';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { forkJoin, switchMap, throwError } from 'rxjs';
+import { switchMap, throwError } from 'rxjs';
 import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
+import { BillPrintService } from '../../services/bill-print.service';
 
 @Component({
   selector: 'app-meter-cropper',
@@ -39,15 +40,60 @@ export class MeterCropperComponent implements OnInit {
   members: any[] = [];
   selectedMemberId: number | null = null;
 
-  // เลขมิเตอร์ครั้งก่อนของบ้านที่เลือก — โหลดไว้ล่วงหน้าเพื่อคำนวณ/เตือน "ก่อน" กดบันทึก
+  /**
+   * บิลนี้เป็นของเดือนไหน — ให้เลือกเอง ไม่ผูกกับวันที่กดบันทึก
+   *
+   * ถ้าคิดจาก new Date() ตอนกดบันทึก จะพังเวลาไปจดมิเตอร์สิ้นเดือนแล้วมาบันทึกวันที่ 1
+   * ของเดือนถัดไป บิลจะไปลงเดือนใหม่ เดือนที่ใช้น้ำจริงเลยไม่มีบิล แถมไปกินโควตา
+   * "1 บ้าน 1 บิลต่อเดือน" ของเดือนที่ยังไม่ได้จดอีก
+   *
+   * ⚠️ print ต้องประกาศก่อน billingMonths — field initializer ทำงานตามลำดับที่เขียน
+   *    ถ้าสลับที่ จะเรียก this.print ตอนที่ยังเป็น undefined โดย TypeScript ไม่เตือน
+   */
+  private print = inject(BillPrintService);
+  readonly billingMonths = this.buildMonthOptions();
+  billingKey = this.billingMonths[0].key;
+
+  /** เดือนปัจจุบันย้อนหลัง 6 เดือน — ครอบคลุมการจดย้อนหลังโดยไม่ให้เลือกมั่วไปไกล */
+  private buildMonthOptions(): { key: string; month: string; year: string; label: string }[] {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = String(d.getFullYear());
+      return {
+        key: `${year}-${month}`,
+        month,
+        year,
+        // ใช้ monthLabel ตัวเดียวกับใบเสร็จ ชื่อเดือน/ปี พ.ศ. จะได้ตรงกันทั้งระบบ
+        label: this.print.monthLabel(month, year) + (i === 0 ? ' (เดือนนี้)' : '')
+      };
+    });
+  }
+
+  /** ตัวเลือกเดือนที่กำลังเลือกอยู่ — ใช้ตอนส่งบิลและตอนเช็คบิลซ้ำ */
+  get selectedBilling() {
+    return this.billingMonths.find((m) => m.key === this.billingKey) ?? this.billingMonths[0];
+  }
+
+  // เลขตั้งต้นของบ้าน+เดือนที่เลือก — โหลดไว้ล่วงหน้าเพื่อคำนวณ/เตือน "ก่อน" กดบันทึก
   previousReading: number | null = null;
   isLoadingPrevious = false;
-  // หน่วยที่ใช้ครั้งก่อน (ไว้เทียบว่าครั้งนี้กระโดดผิดปกติไหม) — ต้องมีประวัติ ≥ 2 ครั้งถึงคำนวณได้
+  /** เลขตั้งต้นมาจากไหน — เจ้าหน้าที่ควรรู้ว่าคิดจากบิลเดือนก่อน หรือเลขตอนลงทะเบียนบ้าน */
+  previousSource: 'bill' | 'registration' | 'none' = 'none';
+  // หน่วยที่ใช้เดือนก่อน (ไว้เทียบว่าครั้งนี้กระโดดผิดปกติไหม)
   private previousUsage: number | null = null;
 
   // บิลที่เพิ่งสร้าง — เก็บไว้ให้กด "ยกเลิก" ย้อนได้ทันทีถ้าบันทึกผิด
   savedBill: any = null;
   isUndoing = false;
+
+  // บิลของเดือนที่เลือกที่ออกไปแล้ว (null = ยังไม่เคยออก) — 1 บ้านมีบิลได้เดือนละใบเดียว
+  existingBill: any = null;
+  /** บิลที่เพิ่งบันทึกไปทับใบเดิมมา — กดยกเลิกแล้วบ้านหลังนี้จะไม่เหลือบิลของเดือนนั้นเลย */
+  didReplace = false;
+  /** ข้อความเตือนหน่วยน้ำผิดปกติจากหลังบ้าน (null = ยังไม่โดนเตือน) */
+  highUsageWarning: string | null = null;
 
   private auth = inject(AuthService);
 
@@ -77,28 +123,60 @@ export class MeterCropperComponent implements OnInit {
     });
   }
 
-  // เลือกบ้านแล้วรีบไปถามเลขมิเตอร์ครั้งก่อน เอาไว้คำนวณและเตือนก่อนบันทึก
+  // เลือกบ้านแล้วรีบไปถามเลขตั้งต้น เอาไว้คำนวณและเตือนก่อนบันทึก
   onMemberChange(): void {
+    this.resetLookups();
+    if (!this.selectedMemberId) return;
+    this.loadForSelection();
+  }
+
+  /** เปลี่ยนเดือนบิลแล้วต้องเช็คใหม่ — คนละเดือนคือคนละใบ และเลขตั้งต้นก็คนละตัว */
+  onBillingMonthChange(): void {
+    this.resetLookups();
+    if (!this.selectedMemberId) return;
+    this.loadForSelection();
+  }
+
+  private resetLookups(): void {
     this.previousReading = null;
     this.previousUsage = null;
-    if (!this.selectedMemberId) return;
+    this.previousSource = 'none';
+    this.existingBill = null;
+    this.highUsageWarning = null;
+  }
+
+  /**
+   * ถามหลังบ้าน 2 อย่างพร้อมกันสำหรับบ้าน+เดือนที่เลือก
+   *   1. เดือนนี้ออกบิลไปแล้วหรือยัง (กันออกซ้ำ)
+   *   2. เลขตั้งต้นที่จะใช้คิดหน่วยน้ำ
+   *
+   * เช็คตั้งแต่ตอนเลือก ไม่รอไปเตือนตอนกดบันทึก ไม่งั้นเจ้าหน้าที่จะเสียเวลา
+   * ถ่าย-ครอป-รอ AI อ่านเลขไปฟรี ๆ ก่อนโดนปฏิเสธ
+   */
+  private loadForSelection(): void {
+    const memberId = Number(this.selectedMemberId);
+    const billing = this.selectedBilling;
+
+    this.meterReadingService.getBillForMonth(memberId, billing.month, billing.year).subscribe({
+      next: (bill) => {
+        this.existingBill = bill ?? null;
+        this.cdr?.detectChanges();
+      },
+      error: (err) => console.error('เช็คบิลของเดือนที่เลือกไม่สำเร็จ:', err)
+    });
 
     this.isLoadingPrevious = true;
-    this.meterReadingService.getReadingsByMember(Number(this.selectedMemberId)).subscribe({
-      next: (readings) => {
+    this.meterReadingService.getPreviousUnit(memberId, billing.month, billing.year).subscribe({
+      next: (res) => {
         this.isLoadingPrevious = false;
-        // หลังบ้านเรียงครั้งล่าสุดมาก่อน — ตัวแรกคือเลขเดือนที่แล้ว
-        this.previousReading = readings?.length ? Number(readings[0].meter_unit) : 0;
-        // ถ้ามีอย่างน้อย 2 ครั้ง คำนวณว่าเดือนก่อนใช้ไปเท่าไร ไว้เทียบความผิดปกติ
-        this.previousUsage =
-          readings && readings.length >= 2
-            ? Number(readings[0].meter_unit) - Number(readings[1].meter_unit)
-            : null;
+        this.previousReading = Number(res?.previous_unit ?? 0);
+        this.previousSource = res?.source ?? 'none';
+        this.previousUsage = res?.bill ? Number(res.bill.usage_unit) : null;
         this.cdr?.detectChanges();
       },
       error: (err) => {
         this.isLoadingPrevious = false;
-        console.error('ดึงเลขมิเตอร์ครั้งก่อนไม่สำเร็จ:', err);
+        console.error('ดึงเลขตั้งต้นของเดือนที่เลือกไม่สำเร็จ:', err);
         this.cdr?.detectChanges();
       }
     });
@@ -262,7 +340,7 @@ export class MeterCropperComponent implements OnInit {
   //    (1) หาเรทค่าน้ำที่ใช้อยู่ + เลขมิเตอร์ครั้งก่อนของบ้านหลังนี้
   //    (2) บันทึกการจดมิเตอร์ครั้งนี้ เพื่อให้ได้ meter_readings_id จริง
   //    (3) สร้างบิลจาก id จริงทั้งหมด
-  confirmAndSave() {
+  confirmAndSave(confirmHighUsage = false) {
     const currentUnit = Math.round(Number(this.aiResult?.read_unit));
     if (!this.aiResult || !currentUnit || isNaN(currentUnit)) return;
 
@@ -273,46 +351,35 @@ export class MeterCropperComponent implements OnInit {
 
     const memberId = Number(this.selectedMemberId);
     const adminId = this.auth.admin()?.id;
+    const billing = this.selectedBilling;
 
     this.isSaving = true;
     this.saveSuccess = false;
 
-    forkJoin({
-      rate: this.meterReadingService.getActiveWaterRate(),
-      readings: this.meterReadingService.getReadingsByMember(memberId)
-    })
+    // ไม่ส่ง previous_unit ไปแล้ว — หลังบ้านหาเลขตั้งต้นเองจากบิลเดือนก่อน (ไม่มีก็ใช้เลขตอนลงทะเบียน)
+    // หน้าเว็บรู้แค่ "การจดครั้งล่าสุด" ซึ่งผิดทันทีที่จดย้อนหลัง เคยทำให้คิดเงินซ้ำมาแล้ว
+    this.meterReadingService
+      .getActiveWaterRate()
       .pipe(
-        switchMap(({ rate, readings }) => {
+        switchMap((rate) => {
           if (!rate?.id) {
             return throwError(() => new Error('ยังไม่มีเรทค่าน้ำที่เปิดใช้งานในระบบ กรุณาตั้งเรทค่าน้ำก่อน'));
           }
 
-          // หลังบ้านเรียงครั้งล่าสุดมาก่อน เลยหยิบตัวแรกเป็นเลขมิเตอร์เดือนที่แล้ว
-          const previousUnit = readings?.length ? Number(readings[0].meter_unit) : 0;
-          if (currentUnit < previousUnit) {
-            return throwError(
-              () => new Error(`เลขมิเตอร์ (${currentUnit}) น้อยกว่าครั้งก่อน (${previousUnit}) กรุณาตรวจสอบตัวเลขอีกครั้ง`)
-            );
-          }
-
-          return this.meterReadingService
-            .createMeterReading({
-              reading_date: new Date().toISOString().slice(0, 10),
-              meter_unit: currentUnit,
-              members_id: memberId,
-              create_by: adminId
-            })
-            .pipe(
-              switchMap((reading) =>
-                this.meterReadingService.saveBill({
-                  meter_readings_id: reading.id,
-                  water_rates_id: rate.id,
-                  previous_unit: previousUnit,
-                  current_unit: currentUnit,
-                  create_by: adminId
-                })
-              )
-            );
+          // ยิงครั้งเดียวจบ — หลังบ้านตรวจให้ผ่านก่อนแล้วค่อยเขียนทั้ง meter_reading และบิล
+          // แยกยิงสองรอบแบบเดิม พอรอบสองโดนปฏิเสธจะเหลือแถวที่จดไว้ค้างเป็นขยะ
+          return this.meterReadingService.saveBillFromScan({
+            members_id: memberId,
+            water_rates_id: rate.id,
+            current_unit: currentUnit,
+            reading_date: new Date().toISOString().slice(0, 10),
+            create_by: adminId,
+            // เจ้าหน้าที่เห็นคำเตือนบนหน้าจอแล้วว่าจะทับของเดิม ถึงได้กดปุ่มนี้
+            replace: !!this.existingBill,
+            confirm_high_usage: confirmHighUsage,
+            billing_month: billing.month,
+            billing_year: billing.year
+          });
         })
       )
       .subscribe({
@@ -320,16 +387,41 @@ export class MeterCropperComponent implements OnInit {
           this.isSaving = false;
           this.saveSuccess = true;
           this.savedBill = bill; // เก็บไว้ให้กดยกเลิกย้อนได้
+          // ทับใบเดิมไปแล้ว = ใบเก่าถูกลบถาวร กด "ยกเลิก" ต่อจากนี้จะไม่ได้ใบเดิมคืน
+          // ต้องจำไว้เพื่อเปลี่ยนคำเตือน ไม่งั้นเจ้าหน้าที่จะเข้าใจว่ากดแล้วย้อนกลับไปใบเก่า
+          this.didReplace = !!this.existingBill;
+          this.existingBill = bill;
+          this.highUsageWarning = null;
           this.cdr?.detectChanges();
           toast.success('บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้ว', { id: 'save-success' });
         },
         error: (err) => {
           this.isSaving = false;
           console.error('Save error:', err);
+
+          // หลังบ้านบล็อกเพราะหน่วยน้ำสูงผิดปกติ — ไม่ใช่ error แต่ต้องให้คนตรวจก่อน
+          // เอาข้อความมาโชว์พร้อมปุ่มยืนยัน แทนที่จะเด้ง toast แดงแล้วจบ
+          if (err?.status === 409 && !confirmHighUsage && this.isHighUsageBlock(err)) {
+            this.highUsageWarning = extractErrorMessage(err, '');
+            this.cdr?.detectChanges();
+            return;
+          }
+
           this.cdr?.detectChanges();
           toast.error(extractErrorMessage(err, 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'save-error' });
         }
       });
+  }
+
+  /** 409 มีได้หลายสาเหตุ (บิลซ้ำเดือน / มีบิลใหม่กว่า) เอาเฉพาะเคสหน่วยน้ำสูงผิดปกติ */
+  private isHighUsageBlock(err: any): boolean {
+    return typeof err?.error?.message === 'string' && err.error.message.includes('หน่วย');
+  }
+
+  /** ตรวจแล้วว่าเลขถูก — ส่งใหม่พร้อมธงยืนยัน */
+  confirmHighUsageAndSave(): void {
+    this.highUsageWarning = null;
+    this.confirmAndSave(true);
   }
 
   // 3. ยกเลิกบิลที่เพิ่งสร้าง (undo) — เผื่อกดบันทึกผิด ลบทิ้งแล้วเริ่มจดใหม่ได้เลย
@@ -342,7 +434,8 @@ export class MeterCropperComponent implements OnInit {
         this.isUndoing = false;
         this.savedBill = null;
         this.saveSuccess = false;
-        // โหลดเลขเดือนก่อนใหม่ เพราะการจดครั้งนี้ถูกลบไปแล้ว
+        this.didReplace = false;
+        // โหลดเลขตั้งต้นใหม่ เพราะบิลกับการจดของรอบนี้ถูกลบไปแล้ว
         this.onMemberChange();
         this.cdr?.detectChanges();
         toast.success('ยกเลิกบิลเรียบร้อยแล้ว จดใหม่ได้เลยครับ', { id: 'undo-success' });

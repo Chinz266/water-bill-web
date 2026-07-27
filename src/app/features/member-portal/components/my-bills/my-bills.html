@@ -19,6 +19,12 @@
   </button>
 </header>
 
+<!-- ลูกบ้านมีสองหน้า — ไม่มีแถบนี้จะติดอยู่หน้าบิล ไปหน้าแจ้งเรื่องไม่ได้เลย -->
+<nav class="portal-tabs" aria-label="เมนูลูกบ้าน">
+  <a routerLink="/member/bills" routerLinkActive="is-active">🧾 บิลของฉัน</a>
+  <a routerLink="/member/reports" routerLinkActive="is-active">📣 แจ้งเรื่อง</a>
+</nav>
+
 <div class="portal-content">
   <!-- กำลังโหลด -->
   @if (isLoading) {

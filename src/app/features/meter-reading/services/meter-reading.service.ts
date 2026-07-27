@@ -66,22 +66,48 @@ export class MeterReadingService {
     return this.http.post<MeterReading>(`${this.apiUrl}/meter-readings`, payload);
   }
 
-  // 5. ฟังก์ชันสร้างบิลค่าน้ำ (ต้องใช้ id จริงจากขั้นตอนก่อนหน้าทั้งหมด)
-  saveBill(payload: {
-    meter_readings_id: number;
+  /** บิลของบ้านหลังนี้ในเดือน/ปีที่ระบุ — null ถ้ายังไม่เคยออกบิล (1 บ้านมีบิลได้เดือนละใบ) */
+  getBillForMonth(memberId: number, month: string, year: string): Observable<any> {
+    return this.http.get(
+      `${this.apiUrl}/bills/member/${memberId}/month?month=${month}&year=${year}`
+    );
+  }
+
+  /**
+   * เลขตั้งต้นที่หลังบ้านจะใช้คิดหน่วยน้ำของเดือนนั้นจริง ๆ
+   * คืน { previous_unit, source, bill } — source บอกว่ามาจากบิลเดือนก่อนหรือเลขตอนลงทะเบียนบ้าน
+   * ต้องถามหลังบ้าน ไม่ใช่เดาเองจาก "การจดครั้งล่าสุด" ไม่งั้นเลขบนจอกับยอดที่ออกจะคนละตัว
+   */
+  getPreviousUnit(memberId: number, month: string, year: string): Observable<any> {
+    return this.http.get(
+      `${this.apiUrl}/bills/member/${memberId}/previous?month=${month}&year=${year}`
+    );
+  }
+
+  /**
+   * 5. จดมิเตอร์ + ออกบิล ในคำสั่งเดียว
+   *
+   * เดิมยิงสองรอบ (สร้าง meter_reading → สร้างบิล) ซึ่งถ้ารอบสองล้ม เช่นโดนด่าน
+   * กันบิลซ้ำเดือนหรือด่านหน่วยน้ำผิดปกติ แถวที่จดไปแล้วจะค้างเป็นขยะในตาราง
+   * ตอนนี้หลังบ้านตรวจให้ผ่านก่อนแล้วค่อยเขียนทั้งคู่ในทรานแซกชันเดียว
+   *
+   * ไม่มี previous_unit / usage_unit / total_amount ใน payload โดยตั้งใจ — หลังบ้านคิดเองทั้งหมด
+   */
+  saveBillFromScan(payload: {
+    members_id: number;
     water_rates_id: number;
-    previous_unit: number;
     current_unit: number;
+    reading_date?: string;
     create_by?: number;
+    /** true = ลบบิลเดือนเดียวกันใบเดิมทิ้งแล้วออกใหม่ */
+    replace?: boolean;
+    /** true = ยืนยันว่าหน่วยน้ำที่สูงผิดปกตินั้นถูกต้อง (หลังบ้านบล็อกไว้จนกว่าจะยืนยัน) */
+    confirm_high_usage?: boolean;
+    /** เดือนบิลแบบ 2 หลัก ('01'-'12') — มาจากที่เจ้าหน้าที่เลือก ไม่ใช่วันที่กดบันทึก */
+    billing_month: string;
+    billing_year: string;
   }): Observable<any> {
-    const now = new Date();
-    const body = {
-      ...payload,
-      // หลังบ้านเก็บเดือน/ปีเป็น string และคาดหวังเดือนแบบ 2 หลัก ('01'-'12')
-      billing_month: String(now.getMonth() + 1).padStart(2, '0'),
-      billing_year: String(now.getFullYear())
-    };
-    return this.http.post(`${this.apiUrl}/bills`, body);
+    return this.http.post(`${this.apiUrl}/bills/scan`, payload);
   }
 
   // 🌟 6. ฟังก์ชันสำหรับดึงประวัติบิลทั้งหมดจากฐานข้อมูล

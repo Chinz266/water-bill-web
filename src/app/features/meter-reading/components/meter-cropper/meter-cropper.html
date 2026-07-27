@@ -25,22 +25,57 @@
         </option>
       }
     </select>
+    <!-- บิลผูกกับเดือนที่เลือก ไม่ใช่วันที่กดบันทึก — ไปจดสิ้นเดือนแล้วมาบันทึกวันที่ 1
+         ของเดือนถัดไป ยังลงบิลให้เดือนที่ใช้น้ำจริงได้ -->
+    <label class="field-label billing-label" for="billing-select">บิลประจำเดือน</label>
+    <select
+      id="billing-select"
+      class="field-input"
+      [(ngModel)]="billingKey"
+      (ngModelChange)="onBillingMonthChange()"
+    >
+      @for (m of billingMonths; track m.key) {
+        <option [value]="m.key">{{ m.label }}</option>
+      }
+    </select>
+
     @if (members.length === 0) {
       <p class="field-hint">ยังไม่มีบ้านในระบบ กรุณาไปเพิ่มบ้านที่หน้า "ลูกบ้าน" ก่อนนะครับ</p>
     } @else if (selectedMemberId && isLoadingPrevious) {
       <p class="field-hint">
-        <span class="loading-dot"></span> กำลังดูเลขมิเตอร์ครั้งก่อน...
+        <span class="loading-dot"></span> กำลังดูเลขมิเตอร์ตั้งต้น...
       </p>
     } @else if (selectedMemberId && previousReading !== null) {
       <div class="prev-note">
-        เลขมิเตอร์ครั้งก่อนของบ้านนี้คือ
+        เลขมิเตอร์ตั้งต้นของบ้านนี้คือ
         <strong>{{ previousReading | number }}</strong> หน่วย
-        @if (previousReading === 0) {
-          <span class="text-muted">(ยังไม่เคยจด ระบบจะคิดจาก 0)</span>
+        @if (previousSource === 'registration') {
+          <span class="text-muted">(เลขมิเตอร์ ณ วันลงทะเบียนบ้าน ยังไม่เคยออกบิล)</span>
+        } @else if (previousSource === 'none') {
+          <span class="text-muted">(ไม่ได้กรอกเลขมิเตอร์ตอนลงทะเบียน ระบบจะคิดจาก 0)</span>
+        } @else {
+          <span class="text-muted">(เลขปิดของบิลเดือนก่อน)</span>
         }
       </div>
     } @else {
-      <p class="field-hint">ระบบจะคิดค่าน้ำจากเลขมิเตอร์ครั้งก่อนของบ้านหลังนี้ให้เอง</p>
+      <p class="field-hint">ระบบจะคิดค่าน้ำจากเลขมิเตอร์ตั้งต้นของบ้านหลังนี้ให้เอง</p>
+    }
+
+    <!-- 1 บ้าน = 1 บิลต่อเดือน — บอกตั้งแต่ตอนเลือก จะได้ไม่เสียเวลาถ่ายรูปฟรี -->
+    @if (existingBill) {
+      <div class="alert alert-warning save-alert">
+        <span>⚠️</span>
+        <span>
+          บ้านหลังนี้ออกบิล{{ selectedBilling.label }}ไปแล้ว
+          <strong>{{ existingBill.total_amount | number: '1.2-2' }} บาท</strong>
+          @if (existingBill.payment_status === 'Paid') {
+            และ<strong>ชำระเงินแล้ว</strong> — จดทับไม่ได้ครับ
+            ถ้าจดผิดจริงต้องไปแก้สถานะที่หน้าประวัติบิลก่อน
+          } @else {
+            ถ้าจดใหม่ ระบบจะลบบิลใบเดิมทิ้งแล้วออกใบใหม่แทนครับ
+          }
+        </span>
+      </div>
     }
   </section>
 
@@ -272,12 +307,41 @@
         </div>
       }
 
+      <!-- หลังบ้านบล็อกเพราะหน่วยน้ำสูงผิดปกติ — ให้คนตรวจเลขก่อน แล้วค่อยยืนยัน -->
+      @if (highUsageWarning) {
+        <div class="alert alert-warning save-alert">
+          <span>🔎</span>
+          <span>{{ highUsageWarning }}</span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-secondary btn-block main-action"
+          (click)="confirmHighUsageAndSave()"
+          [disabled]="isSaving"
+        >
+          ตรวจแล้ว เลขถูกต้อง — ยืนยันออกบิล
+        </button>
+      }
+
       <!-- บันทึกสำเร็จ + ปุ่มยกเลิก (undo) ภายในรอบบิล -->
       @if (saveSuccess) {
         <div class="alert alert-success save-alert">
           <span>🎉</span>
           <span>บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้วครับ</span>
         </div>
+
+        <!-- ทับใบเดิมไปแล้ว = ใบเก่าถูกลบถาวร กดยกเลิกจะไม่เหลือบิลของเดือนนั้นเลย -->
+        @if (didReplace) {
+          <div class="alert alert-warning save-alert">
+            <span>⚠️</span>
+            <span>
+              ใบนี้ทับบิลเดิมของ{{ selectedBilling.label }}ไปแล้ว ถ้ากดยกเลิก
+              <strong>บ้านหลังนี้จะไม่มีบิลของเดือนนั้นเลย</strong> และเรียกใบเดิมคืนไม่ได้
+              ต้องจดใหม่อีกครั้งนะครับ
+            </span>
+          </div>
+        }
+
         <button
           type="button"
           class="btn btn-danger-soft btn-block main-action"
@@ -297,11 +361,20 @@
           type="button"
           class="btn btn-primary btn-block main-action"
           (click)="confirmAndSave()"
-          [disabled]="isSaving || !aiResult.read_unit || !selectedMemberId || isBelowPrevious"
+          [disabled]="
+            isSaving ||
+            !aiResult.read_unit ||
+            !selectedMemberId ||
+            isBelowPrevious ||
+            existingBill?.payment_status === 'Paid'
+          "
         >
           @if (isSaving) {
             <span class="btn-spinner"></span>
             กำลังบันทึก...
+          } @else if (existingBill) {
+            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+            จดใหม่ทับบิล{{ selectedBilling.label }}
           } @else {
             <svg class="btn-icon" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>
             บันทึกและสร้างบิลค่าน้ำ
