@@ -353,6 +353,13 @@ export class MeterCropperComponent implements OnInit {
     const adminId = this.auth.admin()?.id;
     const billing = this.selectedBilling;
 
+    let readingDate = new Date().toISOString().slice(0, 10);
+    const captureDate = this.aiResult?.metadata?.captureDate;
+    if (captureDate) {
+      const datePart = captureDate.split(' ')[0];
+      if (datePart) readingDate = datePart.replace(/:/g, '-');
+    }
+
     this.isSaving = true;
     this.saveSuccess = false;
 
@@ -372,7 +379,7 @@ export class MeterCropperComponent implements OnInit {
             members_id: memberId,
             water_rates_id: rate.id,
             current_unit: currentUnit,
-            reading_date: new Date().toISOString().slice(0, 10),
+            reading_date: readingDate,
             create_by: adminId,
             // เจ้าหน้าที่เห็นคำเตือนบนหน้าจอแล้วว่าจะทับของเดิม ถึงได้กดปุ่มนี้
             replace: !!this.existingBill,

@@ -240,6 +240,17 @@
         <div class="verify-photo">
           <span class="verify-cap">รูปที่ถ่าย</span>
           <img [src]="croppedImage" alt="รูปมิเตอร์ที่ถ่าย" />
+
+          <div class="metadata-info" style="margin-top: 12px; font-size: 0.85rem; color: #64748b; line-height: 1.5; padding: 8px; background: #f8fafc; border-radius: 6px;">
+            @if (aiResult?.metadata?.captureDate) {
+              <div>📸 ถ่ายเมื่อ: {{ aiResult.metadata.captureDate }}</div>
+            }
+            @if (aiResult?.metadata?.latitude && aiResult?.metadata?.longitude) {
+              <div>📍 พิกัด: {{ aiResult.metadata.latitude | number:'1.4-4' }}, {{ aiResult.metadata.longitude | number:'1.4-4' }}</div>
+            } @else {
+              <div style="color: #f59e0b;">⚠️ ไม่มีข้อมูลพิกัด GPS</div>
+            }
+          </div>
         </div>
 
         <div class="verify-input">
