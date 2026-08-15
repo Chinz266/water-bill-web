@@ -243,6 +243,21 @@
                   </label>
                 </div>
 
+                <!-- ทางกลับไปใช้วิธีที่แม่นกว่าเฉพาะใบที่อ่านมาไม่ดี — รูปเต็มใบ AI ต้องหา
+                     หน้าปัดเองก่อน ครอบกรอบให้แล้วเหลืองานแค่อ่านตัวเลข -->
+                @if (row.file) {
+                  <button
+                    type="button"
+                    class="btn btn-sm row-crop"
+                    [class.btn-secondary]="shouldReread(row)"
+                    [class.btn-ghost]="!shouldReread(row)"
+                    (click)="openCrop(row)"
+                    [disabled]="isBusy"
+                  >
+                    🔍 ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่
+                  </button>
+                }
+
                 @if (row.matchReason) {
                   <p class="row-note">💡 {{ row.matchReason }}</p>
                 }
@@ -296,5 +311,53 @@
         </p>
       }
     </section>
+  }
+
+  <!-- กล่องครอปทีละรูป — อ่านใหม่เฉพาะกรอบที่เลือก แล้วจับคู่บ้านให้ใหม่ตามเลขที่ได้ -->
+  @if (cropRow; as row) {
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="ครอบเฉพาะช่องตัวเลข">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 class="modal-title">ครอบเฉพาะช่องตัวเลข (รูปที่ {{ row.seq }})</h2>
+          <button type="button" class="modal-close" (click)="closeCrop()" [disabled]="isRereading" aria-label="ปิด">✕</button>
+        </div>
+
+        <p class="field-hint">
+          ลากกรอบให้เหลือเฉพาะแถวตัวเลขบนหน้าปัด แล้วกดอ่านใหม่
+          ระบบจะจับคู่บ้านให้ใหม่จากเลขที่อ่านได้ด้วยครับ
+        </p>
+
+        <div class="crop-frame">
+          <image-cropper
+            [imageFile]="row.file!"
+            [maintainAspectRatio]="false"
+            [transform]="cropTransform"
+            format="jpeg"
+            (imageCropped)="onCropped($event)"
+          ></image-cropper>
+        </div>
+
+        <div class="crop-tools">
+          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateCrop(-1)" [disabled]="isRereading">
+            ↺ หมุนซ้าย
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateCrop(1)" [disabled]="isRereading">
+            ↻ หมุนขวา
+          </button>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeCrop()" [disabled]="isRereading">ปิด</button>
+          <button type="button" class="btn btn-primary" (click)="rereadCropped()" [disabled]="isRereading || !cropBlob">
+            @if (isRereading) {
+              <span class="btn-spinner"></span>
+              กำลังอ่าน...
+            } @else {
+              อ่านเลขจากกรอบนี้
+            }
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </div>

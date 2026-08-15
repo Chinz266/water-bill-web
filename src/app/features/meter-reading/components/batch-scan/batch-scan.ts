@@ -2,12 +2,14 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit, PLATFORM_ID, inject } 
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { ImageCropperComponent, ImageTransform } from 'ngx-image-cropper';
 import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
+import { toCoords } from '../../services/geo';
 import { Village, VillageService } from '../../../village/services/village.service';
 import { StoredQueue, StoredRow, clearQueue, loadQueue, saveQueue } from '../../services/batch-queue.store';
 
@@ -62,6 +64,8 @@ interface ScanRow {
   unit: number | null;
   confidence: number | null;
   confirmHighUsage: boolean;
+  /** เลขของแถวนี้มาจากการครอปแล้วอ่านใหม่ ไม่ใช่การอ่านรูปเต็มใบตอนแรก */
+  croppedRead: boolean;
 
   status: RowStatus;
   error: string | null;
@@ -83,7 +87,7 @@ interface ScanRow {
 @Component({
   selector: 'app-batch-scan',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ImageCropperComponent],
   templateUrl: './batch-scan.html',
   styleUrls: ['./batch-scan.css']
 })
@@ -246,6 +250,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       unit: null,
       confidence: null,
       confirmHighUsage: false,
+      croppedRead: false,
       status: 'pending',
       error: null,
       billId: null
@@ -353,10 +358,25 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       row.warnings = Array.isArray(result?.warnings) ? result.warnings : [];
       row.candidates = Array.isArray(result?.candidates) ? result.candidates : [];
 
+      /**
+       * ข้อมูลติดรูป — เขียนทับเฉพาะตอนที่รอบนี้อ่านได้จริง
+       *
+       * รูปที่ครอปแล้วส่งกลับมาอ่านใหม่ไม่มี EXIF เหลือให้หลังบ้านอ่าน (canvas เก็บแต่พิกเซล)
+       * ถ้าล้างทิ้งทุกครั้ง วันถ่ายกับพิกัดที่ได้มาตอนอ่านรูปเต็มใบจะหายไป แล้วบิลจะไปลง
+       * วันที่กดบันทึกแทนวันที่ไปจดจริง
+       *
+       * พิกัดต้องผ่าน toCoords ก่อนเสมอ — หลังบ้านส่ง null มาได้ และ Number(null) คือ 0
+       * ซึ่งเป็นพิกัดกลางมหาสมุทรที่จะถูกส่งขึ้นไปเป็น "จุดที่ยืนถ่าย" ของบ้านหลังนั้น
+       */
       const taken = result?.photo_taken;
-      row.capturedAt = taken?.captured_at ? new Date(taken.captured_at) : null;
-      row.latitude = Number.isFinite(Number(taken?.latitude)) ? Number(taken.latitude) : null;
-      row.longitude = Number.isFinite(Number(taken?.longitude)) ? Number(taken.longitude) : null;
+      const captured = taken?.captured_at ? new Date(taken.captured_at) : null;
+      if (captured && !isNaN(captured.getTime())) row.capturedAt = captured;
+
+      const coords = toCoords(taken?.latitude, taken?.longitude);
+      if (coords) {
+        row.latitude = coords.lat;
+        row.longitude = coords.lng;
+      }
 
       // คนแก้บ้านเองไว้แล้วต้องไม่ให้ผลจากหลังบ้านทับ
       if (row.matchedBy !== 'manual') {
@@ -380,6 +400,109 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     // หลังบ้านส่งมาได้ทั้ง 0–1 และ 0–100
     return Math.max(0, Math.min(100, Math.round(value <= 1 ? value * 100 : value)));
+  }
+
+  // ==========================================
+  // ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่ทีละรูป
+  // ==========================================
+
+  /**
+   * โหมดกองส่งรูป "เต็มใบ" ไปให้ AI ซึ่งต้องหาหน้าปัดในภาพเองก่อนถึงจะอ่านเลขได้
+   * รูปที่ถ่ายไกล ถ่ายเอียง หรือมีของอื่นในเฟรมจึงพลาดง่ายกว่าโหมดทีละหลังที่คน
+   * ครอบกรอบให้ตั้งแต่แรก — ปุ่มนี้คือทางกลับไปใช้วิธีที่แม่นกว่า เฉพาะใบที่อ่านมาไม่ดี
+   */
+  cropRow: ScanRow | null = null;
+  cropBlob: Blob | null = null;
+  cropTransform: ImageTransform = {};
+  isRereading = false;
+  private cropRotation = 0;
+
+  /** ควรชวนให้ครอปอ่านใหม่ไหม — อ่านไม่ออก หรืออ่านออกแบบไม่ค่อยมั่นใจ */
+  shouldReread(row: ScanRow): boolean {
+    if (row.status === 'saved' || !row.file) return false;
+    if (row.status === 'read_failed') return true;
+    return row.confidence !== null && row.confidence < 85;
+  }
+
+  openCrop(row: ScanRow): void {
+    // แถวที่กู้มาจากคิวเก่าไม่มีตัวรูปแล้ว ครอปไม่ได้
+    if (this.isBusy || !row.file) return;
+    this.cropRow = row;
+    this.cropBlob = null;
+    this.cropRotation = 0;
+    this.cropTransform = {};
+  }
+
+  closeCrop(): void {
+    if (this.isRereading) return;
+    this.cropRow = null;
+    this.cropBlob = null;
+  }
+
+  onCropped(event: any): void {
+    this.cropBlob = event?.blob ?? null;
+  }
+
+  rotateCrop(direction: -1 | 1): void {
+    this.cropRotation += direction * 90;
+    this.cropTransform = { ...this.cropTransform, rotate: this.cropRotation };
+  }
+
+  /**
+   * ส่งเฉพาะกรอบที่ครอปกลับไปอ่านใหม่ผ่าน /bills/scan-batch เดิม (ส่งไปใบเดียว)
+   *
+   * ไม่ใช้ /meter-readings/ocr-upload ที่อ่านเลขอย่างเดียว เพราะการจับคู่บ้านคิดจาก
+   * เลขมิเตอร์ พออ่านเลขได้ใหม่ บ้านที่เคยเสนอไว้จากเลขตัวเก่าก็ต้องคิดใหม่ทั้งชุด
+   * ไม่งั้นจะได้เลขถูกแต่บ้านผิด ซึ่งมองไม่ออกด้วยตาเพราะทุกอย่างดูเรียบร้อยดี
+   */
+  rereadCropped(): void {
+    const row = this.cropRow;
+    if (!row || !this.cropBlob || this.isRereading) return;
+
+    const billing = this.selectedBilling;
+    const form = new FormData();
+    form.append('files', this.cropBlob, row.fileName);
+    form.append('billing_month', billing.month);
+    form.append('billing_year', billing.year);
+    if (this.villagesId) form.append('villages_id', String(this.villagesId));
+
+    this.isRereading = true;
+    this.cdr.detectChanges();
+
+    this.meterReadingService.scanBatch(form).subscribe({
+      next: (res: any) => {
+        this.isRereading = false;
+
+        const results = Array.isArray(res?.results) ? res.results : [];
+        // อ่านรอบนี้ยังไม่ออก → ปล่อยแถวไว้ตามเดิม ผลเก่า (บ้านที่เคยจับคู่ได้) จะได้ไม่ถูกล้างทิ้ง
+        // แล้วเปิดกล่องค้างไว้ให้ลากกรอบใหม่ต่อได้เลย
+        if (this.toUnit(results[0]?.reading?.meter_unit) === null) {
+          this.cdr.detectChanges();
+          toast.error('ยังอ่านไม่ออกครับ ลองครอปให้เหลือเฉพาะแถวตัวเลขแล้วกดอ่านใหม่อีกครั้ง', { id: 'batch-reread' });
+          return;
+        }
+
+        const before = row.unit;
+        // ส่งไปใบเดียว ผลจึงต้องเป็นของแถวนี้เสมอ ไม่ต้องเชื่อ index ที่หลังบ้านคืนมา
+        this.applyResults([row], [{ ...results[0], index: 0 }]);
+        row.croppedRead = true;
+        // เลขเปลี่ยนแล้ว คำยืนยัน "หน่วยสูงผิดปกติ" ที่คนกดให้เลขตัวเก่าใช้ต่อไม่ได้
+        // ต้องปล่อยให้ด่านของหลังบ้านตรวจเลขใหม่อีกรอบ ไม่ใช่ข้ามไปเลย
+        if (row.unit !== before) row.confirmHighUsage = false;
+        this.cropRow = null;
+        this.cropBlob = null;
+        this.persist();
+        this.cdr.detectChanges();
+
+        toast.success(`อ่านใหม่ได้ ${row.unit} ครับ`, { id: 'batch-reread' });
+      },
+      error: (err) => {
+        this.isRereading = false;
+        console.error('อ่านรูปที่ครอปไม่สำเร็จ:', err);
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'อ่านเลขไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'batch-reread' });
+      }
+    });
   }
 
   // ==========================================
@@ -438,7 +561,14 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (row.status === 'unknown') {
       notes.push('ค้างอยู่ตอนออกบิลรอบก่อน กดออกบิลซ้ำได้ ถ้ามีบิลอยู่แล้วระบบจะบอกเอง');
     }
-    if (row.confidence !== null && row.confidence < 85) notes.push(`AI อ่านได้ไม่ค่อยชัด (${row.confidence}%)`);
+    if (row.croppedRead) notes.push('เลขนี้มาจากการครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่');
+    if (row.confidence !== null && row.confidence < 85) {
+      notes.push(
+        row.file
+          ? `AI อ่านได้ไม่ค่อยชัด (${row.confidence}%) ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นขึ้นครับ`
+          : `AI อ่านได้ไม่ค่อยชัด (${row.confidence}%)`
+      );
+    }
     return notes;
   }
 
@@ -455,7 +585,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   get isBusy(): boolean {
-    return this.isAnalyzing || this.isSaving;
+    return this.isAnalyzing || this.isSaving || this.isRereading;
   }
 
   get progressPercent(): number {
@@ -657,6 +787,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       unit: row.unit,
       confidence: row.confidence,
       confirmHighUsage: row.confirmHighUsage,
+      croppedRead: false,
       // ค้างตอนกำลังยิง = ไม่รู้ผล ส่วนค้างตอนกำลังอ่าน = รูปไม่อยู่แล้ว ต้องกรอกเอง
       status: row.status === 'saving' ? 'unknown' : row.status === 'reading' ? 'read_failed' : (row.status as RowStatus),
       error: row.status === 'reading' ? 'รูปไม่ได้ถูกเก็บไว้ กรุณากรอกเลขเองครับ' : row.error,

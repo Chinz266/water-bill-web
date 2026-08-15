@@ -278,6 +278,24 @@ svg {
   color: #166534;
 }
 
+.row-crop {
+  margin-top: var(--sp-1);
+}
+
+/* ---------- กล่องครอปทีละรูป (โครง modal ใช้ .modal-* จาก styles.css) ---------- */
+/* พื้นเข้มช่วยให้เห็นขอบกรอบที่กำลังลากชัดขึ้น */
+.crop-frame {
+  background: #0f172a;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.crop-tools {
+  display: flex;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+}
+
 /* ---------- ตัวเลือกทับบิลเดิม ---------- */
 .replace-toggle {
   display: flex;
