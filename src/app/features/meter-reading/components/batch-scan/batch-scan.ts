@@ -64,8 +64,17 @@ interface ScanRow {
   unit: number | null;
   confidence: number | null;
   confirmHighUsage: boolean;
+  /** ยืนยันแล้วว่าจำนวนหลักที่เปลี่ยนไปถูกต้อง (เช่นเปลี่ยนมิเตอร์รุ่นคนละหลัก) */
+  confirmDigitChange: boolean;
   /** เลขของแถวนี้มาจากการครอปแล้วอ่านใหม่ ไม่ใช่การอ่านรูปเต็มใบตอนแรก */
   croppedRead: boolean;
+
+  /**
+   * เลข + จำนวนหลักที่ AI อ่านมา เก็บแยกจาก unit ที่คนแก้เองได้
+   * ด่านจำนวนหลักของหลังบ้านต้องตรวจกับเลขที่ AI เห็นจริง ไม่ใช่เลขที่คนพิมพ์ทับ
+   */
+  ocrUnit: number | null;
+  meterDigits: number | null;
 
   status: RowStatus;
   error: string | null;
@@ -250,7 +259,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       unit: null,
       confidence: null,
       confirmHighUsage: false,
+      confirmDigitChange: false,
       croppedRead: false,
+      ocrUnit: null,
+      meterDigits: null,
       status: 'pending',
       error: null,
       billId: null
@@ -353,6 +365,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
       row.unit = this.toUnit(result?.reading?.meter_unit);
       row.confidence = this.toPercent(result?.reading?.confidence);
+
+      // เก็บเลข/จำนวนหลักที่ AI อ่านมาไว้ก่อนที่ช่องกรอกจะถูกคนแก้ (ดู digitsToSend)
+      row.ocrUnit = row.unit;
+      const digits = Number(result?.reading?.meter_digits);
+      row.meterDigits = Number.isInteger(digits) && digits > 0 ? digits : null;
       row.matchConfidence = result?.confidence ?? 'none';
       row.matchReason = result?.reason ?? null;
       row.warnings = Array.isArray(result?.warnings) ? result.warnings : [];
@@ -486,9 +503,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // ส่งไปใบเดียว ผลจึงต้องเป็นของแถวนี้เสมอ ไม่ต้องเชื่อ index ที่หลังบ้านคืนมา
         this.applyResults([row], [{ ...results[0], index: 0 }]);
         row.croppedRead = true;
-        // เลขเปลี่ยนแล้ว คำยืนยัน "หน่วยสูงผิดปกติ" ที่คนกดให้เลขตัวเก่าใช้ต่อไม่ได้
-        // ต้องปล่อยให้ด่านของหลังบ้านตรวจเลขใหม่อีกรอบ ไม่ใช่ข้ามไปเลย
-        if (row.unit !== before) row.confirmHighUsage = false;
+        // เลขเปลี่ยนแล้ว คำยืนยันที่คนกดให้เลขตัวเก่า (หน่วยสูงผิดปกติ / จำนวนหลักเปลี่ยน)
+        // ใช้ต่อไม่ได้ ต้องปล่อยให้ด่านของหลังบ้านตรวจเลขใหม่อีกรอบ ไม่ใช่ข้ามไปเลย
+        if (row.unit !== before) {
+          row.confirmHighUsage = false;
+          row.confirmDigitChange = false;
+        }
         this.cropRow = null;
         this.cropBlob = null;
         this.persist();
@@ -597,12 +617,34 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return row.status === 'save_failed' && !row.confirmHighUsage && !!row.error?.includes('หน่วย');
   }
 
+  /** ข้อความของด่านจำนวนหลักพูดถึง "หลัก" ส่วนด่านหน่วยน้ำไม่มีคำนี้ จึงแยกกันได้ */
+  needsDigitConfirm(row: ScanRow): boolean {
+    return row.status === 'save_failed' && !row.confirmDigitChange && !!row.error?.includes('หลัก');
+  }
+
   confirmHighUsage(row: ScanRow): void {
     if (this.isBusy) return;
     row.confirmHighUsage = true;
     row.error = null;
     row.status = 'ready';
     this.persist();
+  }
+
+  confirmDigitChange(row: ScanRow): void {
+    if (this.isBusy) return;
+    row.confirmDigitChange = true;
+    row.error = null;
+    row.status = 'ready';
+    this.persist();
+  }
+
+  /**
+   * จำนวนหลักที่ส่งไปให้ด่านตรวจ — undefined เมื่อคนแก้เลขเอง
+   * เลขที่ผ่านตาคนมาแล้วเชื่อถือได้กว่าที่ AI นับไว้ และหลังบ้านจะข้ามด่านนี้ให้เอง
+   */
+  private digitsToSend(row: ScanRow): number | undefined {
+    if (row.meterDigits === null || row.ocrUnit === null) return undefined;
+    return row.unit === row.ocrUnit ? row.meterDigits : undefined;
   }
 
   // ==========================================
@@ -713,6 +755,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         replace: this.replaceExisting,
         // ข้ามด่านหน่วยผิดปกติได้เฉพาะแถวที่คนกดยืนยันเองแล้ว
         confirm_high_usage: row.confirmHighUsage,
+        // ด่านกันอ่านหลักหาย/หลักเกิน — ส่งเฉพาะแถวที่เลขยังเป็นค่าที่ AI อ่านมา
+        meter_digits: this.digitsToSend(row),
+        confirm_digit_change: row.confirmDigitChange,
         billing_month: billing.month,
         billing_year: billing.year,
         // ส่งพิกัด/เวลาที่ถ่ายไปเก็บด้วย หลังบ้านเอาไปเรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้
@@ -787,7 +832,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       unit: row.unit,
       confidence: row.confidence,
       confirmHighUsage: row.confirmHighUsage,
+      confirmDigitChange: false,
       croppedRead: false,
+      // ตัวรูปไม่ได้ถูกเก็บไว้ ผลที่ AI เคยอ่านจึงยืนยันอะไรไม่ได้แล้ว ต้องข้ามด่านจำนวนหลักไป
+      ocrUnit: null,
+      meterDigits: null,
       // ค้างตอนกำลังยิง = ไม่รู้ผล ส่วนค้างตอนกำลังอ่าน = รูปไม่อยู่แล้ว ต้องกรอกเอง
       status: row.status === 'saving' ? 'unknown' : row.status === 'reading' ? 'read_failed' : (row.status as RowStatus),
       error: row.status === 'reading' ? 'รูปไม่ได้ถูกเก็บไว้ กรุณากรอกเลขเองครับ' : row.error,

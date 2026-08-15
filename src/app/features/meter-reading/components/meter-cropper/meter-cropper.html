@@ -401,6 +401,23 @@
         </button>
       }
 
+      <!-- จำนวนหลักบนหน้าปัดไม่ตรงกับที่บ้านนี้เคยอ่านได้ — ส่วนใหญ่คือ AI อ่านหลักหาย
+           ซึ่งทำให้ยอดคลาดสิบเท่า ต้องเทียบกับรูปก่อนยืนยัน -->
+      @if (digitChangeWarning) {
+        <div class="alert alert-warning save-alert">
+          <span>🔢</span>
+          <span>{{ digitChangeWarning }}</span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-secondary btn-block main-action"
+          (click)="confirmDigitChangeAndSave()"
+          [disabled]="isSaving"
+        >
+          เทียบกับหน้าปัดแล้ว จำนวนหลักถูกต้อง — ยืนยันออกบิล
+        </button>
+      }
+
       <!-- บันทึกสำเร็จ + ปุ่มยกเลิก (undo) ภายในรอบบิล -->
       @if (saveSuccess) {
         <div class="alert alert-success save-alert">

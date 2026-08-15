@@ -89,6 +89,8 @@ export class MeterCropperComponent implements OnInit {
   didReplace = false;
   /** ข้อความเตือนหน่วยน้ำผิดปกติจากหลังบ้าน (null = ยังไม่โดนเตือน) */
   highUsageWarning: string | null = null;
+  /** ข้อความเตือนจำนวนหลักบนหน้าปัดไม่ตรงกับที่บ้านนี้เคยอ่านได้ */
+  digitChangeWarning: string | null = null;
 
   private auth = inject(AuthService);
 
@@ -138,6 +140,7 @@ export class MeterCropperComponent implements OnInit {
     this.previousSource = 'none';
     this.existingBill = null;
     this.highUsageWarning = null;
+    this.digitChangeWarning = null;
   }
 
   /**
@@ -458,6 +461,22 @@ export class MeterCropperComponent implements OnInit {
   // โซนคำนวณสด + เตือนก่อนบันทึก (เทียบกับเลขเดือนก่อน)
   // ==========================================
 
+  /**
+   * เลขที่ AI อ่านมาตอนแรก + จำนวนหลักที่นับได้ — เก็บแยกจากช่องที่คนแก้ได้
+   *
+   * ด่านจำนวนหลักของหลังบ้านเทียบกับ "จำนวนหลักที่ AI เห็น" ถ้าคนแก้เลขเองแล้วยังส่ง
+   * ค่าเดิมไป ด่านจะตรวจกับเลขที่ไม่ได้บันทึกจริง กลายเป็นบล็อกมั่วหรือปล่อยผ่านมั่ว
+   */
+  private ocrUnit: number | null = null;
+  private ocrDigits: number | null = null;
+
+  /** จำนวนหลักที่ควรส่งไปให้ด่านตรวจ — null เมื่อคนแก้เลขเอง (ตาคนเชื่อถือได้กว่า) */
+  private get digitsToSend(): number | undefined {
+    if (this.ocrDigits === null || this.ocrUnit === null) return undefined;
+    const current = this.currentUnitValue;
+    return current !== null && Math.round(current) === this.ocrUnit ? this.ocrDigits : undefined;
+  }
+
   /** เลขที่กรอกในช่อง (แปลงเป็นตัวเลข) — null ถ้ายังว่างหรือไม่ใช่ตัวเลข */
   get currentUnitValue(): number | null {
     const raw = this.aiResult?.read_unit;
@@ -504,6 +523,12 @@ export class MeterCropperComponent implements OnInit {
         // ผสมข้อมูลจากไฟล์ต้นฉบับเข้าไปด้วย เพราะรูปที่ส่งไปเป็นรูปครอปที่ไม่มี EXIF แล้ว
         // ถ้าวันหลังหลังบ้านอ่านเองได้ ให้ค่าจากหลังบ้านชนะ (ทับทีหลัง)
         this.aiResult = { ...(res ?? {}), metadata: { ...this.photoMeta, ...(res?.metadata ?? {}) } };
+
+        // จำเลขกับจำนวนหลักที่ AI อ่านมาไว้ ก่อนที่ช่องกรอกจะถูกคนแก้
+        const digits = Number(res?.meter_digits);
+        this.ocrUnit = this.currentUnitValue === null ? null : Math.round(this.currentUnitValue);
+        this.ocrDigits = Number.isInteger(digits) && digits > 0 ? digits : null;
+
         this.cdr?.detectChanges();
       },
       error: (err) => {
@@ -519,7 +544,7 @@ export class MeterCropperComponent implements OnInit {
   //    (1) หาเรทค่าน้ำที่ใช้อยู่ + เลขมิเตอร์ครั้งก่อนของบ้านหลังนี้
   //    (2) บันทึกการจดมิเตอร์ครั้งนี้ เพื่อให้ได้ meter_readings_id จริง
   //    (3) สร้างบิลจาก id จริงทั้งหมด
-  confirmAndSave(confirmHighUsage = false) {
+  confirmAndSave(confirmHighUsage = false, confirmDigitChange = false) {
     // เช็ค null อย่างเดียว ห้ามใช้ !unit — มิเตอร์ที่เพิ่งติดใหม่อ่านได้ 0 ซึ่งต้องออกบิลได้
     // และห้าม return เงียบ ๆ เพราะเจ้าหน้าที่จะเห็นแค่ปุ่มกดแล้วไม่มีอะไรเกิดขึ้น
     const rawUnit = this.currentUnitValue;
@@ -570,7 +595,10 @@ export class MeterCropperComponent implements OnInit {
             replace: !!this.existingBill,
             confirm_high_usage: confirmHighUsage,
             billing_month: billing.month,
-            billing_year: billing.year
+            billing_year: billing.year,
+            // ด่านกันอ่านหลักหาย/หลักเกิน — ส่งเฉพาะตอนเลขยังเป็นค่าที่ AI อ่านมา
+            meter_digits: this.digitsToSend,
+            confirm_digit_change: confirmDigitChange
           });
         })
       )
@@ -584,6 +612,7 @@ export class MeterCropperComponent implements OnInit {
           this.didReplace = !!this.existingBill;
           this.existingBill = bill;
           this.highUsageWarning = null;
+          this.digitChangeWarning = null;
           this.cdr?.detectChanges();
           toast.success('บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้ว', { id: 'save-success' });
 
@@ -602,6 +631,14 @@ export class MeterCropperComponent implements OnInit {
             return;
           }
 
+          // จำนวนหลักบนหน้าปัดไม่ตรงกับที่บ้านนี้เคยอ่านได้ — ส่วนใหญ่คือ AI อ่านหลักหาย
+          // ซึ่งทำให้ยอดคลาดสิบเท่า ต้องให้คนเทียบกับรูปก่อน ไม่ใช่ให้กดผ่านไปเฉย ๆ
+          if (err?.status === 409 && !confirmDigitChange && this.isDigitChangeBlock(err)) {
+            this.digitChangeWarning = extractErrorMessage(err, '');
+            this.cdr?.detectChanges();
+            return;
+          }
+
           this.cdr?.detectChanges();
           toast.error(extractErrorMessage(err, 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'save-error' });
         }
@@ -613,10 +650,21 @@ export class MeterCropperComponent implements OnInit {
     return typeof err?.error?.message === 'string' && err.error.message.includes('หน่วย');
   }
 
+  /** เคสจำนวนหลักไม่ตรง — ข้อความของหลังบ้านพูดถึง "หลัก" ส่วนด่านหน่วยน้ำไม่มีคำนี้ */
+  private isDigitChangeBlock(err: any): boolean {
+    return typeof err?.error?.message === 'string' && err.error.message.includes('หลัก');
+  }
+
   /** ตรวจแล้วว่าเลขถูก — ส่งใหม่พร้อมธงยืนยัน */
   confirmHighUsageAndSave(): void {
     this.highUsageWarning = null;
     this.confirmAndSave(true);
+  }
+
+  /** เทียบกับรูปหน้าปัดแล้วว่าจำนวนหลักถูกต้องจริง (เช่นเพิ่งเปลี่ยนมิเตอร์) */
+  confirmDigitChangeAndSave(): void {
+    this.digitChangeWarning = null;
+    this.confirmAndSave(false, true);
   }
 
   // 3. ยกเลิกบิลที่เพิ่งสร้าง (undo) — เผื่อกดบันทึกผิด ลบทิ้งแล้วเริ่มจดใหม่ได้เลย

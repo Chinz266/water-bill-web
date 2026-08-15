@@ -204,6 +204,16 @@
                   }
                 }
 
+                <!-- ความมั่นใจตอนอ่านเลข ต้องเห็นได้ทุกแถวตั้งแต่กวาดตา ไม่ใช่ซ่อนอยู่ในบรรทัดหมายเหตุ
+                     เพราะโหมดกองคือจุดที่คนดูผ่าน ๆ มากที่สุด -->
+                @if (row.confidence !== null && row.status !== 'saved') {
+                  <span
+                    class="chip"
+                    [class.chip-success]="row.confidence >= 85"
+                    [class.chip-warning]="row.confidence < 85"
+                  >อ่านเลข {{ row.confidence }}%</span>
+                }
+
                 @if (row.status !== 'saved') {
                   <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isBusy" aria-label="เอารูปนี้ออก">✕</button>
                 }
@@ -275,6 +285,14 @@
                 @if (needsHighUsageConfirm(row)) {
                   <button type="button" class="btn btn-secondary btn-sm row-confirm" (click)="confirmHighUsage(row)" [disabled]="isBusy">
                     ตรวจแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า
+                  </button>
+                }
+
+                <!-- จำนวนหลักไม่ตรงกับที่บ้านนี้เคยอ่านได้ = สัญญาณว่า AI อ่านหลักหาย/เกิน
+                     ซึ่งทำให้ยอดคลาดสิบเท่า ต้องเทียบกับรูปก่อนยืนยัน -->
+                @if (needsDigitConfirm(row)) {
+                  <button type="button" class="btn btn-secondary btn-sm row-confirm" (click)="confirmDigitChange(row)" [disabled]="isBusy">
+                    เทียบกับหน้าปัดแล้ว จำนวนหลักถูกต้อง — ให้ออกบิลรอบหน้า
                   </button>
                 }
 
