@@ -1,33 +1,76 @@
 <div class="members">
-  <div class="members-head">
-    <div class="page-head">
-      <h1 class="page-title">ลูกบ้านในหมู่บ้าน</h1>
-      <p class="page-subtitle">เพิ่ม แก้ไข หรือลบข้อมูลบ้านและเจ้าของบ้านได้ที่นี่</p>
-    </div>
+  <div class="page-head">
+    <h1 class="page-title">ทะเบียนลูกบ้าน</h1>
+    <p class="page-subtitle">รายชื่อบ้านทุกหลังในระบบ เพิ่ม แก้ไข หรือลบได้ที่นี่ครับ</p>
+  </div>
 
+  <!-- ค้นหากับปุ่มเพิ่มบ้านอยู่แถวเดียวกัน — สองอย่างนี้คือสิ่งที่คนเปิดหน้านี้มาทำ -->
+  <div class="members-bar">
+    <input
+      class="field-input search-input"
+      type="search"
+      [(ngModel)]="searchTerm"
+      placeholder="ค้นบ้านเลขที่ ชื่อ หรือเบอร์โทร"
+      aria-label="ค้นหาบ้านหรือเจ้าของบ้าน"
+    />
     <button type="button" class="btn btn-primary add-btn" (click)="openAddModal()">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      เพิ่มบ้านใหม่
+      เพิ่มบ้าน
     </button>
   </div>
 
-  @if (members$ | async; as members) {
-    @if (members.length > 0) {
-      <!-- 🔍 ช่องค้นหา — พิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทร -->
-      <div class="card search-card">
-        <label class="field-label" for="member-search">ค้นหาบ้านหรือเจ้าของบ้าน</label>
-        <input
-          id="member-search"
-          class="field-input"
-          type="search"
-          [(ngModel)]="searchTerm"
-          placeholder="เช่น 99/1, สมชาย หรือ 0812345678"
-        />
+  @if (isLoading) {
+    <div class="card">
+      <p class="loading-note">
+        <span class="loading-dot"></span> กำลังโหลดรายชื่อลูกบ้าน รอสักครู่นะครับ...
+      </p>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>
+  } @else if (loadFailed) {
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-art">📡</div>
+        <h2 class="empty-title">โหลดรายชื่อไม่สำเร็จ</h2>
+        <p class="empty-text">อาจเป็นเพราะเน็ตหลุดหรือระบบหลังบ้านยังไม่พร้อมครับ</p>
+        <button type="button" class="btn btn-primary" (click)="loadMembers()">ลองโหลดใหม่</button>
       </div>
+    </div>
+  } @else if (members.length === 0) {
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-art">🏠</div>
+        <h2 class="empty-title">ยังไม่มีบ้านในระบบ</h2>
+        <p class="empty-text">เพิ่มบ้านหลังแรกเข้าระบบก่อน แล้วค่อยเริ่มบันทึกค่าน้ำได้เลยครับ</p>
+        <button type="button" class="btn btn-primary" (click)="openAddModal()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          เพิ่มบ้านหลังแรก
+        </button>
+      </div>
+    </div>
+  } @else {
+    <!-- บ้านที่ไม่มีพิกัดจะถูกจับคู่รูปมิเตอร์อัตโนมัติไม่ได้ ต้องเห็นว่าเหลือกี่หลัง -->
+    @if (missingCoordsCount > 0) {
+      <div class="alert alert-warning coords-alert">
+        <span>📍</span>
+        <span>
+          ยังมีอีก <strong>{{ missingCoordsCount }}</strong> หลังที่ไม่มีพิกัดมิเตอร์
+          ระบบจะจับคู่รูปให้อัตโนมัติไม่ได้ครับ — เดินไปยืนหน้ามิเตอร์แล้วกด "เก็บพิกัด" ในรายการได้เลย
+        </span>
+      </div>
+    }
 
-      @let visibleMembers = filterMembers(members);
-
-      @if (visibleMembers.length > 0) {
+    @if (visibleMembers.length === 0) {
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-art">🔍</div>
+          <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
+          <p class="empty-text">ลองพิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทรใหม่อีกครั้งนะครับ</p>
+          <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">ล้างคำค้นหา</button>
+        </div>
+      </div>
+    } @else {
       <!-- จอใหญ่: ตาราง -->
       <div class="table-card desktop-only">
         <div class="table-scroll">
@@ -35,8 +78,9 @@
             <thead>
               <tr>
                 <th>บ้านเลขที่</th>
-                <th>ชื่อเจ้าของบ้าน</th>
+                <th>เจ้าของบ้าน</th>
                 <th>เบอร์โทรศัพท์</th>
+                <th>พิกัดมิเตอร์</th>
                 <th class="th-actions">จัดการ</th>
               </tr>
             </thead>
@@ -44,8 +88,28 @@
               @for (member of visibleMembers; track member.id) {
                 <tr>
                   <td class="cell-strong">{{ member.house_no }}</td>
-                  <td>{{ member.fname }} {{ member.lname }}</td>
+                  <td>{{ ownerName(member) }}</td>
                   <td class="cell-muted">{{ member.phone || '—' }}</td>
+                  <td>
+                    @if (hasMemberCoords(member)) {
+                      <span class="chip chip-success">มีพิกัดแล้ว</span>
+                    } @else {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-secondary"
+                        (click)="fillCoords(member)"
+                        [disabled]="locatingMemberId !== null"
+                      >
+                        @if (locatingMemberId === member.id) {
+                          <span class="btn-spinner dark"></span>
+                          กำลังหาสัญญาณ...
+                        } @else {
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                          เก็บพิกัด
+                        }
+                      </button>
+                    }
+                  </td>
                   <td>
                     <div class="cell-actions">
                       <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
@@ -71,12 +135,33 @@
           <div class="card member-card">
             <div class="member-top">
               <span class="chip chip-info">บ้านเลขที่ {{ member.house_no }}</span>
+              @if (!hasMemberCoords(member)) {
+                <span class="chip chip-warning">ไม่มีพิกัด</span>
+              }
             </div>
-            <p class="member-name">{{ member.fname }} {{ member.lname }}</p>
+            <p class="member-name">{{ ownerName(member) }}</p>
             <p class="member-phone text-muted">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 5.2 2 2 0 0 1 6 3Z"/></svg>
               {{ member.phone || 'ไม่ได้ระบุเบอร์โทร' }}
             </p>
+
+            @if (!hasMemberCoords(member)) {
+              <button
+                type="button"
+                class="btn btn-secondary btn-block coords-btn"
+                (click)="fillCoords(member)"
+                [disabled]="locatingMemberId !== null"
+              >
+                @if (locatingMemberId === member.id) {
+                  <span class="btn-spinner dark"></span>
+                  กำลังหาสัญญาณ...
+                } @else {
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  เก็บพิกัด (ยืนอยู่หน้ามิเตอร์แล้วกด)
+                }
+              </button>
+            }
+
             <div class="member-actions">
               <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -90,47 +175,12 @@
           </div>
         }
       </div>
-      } @else {
-        <!-- ค้นหาแล้วไม่เจอ -->
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-art">🔍</div>
-            <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
-            <p class="empty-text">ลองพิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทรใหม่อีกครั้งนะครับ</p>
-            <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">
-              ล้างคำค้นหา
-            </button>
-          </div>
-        </div>
-      }
-    } @else {
-      <!-- ยังไม่มีข้อมูล -->
-      <div class="card">
-        <div class="empty-state">
-          <div class="empty-art">🏠</div>
-          <h2 class="empty-title">ยังไม่มีบ้านในระบบ</h2>
-          <p class="empty-text">เพิ่มบ้านหลังแรกเข้าระบบก่อน แล้วค่อยเริ่มบันทึกค่าน้ำได้เลยครับ</p>
-          <button type="button" class="btn btn-primary" (click)="openAddModal()">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            เพิ่มบ้านหลังแรก
-          </button>
-        </div>
-      </div>
     }
-  } @else {
-    <!-- กำลังโหลด -->
-    <div class="card">
-      <p class="loading-note">
-        <span class="loading-dot"></span> กำลังโหลดรายชื่อลูกบ้าน รอสักครู่นะครับ...
-      </p>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-    </div>
   }
 </div>
 
-<!-- หน้าต่างเพิ่มบ้านใหม่ -->
+<!-- ================= เพิ่มบ้านใหม่ =================
+     พิกัดเริ่มหาให้ตั้งแต่เปิดหน้าต่าง กรอกชื่อเสร็จก็มักได้พิกัดพอดี -->
 @if (showAddModal) {
   <div class="modal-overlay" (click)="closeAddModal()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
@@ -138,6 +188,37 @@
         <h2 class="modal-title">เพิ่มบ้านใหม่</h2>
         <button type="button" class="modal-close" (click)="closeAddModal()" aria-label="ปิด">✕</button>
       </div>
+
+      <!-- สถานะพิกัดอยู่บนสุด เพราะเป็นสิ่งเดียวที่ต้องยืนอยู่ถูกที่ถึงจะได้ -->
+      <div class="coords-status" [class.is-ready]="hasCoords" [class.is-error]="locationError">
+        @if (isLocating) {
+          <span class="btn-spinner dark"></span>
+          <span>กำลังหาพิกัดที่ยืนอยู่ตอนนี้...</span>
+        } @else if (hasCoords) {
+          <span>📍</span>
+          <span>
+            ได้พิกัดแล้ว ({{ newMember.latitude | number: '1.5-5' }}, {{ newMember.longitude | number: '1.5-5' }})
+            @if (coordsSource === 'gps' && newMember.gps_accuracy_m) {
+              · คลาดเคลื่อน ±{{ newMember.gps_accuracy_m }} ม.
+            } @else if (coordsSource === 'photo') {
+              · อ่านจากรูปที่แนบมา
+            }
+          </span>
+        } @else {
+          <span>📍</span>
+          <span>ยังไม่ได้พิกัด — ต้องยืนอยู่หน้ามิเตอร์ของบ้านหลังนี้ครับ</span>
+        }
+      </div>
+
+      @if (locationError) {
+        <p class="field-error">{{ locationError }}</p>
+      }
+
+      @if (!isLocating) {
+        <button type="button" class="btn btn-ghost btn-sm coords-retry" (click)="captureLocation()">
+          {{ hasCoords ? 'วัดพิกัดใหม่' : 'ลองหาพิกัดอีกครั้ง' }}
+        </button>
+      }
 
       @if (villages.length > 1) {
         <div class="field">
@@ -151,39 +232,55 @@
         </div>
       }
 
-      <div class="field">
-        <label class="field-label" for="add-house">บ้านเลขที่ <span class="field-required">*</span></label>
-        <input
-          id="add-house"
-          class="field-input"
-          type="text"
-          [(ngModel)]="newMember.house_no"
-          [class.is-invalid]="addErrors.house_no"
-          placeholder="เช่น 99/1"
-        />
-        @if (addErrors.house_no) {
-          <p class="field-error">{{ addErrors.house_no }}</p>
-        }
-      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label" for="add-house">บ้านเลขที่ <span class="field-required">*</span></label>
+          <input
+            id="add-house"
+            class="field-input"
+            type="text"
+            [(ngModel)]="newMember.house_no"
+            [class.is-invalid]="addErrors.house_no"
+            placeholder="เช่น 99/1"
+          />
+          @if (addErrors.house_no) {
+            <p class="field-error">{{ addErrors.house_no }}</p>
+          }
+        </div>
 
+        <div class="field">
+          <label class="field-label" for="add-initial">
+            เลขมิเตอร์ตอนนี้ <span class="field-required">*</span>
+          </label>
+          <input
+            id="add-initial"
+            class="field-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            [(ngModel)]="newMember.initial_meter_unit"
+            placeholder="เช่น 1250"
+          />
+        </div>
+      </div>
+      <p class="field-hint">
+        เลขมิเตอร์คือตัวตั้งต้นของบ้านหลังนี้ ถ้ากรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
+      </p>
+
+      <!-- ชื่อช่องเดียว คำแรกเป็นชื่อ ที่เหลือเป็นนามสกุล -->
       <div class="field">
-        <label class="field-label" for="add-fname">ชื่อจริงเจ้าของบ้าน <span class="field-required">*</span></label>
+        <label class="field-label" for="add-owner">ชื่อเจ้าของบ้าน <span class="field-required">*</span></label>
         <input
-          id="add-fname"
+          id="add-owner"
           class="field-input"
           type="text"
-          [(ngModel)]="newMember.fname"
+          [(ngModel)]="ownerInput"
           [class.is-invalid]="addErrors.fname"
-          placeholder="เช่น สมชาย"
+          placeholder="เช่น สมชาย ใจดี"
         />
         @if (addErrors.fname) {
           <p class="field-error">{{ addErrors.fname }}</p>
         }
-      </div>
-
-      <div class="field">
-        <label class="field-label" for="add-lname">นามสกุล</label>
-        <input id="add-lname" class="field-input" type="text" [(ngModel)]="newMember.lname" placeholder="เช่น ใจดี" />
       </div>
 
       <div class="field">
@@ -200,43 +297,50 @@
         @if (addErrors.phone) {
           <p class="field-error">{{ addErrors.phone }}</p>
         } @else {
-          <p class="field-hint">ไม่กรอกก็ได้ครับ แต่มีไว้ติดต่อเจ้าของบ้านง่ายกว่า</p>
+          <p class="field-hint">ไม่กรอกก็ได้ครับ แต่ลูกบ้านต้องใช้เบอร์นี้ล็อกอินเข้าดูบิลตัวเอง</p>
         }
       </div>
 
       <div class="field">
-        <label class="field-label" for="add-initial">เลขมิเตอร์ ณ วันลงทะเบียน</label>
-        <input
-          id="add-initial"
-          class="field-input"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          [(ngModel)]="newMember.initial_unit"
-          placeholder="เช่น 1250"
-        />
-        <p class="field-hint">
-          กรอกเลขที่หน้าปัดมิเตอร์ตอนนี้ เพื่อให้บิลเดือนแรกคิดเฉพาะน้ำที่ใช้จริง
-        </p>
+        <label class="field-label">รูปหน้าปัดมิเตอร์</label>
+
+        @if (photoPreview) {
+          <div class="photo-attach">
+            <img [src]="photoPreview" alt="รูปมิเตอร์ตอนลงทะเบียน" />
+            <button type="button" class="btn btn-ghost btn-sm" (click)="removePhoto()">เอารูปออก</button>
+          </div>
+        } @else {
+          <label class="btn btn-secondary btn-block" for="add-photo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            ถ่ายรูปหน้าปัดเก็บไว้ (ไม่บังคับ)
+          </label>
+          <input id="add-photo" type="file" accept="image/*" capture="environment" (change)="onPhotoPicked($event)" hidden />
+          <p class="field-hint">เป็นหลักฐานของเลขตั้งต้น และถ้ารูปมี GPS ติดมา ระบบใช้เป็นพิกัดแทนได้ครับ</p>
+        }
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="closeAddModal()">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" (click)="saveMember()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-          บันทึกข้อมูล
+        <button type="button" class="btn btn-secondary" (click)="closeAddModal()" [disabled]="isSavingMember">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="saveMember()" [disabled]="isSavingMember">
+          @if (isSavingMember) {
+            <span class="btn-spinner"></span>
+            กำลังบันทึก...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            บันทึกบ้านหลังนี้
+          }
         </button>
       </div>
     </div>
   </div>
 }
 
-<!-- หน้าต่างแก้ไขข้อมูลบ้าน -->
+<!-- ================= แก้ไขข้อมูลบ้าน ================= -->
 @if (showEditModal) {
   <div class="modal-overlay" (click)="closeEditModal()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">แก้ไขข้อมูลบ้านเลขที่ {{ editingMember.house_no }}</h2>
+        <h2 class="modal-title">แก้ไขบ้านเลขที่ {{ editingMember.house_no }}</h2>
         <button type="button" class="modal-close" (click)="closeEditModal()" aria-label="ปิด">✕</button>
       </div>
 
@@ -266,25 +370,27 @@
         }
       </div>
 
-      <div class="field">
-        <label class="field-label" for="edit-fname">ชื่อจริงเจ้าของบ้าน <span class="field-required">*</span></label>
-        <input
-          id="edit-fname"
-          class="field-input"
-          type="text"
-          [(ngModel)]="editingMember.fname"
-          [class.is-invalid]="editErrors.fname"
-          placeholder="เช่น สมชาย"
-        />
-        @if (editErrors.fname) {
-          <p class="field-error">{{ editErrors.fname }}</p>
-        }
-      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label" for="edit-fname">ชื่อจริง <span class="field-required">*</span></label>
+          <input
+            id="edit-fname"
+            class="field-input"
+            type="text"
+            [(ngModel)]="editingMember.fname"
+            [class.is-invalid]="editErrors.fname"
+            placeholder="เช่น สมชาย"
+          />
+        </div>
 
-      <div class="field">
-        <label class="field-label" for="edit-lname">นามสกุล</label>
-        <input id="edit-lname" class="field-input" type="text" [(ngModel)]="editingMember.lname" placeholder="เช่น ใจดี" />
+        <div class="field">
+          <label class="field-label" for="edit-lname">นามสกุล</label>
+          <input id="edit-lname" class="field-input" type="text" [(ngModel)]="editingMember.lname" placeholder="เช่น ใจดี" />
+        </div>
       </div>
+      @if (editErrors.fname) {
+        <p class="field-error">{{ editErrors.fname }}</p>
+      }
 
       <div class="field">
         <label class="field-label" for="edit-phone">เบอร์โทรศัพท์</label>
@@ -302,41 +408,92 @@
         }
       </div>
 
+      <!-- พิกัดคือสิ่งที่ระบบใช้จับคู่รูปมิเตอร์กับบ้าน วัดพลาดครั้งแรกต้องแก้ได้ -->
+      <div class="field">
+        <label class="field-label">พิกัดมิเตอร์</label>
+        <div class="coords-status" [class.is-ready]="hasMemberCoords(editingMember)">
+          @if (hasMemberCoords(editingMember)) {
+            <span>📍</span>
+            <span>{{ editingMember.latitude | number: '1.5-5' }}, {{ editingMember.longitude | number: '1.5-5' }}</span>
+          } @else {
+            <span>📍</span>
+            <span>ยังไม่มีพิกัด</span>
+          }
+        </div>
+        <button type="button" class="btn btn-secondary btn-block" (click)="recaptureLocation()" [disabled]="isLocatingEdit">
+          @if (isLocatingEdit) {
+            <span class="btn-spinner dark"></span>
+            กำลังหาสัญญาณ...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            วัดพิกัดใหม่ตรงจุดที่ยืนอยู่
+          }
+        </button>
+        @if (editLocationError) {
+          <p class="field-error">{{ editLocationError }}</p>
+        } @else {
+          <p class="field-hint">ต้องยืนอยู่หน้ามิเตอร์ของบ้านหลังนี้ตอนกดนะครับ</p>
+        }
+      </div>
+
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="closeEditModal()">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" (click)="updateMember()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-          บันทึกการแก้ไข
+        <button type="button" class="btn btn-secondary" (click)="closeEditModal()" [disabled]="isUpdating">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="updateMember()" [disabled]="isUpdating">
+          @if (isUpdating) {
+            <span class="btn-spinner"></span>
+            กำลังบันทึก...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            บันทึกการแก้ไข
+          }
         </button>
       </div>
     </div>
   </div>
 }
 
-<!-- หน้าต่างยืนยันก่อนลบ -->
+<!-- ================= ยืนยันก่อนลบ =================
+     กดยืนยันครั้งเดียว ระบบล้างบิลที่ผูกอยู่ให้เองแล้วลบซ้ำ ไม่ต้องกดหลายรอบ -->
 @if (memberToDelete) {
   <div class="modal-overlay" (click)="cancelDelete()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2 class="modal-title">ลบบ้านหลังนี้ใช่ไหมครับ?</h2>
-        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด">✕</button>
+        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด" [disabled]="isDeleting">✕</button>
       </div>
 
       <div class="alert alert-warning">
         <span>⚠️</span>
         <span>
-          บ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong>
-          ({{ memberToDelete.fname }} {{ memberToDelete.lname }})
-          จะถูกลบพร้อม <strong>ประวัติจดมิเตอร์และบิลค่าน้ำทั้งหมด</strong> ของบ้านหลังนี้
-          ออกจากระบบถาวร กู้คืนไม่ได้นะครับ
+          บ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong> ({{ ownerName(memberToDelete) }})
+          จะถูกลบพร้อม <strong>บิลค่าน้ำ ประวัติจดมิเตอร์ เรื่องที่แจ้งไว้ และบัญชีลูกบ้าน</strong>
+          ทั้งหมด ออกจากระบบถาวร กู้คืนไม่ได้นะครับ
         </span>
       </div>
 
+      @if (deleteBlockedReason) {
+        <div class="alert alert-danger">
+          <span>❌</span>
+          <span>{{ deleteBlockedReason }}</span>
+        </div>
+      }
+
+      @if (isDeleting && deleteStep) {
+        <p class="loading-note">
+          <span class="loading-dot"></span> {{ deleteStep }}
+        </p>
+      }
+
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="cancelDelete()">เก็บไว้ก่อน</button>
-        <button type="button" class="btn btn-danger" (click)="confirmDelete()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
-          ลบเลย
+        <button type="button" class="btn btn-secondary" (click)="cancelDelete()" [disabled]="isDeleting">เก็บไว้ก่อน</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="isDeleting">
+          @if (isDeleting) {
+            <span class="btn-spinner"></span>
+            กำลังลบ...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+            ลบเลย
+          }
         </button>
       </div>
     </div>

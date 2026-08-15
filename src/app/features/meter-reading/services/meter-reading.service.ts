@@ -32,6 +32,20 @@ export class MeterReadingService {
     return this.http.post(`${this.apiUrl}/meter-readings/ocr-upload`, formData);
   }
 
+  /**
+   * อ่านรูปหลายใบพร้อมกันแล้วให้หลังบ้านเดาว่ารูปไหนเป็นของบ้านหลังไหน
+   *
+   * หลังบ้านจับคู่จาก **เลขมิเตอร์** ไม่ใช่ GPS — เลขมิเตอร์เป็นยอดสะสมที่แต่ละบ้าน
+   * ห่างกันมาก จึงชี้กลับไปหาบ้านต้นทางได้เอง ส่วน GPS มือถือคลาดเคลื่อน 10–30 ม.
+   * ขณะที่บ้านห่างกันแค่ 8–20 ม. จึงใช้เป็นแค่ตัวช่วยตัดสินตอนเลขแยกไม่ออก
+   *
+   * ⚠️ endpoint นี้ไม่เขียนอะไรลงฐานข้อมูล คืนแค่ข้อเสนอให้คนตรวจ
+   *    ออกบิลจริงต้องยิง /bills/scan ทีละหลัง เพราะด่านกันข้อมูลผิดอยู่ที่นั่น
+   */
+  scanBatch(formData: FormData): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bills/scan-batch`, formData);
+  }
+
   // 🌟 2. ดึงเรทค่าน้ำที่ใช้งานอยู่ตอนนี้ (ห้าม hardcode id เพราะเรทเปลี่ยนได้ทุกปี)
   getActiveWaterRate(): Observable<WaterRate> {
     return this.http.get<WaterRate>(`${this.apiUrl}/water-rates/active`);
@@ -106,6 +120,18 @@ export class MeterReadingService {
     /** เดือนบิลแบบ 2 หลัก ('01'-'12') — มาจากที่เจ้าหน้าที่เลือก ไม่ใช่วันที่กดบันทึก */
     billing_month: string;
     billing_year: string;
+    /** พิกัดจุดที่ยืนถ่ายรูป — หลังบ้านเก็บไว้เรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้ */
+    latitude?: number;
+    longitude?: number;
+    gps_accuracy_m?: number;
+    /** วันเวลาที่กดชัตเตอร์จริง (ISO) เก็บเป็นหลักฐานคู่กับรูป */
+    captured_at?: string;
+    /** รูปหน้าปัดเป็น data URL — หลังบ้านเก็บเป็นไฟล์แล้วบันทึก path ไว้ */
+    meter_photo?: string;
+    /** ยืนยันว่าเลขที่ต่ำลงเกิดจากเปลี่ยนมิเตอร์/มิเตอร์ครบรอบ ไม่ใช่จดผิด */
+    confirm_meter_reset?: boolean;
+    /** เลขปิดของมิเตอร์ตัวเก่า (ใช้คู่กับ confirm_meter_reset) */
+    old_meter_final_unit?: number;
   }): Observable<any> {
     return this.http.post(`${this.apiUrl}/bills/scan`, payload);
   }

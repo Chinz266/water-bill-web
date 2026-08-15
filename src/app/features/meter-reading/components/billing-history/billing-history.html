@@ -102,7 +102,7 @@
                       class="chip"
                       [class.chip-success]="bill.payment_status === 'Paid'"
                       [class.chip-warning]="bill.payment_status !== 'Paid'"
-                      (click)="$event.stopPropagation(); toggleStatus(bill)"
+                      (click)="$event.stopPropagation(); askToggleStatus(bill)"
                     >
                       {{ statusLabel(bill.payment_status) }}
                     </button>
@@ -133,7 +133,7 @@
                 class="chip"
                 [class.chip-success]="bill.payment_status === 'Paid'"
                 [class.chip-warning]="bill.payment_status !== 'Paid'"
-                (click)="$event.stopPropagation(); toggleStatus(bill)"
+                (click)="$event.stopPropagation(); askToggleStatus(bill)"
               >
                 {{ statusLabel(bill.payment_status) }}
               </button>
@@ -218,7 +218,7 @@
           class="chip"
           [class.chip-success]="selectedBill.payment_status === 'Paid'"
           [class.chip-warning]="selectedBill.payment_status !== 'Paid'"
-          (click)="toggleStatus(selectedBill)"
+          (click)="askToggleStatus(selectedBill)"
         >
           {{ statusLabel(selectedBill.payment_status) }}
         </button>
@@ -333,6 +333,80 @@
         <button type="button" class="btn btn-danger" (click)="confirmDelete()">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
           ลบเลย
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- หน้าต่างยืนยันก่อนเปลี่ยนสถานะการชำระ — บอกผลที่ตามมาให้ครบ ไม่ใช่ถามลอย ๆ -->
+@if (billToToggle) {
+  <div class="modal-overlay" (click)="cancelToggleStatus()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          @if (toggleTargetStatus === 'Paid') {
+            รับเงินบิลนี้แล้วใช่ไหมครับ?
+          } @else {
+            เปลี่ยนกลับเป็นรอชำระเงินใช่ไหมครับ?
+          }
+        </h2>
+        <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-info">
+        <span>🧾</span>
+        <span>
+          บิลของบ้านเลขที่ <strong>{{ billToToggle.member?.house_no || '—' }}</strong>
+          ({{ ownerName(billToToggle) }})
+          ประจำเดือน{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+          ยอด <strong>{{ billToToggle.total_amount | number: '1.2-2' }}</strong> บาท
+        </span>
+      </div>
+
+      @if (toggleTargetStatus === 'Paid') {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
+            ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะที่หน้านี้ก่อนนะครับ
+          </span>
+        </div>
+      } @else {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+            และลูกบ้านจะเห็นว่ายังไม่ได้จ่ายครับ
+          </span>
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="cancelToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          ยังไม่เปลี่ยน
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="confirmToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          @if (isTogglingStatus) {
+            <span class="btn-spinner"></span>
+            กำลังเปลี่ยน...
+          } @else if (toggleTargetStatus === 'Paid') {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            ยืนยัน รับเงินแล้ว
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+            ยืนยัน กลับเป็นรอชำระ
+          }
         </button>
       </div>
     </div>

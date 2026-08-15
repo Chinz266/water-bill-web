@@ -138,11 +138,47 @@ export class BillingHistoryComponent implements OnInit {
     }
   }
 
-  toggleStatus(bill: any) {
-    const newStatus = bill.payment_status === 'Pending' ? 'Paid' : 'Pending';
+  // ==========================================
+  // เปลี่ยนสถานะการชำระ — ต้องยืนยันก่อนเสมอ
+  // ==========================================
+
+  /**
+   * บิลที่กำลังจะเปลี่ยนสถานะ (null = ยังไม่ได้กด)
+   *
+   * ปุ่มสถานะเป็นชิปเล็ก ๆ ที่อยู่ติดปุ่มอื่นในแถวเดียวกัน แตะพลาดบนมือถือได้ง่ายมาก
+   * และการกดพลาดมีผลจริงทั้งสองทาง: เป็น "ชำระแล้ว" แล้วจะจดมิเตอร์ทับไม่ได้อีก
+   * ส่วนการกดกลับเป็น "รอชำระเงิน" ทำให้ยอดค้างของเดือนนั้นเพี้ยนทันที
+   */
+  billToToggle: any = null;
+  isTogglingStatus = false;
+
+  /** สถานะที่บิลจะกลายเป็นถ้ายืนยัน — ใช้ทั้งตอนถามและตอนส่งขึ้นหลังบ้าน */
+  get toggleTargetStatus(): string {
+    return this.billToToggle?.payment_status === 'Paid' ? 'Pending' : 'Paid';
+  }
+
+  askToggleStatus(bill: any) {
+    this.billToToggle = bill;
+  }
+
+  cancelToggleStatus() {
+    // กำลังยิงอยู่ห้ามปิด ไม่งั้นจะไม่รู้ว่าตกลงเปลี่ยนสำเร็จไหม
+    if (this.isTogglingStatus) return;
+    this.billToToggle = null;
+  }
+
+  confirmToggleStatus() {
+    const bill = this.billToToggle;
+    if (!bill || this.isTogglingStatus) return;
+
+    const newStatus = this.toggleTargetStatus;
+    this.isTogglingStatus = true;
+
     this.meterReadingService.updatePaymentStatus(bill.id, newStatus).subscribe({
       next: () => {
         bill.payment_status = newStatus;
+        this.isTogglingStatus = false;
+        this.billToToggle = null;
         this.buildBillGroups(); // ยอดค้างชำระของเดือนนั้นเปลี่ยน ต้องคำนวณใหม่
         this.cdr.detectChanges();
         toast.success(
@@ -152,6 +188,9 @@ export class BillingHistoryComponent implements OnInit {
       },
       error: (err) => {
         console.error('Update status error:', err);
+        this.isTogglingStatus = false;
+        // ไม่ปิดหน้าต่าง เพื่อให้กดลองใหม่ได้ทันทีโดยไม่ต้องหาบิลใบเดิมอีกรอบ
+        this.cdr.detectChanges();
         toast.error(extractErrorMessage(err, 'เปลี่ยนสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'status-error' });
       }
     });

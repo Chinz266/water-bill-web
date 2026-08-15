@@ -1,0 +1,300 @@
+<div class="batch">
+  <div class="page-head">
+    <h1 class="page-title">สแกนหลายรูปพร้อมกัน</h1>
+    <p class="page-subtitle">
+      เลือกรูปที่ถ่ายมาทั้งวัน ระบบจะอ่านเลขแล้วเดาว่ารูปไหนเป็นของบ้านหลังไหนจาก
+      <strong>เลขมิเตอร์</strong> ให้ก่อน แล้วค่อยตรวจทีเดียวครับ
+    </p>
+
+    <nav class="scan-modes" aria-label="โหมดการสแกน">
+      <a class="scan-mode" routerLink="/scan" routerLinkActive="is-active">
+        <span class="scan-mode-title">📷 ถ่ายทีละหลัง</span>
+        <span class="scan-mode-sub">ครอปเองได้ แม่นที่สุด</span>
+      </a>
+      <a class="scan-mode" routerLink="/scan-batch" routerLinkActive="is-active">
+        <span class="scan-mode-title">🗂️ หลายรูป / ทั้งโฟลเดอร์</span>
+        <span class="scan-mode-sub">ถ่ายมาทั้งวันแล้วอัปทีเดียว</span>
+      </a>
+    </nav>
+  </div>
+
+  <!-- คิวที่ค้างจากครั้งก่อน (ไฟดับ/เน็ตหลุด/ปิดแท็บ) — ถามก่อน ไม่ยัดกลับมาเอง -->
+  @if (pendingRestore && pendingRestoreLeft) {
+    <section class="card step restore-card">
+      <h2 class="step-title">มีคิวค้างจากครั้งที่แล้วครับ</h2>
+      <p class="restore-text">
+        ยังออกบิลไม่ครบอีก <strong>{{ pendingRestoreLeft }}</strong> ใบ
+        ทำต่อได้เลยโดยไม่ต้องเลือกรูปใหม่ — บ้าน รอบบิล และเลขมิเตอร์ยังอยู่ครบ
+        แต่<strong>ตัวรูปไม่ได้ถูกเก็บไว้</strong> จึงเทียบเลขกับหน้าปัดด้วยตาไม่ได้แล้วนะครับ
+      </p>
+      <div class="restore-actions">
+        <button type="button" class="btn btn-primary" (click)="resumeQueue()">ทำต่อจากที่ค้างไว้</button>
+        <button type="button" class="btn btn-ghost" (click)="discardQueue()">ทิ้งคิวเก่า เริ่มใหม่</button>
+      </div>
+    </section>
+  }
+
+  <!-- ขั้นที่ 1: รอบบิล + เลือกรูป -->
+  <section class="card step">
+    <div class="step-head">
+      <span class="step-no">1</span>
+      <h2 class="step-title">รอบบิลและรูปที่จะอ่าน</h2>
+    </div>
+
+    <div class="pick-fields">
+      <label class="row-field">
+        <span class="row-cap">บิลประจำเดือน</span>
+        <select class="field-input" [(ngModel)]="billingKey" [disabled]="isBusy">
+          @for (m of billingMonths; track m.key) {
+            <option [value]="m.key">{{ m.label }}</option>
+          }
+        </select>
+      </label>
+
+      @if (villages.length > 1) {
+        <label class="row-field">
+          <span class="row-cap">หมู่บ้าน</span>
+          <select class="field-input" [(ngModel)]="villagesId" [disabled]="isBusy">
+            <option [ngValue]="null">— ทุกหมู่บ้าน —</option>
+            @for (v of villages; track v.id) {
+              <option [ngValue]="v.id">{{ v.village_name }}</option>
+            }
+          </select>
+        </label>
+      }
+    </div>
+    <p class="field-hint">
+      ทั้งกองใช้รอบบิลเดียวกัน เพราะระบบต้องใช้เดือนนี้คิดเลขตั้งต้นของทุกบ้านเพื่อจับคู่รูป
+    </p>
+
+    <div class="pick-row">
+      <label class="btn btn-primary pick-btn" for="batch-files">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v13"/></svg>
+        เลือกหลายรูป
+      </label>
+      <input id="batch-files" type="file" accept="image/*" multiple (change)="onFilesPicked($event)" hidden />
+
+      <!-- เลือกทั้งโฟลเดอร์ได้เฉพาะบนคอม (มือถือไม่รองรับ) จึงเป็นปุ่มรอง -->
+      <label class="btn btn-secondary pick-btn" for="batch-folder">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        เลือกทั้งโฟลเดอร์
+      </label>
+      <input id="batch-folder" type="file" accept="image/*" multiple webkitdirectory (change)="onFilesPicked($event)" hidden />
+
+      @if (rows.length) {
+        <button type="button" class="btn btn-ghost" (click)="clearAll()" [disabled]="isBusy">ล้างทั้งหมด</button>
+      }
+    </div>
+
+    <p class="field-hint">
+      ใส่ได้ครั้งละไม่เกิน {{ maxFiles }} รูป (เพดานของหลังบ้าน) · ตอนนี้ในคิวมี {{ rows.length }} รูป
+    </p>
+
+    @if (membersFailed) {
+      <div class="alert alert-danger">
+        <span>⚠️</span>
+        <span>โหลดรายชื่อบ้านไม่สำเร็จ ตอนนี้ยังเลือกบ้านให้แต่ละรูปไม่ได้ครับ</span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="loadMembers()" [disabled]="isLoadingMembers">
+        ลองโหลดรายชื่อบ้านใหม่
+      </button>
+    } @else if (!isLoadingMembers && members.length === 0) {
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>ยังไม่มีบ้านในระบบ กรุณาไปเพิ่มบ้านที่หน้า "ลูกบ้าน" ก่อนนะครับ</span>
+      </div>
+    }
+  </section>
+
+  @if (rows.length) {
+    <!-- ขั้นที่ 2: ส่งให้อ่าน -->
+    <section class="card step">
+      <div class="step-head">
+        <span class="step-no">2</span>
+        <h2 class="step-title">อ่านเลขและจับคู่บ้าน</h2>
+      </div>
+
+      <div class="summary">
+        <div class="summary-cell">
+          <span class="summary-cap">รูปทั้งหมด</span>
+          <span class="summary-val">{{ rows.length }}</span>
+        </div>
+        <div class="summary-cell">
+          <span class="summary-cap">พร้อมออกบิล</span>
+          <span class="summary-val ok">{{ savableRows.length }}</span>
+        </div>
+        <div class="summary-cell">
+          <span class="summary-cap">ต้องแก้ก่อน</span>
+          <span class="summary-val warn">{{ needsAttention }}</span>
+        </div>
+        <div class="summary-cell">
+          <span class="summary-cap">ออกบิลแล้ว</span>
+          <span class="summary-val done">{{ savedCount }}</span>
+        </div>
+      </div>
+
+      @if (isSaving) {
+        <div class="progress">
+          <div class="progress-bar">
+            <span class="progress-fill" [style.width.%]="progressPercent"></span>
+          </div>
+          <p class="field-hint">กำลังออกบิล {{ progress.done }} / {{ progress.total }} ใบ — อย่าเพิ่งปิดหน้านี้นะครับ</p>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="stopQueue()">
+            หยุดคิว (ทำใบที่ค้างอยู่ให้จบก่อน)
+          </button>
+        </div>
+      }
+
+      <button type="button" class="btn btn-primary btn-block" (click)="analyze()" [disabled]="isBusy || !analyzableRows.length">
+        @if (isAnalyzing) {
+          <span class="btn-spinner"></span>
+          กำลังอ่าน {{ progress.total }} รูป...
+        } @else {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+          อ่านเลขและจับคู่บ้าน ({{ analyzableRows.length }} รูป)
+        }
+      </button>
+
+      @if (isAnalyzing) {
+        <p class="field-hint">
+          ระบบอ่านทีละใบเรียงกันไป ถ้ารูปเยอะอาจใช้เวลาหลายนาที รอจนขึ้นผลนะครับ
+        </p>
+      }
+    </section>
+
+    <!-- ขั้นที่ 3: ตรวจแล้วออกบิล -->
+    <section class="card step">
+      <div class="step-head">
+        <span class="step-no">3</span>
+        <h2 class="step-title">ตรวจแล้วออกบิล</h2>
+      </div>
+
+      <div class="rows">
+        @for (row of rows; track row.seq) {
+          <article class="scan-row" [class.is-blocked]="blockingIssue(row)" [class.is-saved]="row.status === 'saved'">
+            @if (!row.previewUrl) {
+              <div class="row-photo row-photo-broken">ไม่มีรูป<br />(คิวที่กู้มา)</div>
+            } @else if (row.brokenImage) {
+              <div class="row-photo row-photo-broken">เปิดรูปไม่ขึ้น</div>
+            } @else {
+              <img class="row-photo" [src]="row.previewUrl" [alt]="'รูปมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
+            }
+
+            <div class="row-body">
+              <div class="row-head">
+                <span class="row-seq">#{{ row.seq }}</span>
+                @if (row.capturedAt) {
+                  <span class="row-date">📸 {{ dateLabel(row.capturedAt) }}</span>
+                }
+
+                @switch (row.status) {
+                  @case ('saving') { <span class="chip chip-info">กำลังออกบิล...</span> }
+                  @case ('saved') { <span class="chip chip-success">ออกบิลแล้ว</span> }
+                  @case ('read_failed') { <span class="chip chip-warning">อ่านเลขไม่ได้</span> }
+                  @case ('save_failed') { <span class="chip chip-warning">ออกบิลไม่ผ่าน</span> }
+                  @case ('unknown') { <span class="chip chip-warning">ไม่แน่ใจว่าออกบิลไปแล้วหรือยัง</span> }
+                  @default {
+                    @if (row.matchConfidence) {
+                      <span
+                        class="chip"
+                        [class.chip-success]="row.matchConfidence === 'high'"
+                        [class.chip-warning]="row.matchConfidence !== 'high'"
+                      >{{ confidenceLabel(row) }}</span>
+                    }
+                  }
+                }
+
+                @if (row.status !== 'saved') {
+                  <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isBusy" aria-label="เอารูปนี้ออก">✕</button>
+                }
+              </div>
+
+              @if (row.status === 'saved') {
+                <p class="row-saved">ออกบิลให้ {{ memberLabel(row.memberId) }} เรียบร้อยแล้วครับ</p>
+              } @else {
+                <div class="row-fields">
+                  <label class="row-field row-field-house">
+                    <span class="row-cap">บ้านเลขที่</span>
+                    <select class="field-input" [(ngModel)]="row.memberId" (ngModelChange)="onMemberChanged(row)" [disabled]="isBusy">
+                      <option [ngValue]="null">— ยังไม่รู้ว่าบ้านไหน —</option>
+                      <!-- บ้านที่หลังบ้านเสนอ เรียงตามคะแนน พร้อมหน่วยที่จะได้ถ้าเลือกหลังนี้ -->
+                      @for (c of row.candidates; track c.members_id) {
+                        <option [ngValue]="c.members_id">
+                          {{ c.house_no }} — {{ c.name }} · ใช้ {{ c.usage_unit }} หน่วย@if (c.already_billed) { · มีบิลแล้ว}
+                        </option>
+                      }
+                      @for (member of members; track member.id) {
+                        <option [ngValue]="member.id">{{ member.house_no }} — {{ member.fname }} {{ member.lname }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="row-field row-field-unit">
+                    <span class="row-cap">เลขมิเตอร์</span>
+                    <input
+                      class="field-input"
+                      type="number"
+                      inputmode="decimal"
+                      [(ngModel)]="row.unit"
+                      (ngModelChange)="onRowEdited()"
+                      [disabled]="isBusy"
+                      placeholder="กรอกเอง"
+                    />
+                  </label>
+                </div>
+
+                @if (row.matchReason) {
+                  <p class="row-note">💡 {{ row.matchReason }}</p>
+                }
+
+                @if (blockingIssue(row); as issue) {
+                  <p class="row-issue">⚠️ {{ issue }}</p>
+                }
+
+                @if (row.error) {
+                  <p class="row-issue">🛑 {{ row.error }}</p>
+                }
+
+                <!-- ติดด่านหน่วยน้ำสูงผิดปกติ — ต้องยืนยันได้ในหน้านี้ ไม่งั้นบ้านที่ใช้น้ำเยอะจริง
+                     จะออกบิลจากโหมดกองไม่ได้เลย -->
+                @if (needsHighUsageConfirm(row)) {
+                  <button type="button" class="btn btn-secondary btn-sm row-confirm" (click)="confirmHighUsage(row)" [disabled]="isBusy">
+                    ตรวจแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า
+                  </button>
+                }
+
+                @for (note of notes(row); track note) {
+                  <p class="row-note">· {{ note }}</p>
+                }
+              }
+            </div>
+          </article>
+        }
+      </div>
+
+      <label class="replace-toggle">
+        <input type="checkbox" [(ngModel)]="replaceExisting" [disabled]="isBusy" />
+        <span>
+          ถ้าบ้านไหนมีบิลของเดือนนั้นอยู่แล้ว ให้<strong>ลบใบเดิมแล้วออกใหม่</strong>
+          (ไม่ติ๊ก = ข้ามใบนั้นไปพร้อมข้อความเตือน)
+        </span>
+      </label>
+
+      <button type="button" class="btn btn-primary btn-block" (click)="saveAll()" [disabled]="isBusy || !savableRows.length">
+        @if (isSaving) {
+          <span class="btn-spinner"></span>
+          กำลังออกบิล...
+        } @else {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+          ออกบิล {{ savableRows.length }} ใบที่พร้อมแล้ว
+        }
+      </button>
+
+      @if (needsAttention) {
+        <p class="field-hint">
+          อีก {{ needsAttention }} รูปยังออกบิลไม่ได้ครับ แก้ตามข้อความในแถวนั้นแล้วกดปุ่มนี้อีกครั้งได้เลย
+        </p>
+      }
+    </section>
+  }
+</div>

@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ImageCropperComponent, ImageTransform, OutputFormat } from 'ngx-image-cropper';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { switchMap, throwError } from 'rxjs';
@@ -10,12 +11,14 @@ import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
+import { PhotoMetadata, parseCaptureDate, readPhotoMetadata } from '../../services/exif';
+import { LatLng, distanceMeters, pickNearest, toCoords } from '../../services/geo';
 
 @Component({
   selector: 'app-meter-cropper',
   standalone: true,
   // eslint-disable-next-line @angular-eslint/no-unused-standalone-imports
-  imports: [CommonModule, FormsModule, ImageCropperComponent],
+  imports: [CommonModule, FormsModule, ImageCropperComponent, RouterLink],
   templateUrl: './meter-cropper.html',
   styleUrls: ['./meter-cropper.css']
 })
@@ -24,6 +27,8 @@ export class MeterCropperComponent implements OnInit {
   // โซนประกาศตัวแปร
   // ==========================================
   imageChangedEvent: Event | null = null;
+  /** วันถ่าย/พิกัดที่อ่านจากไฟล์ต้นฉบับตอนเลือกรูป — ครอปแล้วข้อมูลนี้หายไปจากภาพ */
+  private photoMeta: PhotoMetadata = {};
   croppedImage: SafeUrl = '';
   croppedBlob: Blob | null | undefined = null;
   aiResult: any = null;
@@ -56,19 +61,9 @@ export class MeterCropperComponent implements OnInit {
 
   /** เดือนปัจจุบันย้อนหลัง 6 เดือน — ครอบคลุมการจดย้อนหลังโดยไม่ให้เลือกมั่วไปไกล */
   private buildMonthOptions(): { key: string; month: string; year: string; label: string }[] {
-    const now = new Date();
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = String(d.getFullYear());
-      return {
-        key: `${year}-${month}`,
-        month,
-        year,
-        // ใช้ monthLabel ตัวเดียวกับใบเสร็จ ชื่อเดือน/ปี พ.ศ. จะได้ตรงกันทั้งระบบ
-        label: this.print.monthLabel(month, year) + (i === 0 ? ' (เดือนนี้)' : '')
-      };
-    });
+    return this.print
+      .monthOptions(6)
+      .map((m, i) => ({ ...m, label: m.label + (i === 0 ? ' (เดือนนี้)' : '') }));
   }
 
   /** ตัวเลือกเดือนที่กำลังเลือกอยู่ — ใช้ตอนส่งบิลและตอนเช็คบิลซ้ำ */
@@ -190,7 +185,18 @@ export class MeterCropperComponent implements OnInit {
     // รีเซ็ตค่าผลลัพธ์เก่าทิ้งเวลาเลือกรูปใหม่
     this.aiResult = null;
     this.saveSuccess = false;
+    this.photoMeta = {};
     this.resetImage();
+
+    // ต้องอ่าน EXIF จากไฟล์ต้นฉบับตอนนี้ ก่อนครอป — ภาพที่ครอปแล้วออกมาจาก canvas
+    // ซึ่งเก็บแต่พิกเซล วันถ่ายกับพิกัดหายไปหมด ถ้ารอไปอ่านทีหลังจะไม่เหลืออะไรแล้ว
+    const file = (event.target as HTMLInputElement | null)?.files?.[0];
+    if (!file) return;
+
+    readPhotoMetadata(file).then((meta) => {
+      this.photoMeta = meta;
+      this.cdr?.detectChanges();
+    });
   }
 
   imageCropped(event: any) {
@@ -278,6 +284,177 @@ export class MeterCropperComponent implements OnInit {
   }
 
   // ==========================================
+  // โซนข้อมูลที่ติดมากับรูป (EXIF) — วันถ่าย + พิกัด
+  // ==========================================
+
+  /**
+   * วันที่ถ่ายรูปจริง — ใช้เป็นวันจดมิเตอร์แทนวันที่กดบันทึก เพราะเจ้าหน้าที่
+   * มักเดินจดทั้งหมู่บ้านก่อนแล้วค่อยมานั่งบันทึกทีหลัง
+   *
+   * ค่าที่ได้มาเชื่อไม่ได้ ต้องกรองก่อนเสมอ:
+   *   - EXIF มาตรฐานเป็น 'YYYY:MM:DD HH:mm:ss' แต่ถ้าวันหลังหลังบ้านส่ง ISO
+   *     ('2026-08-14T22:08:11Z') มาแทน การตัดด้วยช่องว่างแล้วแทน ':' เป็น '-'
+   *     จะได้สตริงเพี้ยนส่งขึ้นไปเป็น reading_date โดยไม่มี error ให้เห็น
+   *   - ถ้าไม่ใช่สตริง (timestamp ตัวเลข) การเรียก .split() จะโยน error
+   *     กลางฟังก์ชันบันทึก ปุ่มจะกดแล้วเงียบไปเฉย ๆ
+   *   - รูปจากแกลเลอรีอาจเก่าข้ามปี หรือนาฬิกาเครื่องเพี้ยนจนได้วันในอนาคต
+   *
+   * อ่านไม่ออกหรือดูไม่สมเหตุสมผล → คืน null แล้วถอยไปใช้วันที่วันนี้
+   */
+  get capturedAt(): Date | null {
+    return parseCaptureDate(this.metadata?.captureDate);
+  }
+
+  /**
+   * ข้อมูลติดรูปที่ใช้อยู่ตอนนี้ — หลังอ่านเลขเสร็จใช้ก้อนที่ผสมกับของหลังบ้านแล้ว
+   * ก่อนหน้านั้นใช้ที่อ่านเองตอนเลือกรูป จะได้ช่วยเลือกบ้านได้ตั้งแต่ยังไม่ทันกดอ่านเลข
+   */
+  private get metadata(): PhotoMetadata {
+    return this.aiResult?.metadata ?? this.photoMeta;
+  }
+
+  /** มีวันถ่ายติดมาแต่แปลงไม่ได้ — ต้องบอกว่าระบบจะใช้วันนี้แทน ไม่ใช่เงียบ */
+  get hasUnreadableCaptureDate(): boolean {
+    const raw = this.metadata?.captureDate;
+    return raw !== null && raw !== undefined && raw !== '' && this.capturedAt === null;
+  }
+
+  get captureDateLabel(): string {
+    return this.print.dateLabel(this.capturedAt);
+  }
+
+  /**
+   * รูปถ่ายคนละเดือนกับบิลที่กำลังจะออก — เตือนอย่างเดียวไม่บล็อก เพราะจดปลายเดือน
+   * แล้วมาบันทึกต้นเดือนถัดไปเป็นเรื่องปกติ แต่อีกความเป็นไปได้คือหยิบรูปเก่า
+   * จากแกลเลอรีมาผิดใบ ซึ่งจะกลายเป็นบิลผิดบ้านผิดเดือนโดยไม่มีใครทันสังเกต
+   */
+  get isCaptureOutsideBillingMonth(): boolean {
+    const captured = this.capturedAt;
+    if (!captured) return false;
+
+    const billing = this.selectedBilling;
+    return (
+      captured.getFullYear() !== Number(billing.year) ||
+      captured.getMonth() + 1 !== Number(billing.month)
+    );
+  }
+
+  /**
+   * พิกัดจาก EXIF — ต้องแปลงเป็นตัวเลขเองก่อนส่งเข้า template
+   * ถ้าโยนสตริงที่ไม่ใช่ตัวเลขเข้า pipe `number` ตรง ๆ DecimalPipe จะโยน error
+   * แล้วทั้งหน้าจอดับ ทั้งที่พิกัดเป็นแค่ข้อมูลประกอบ
+   */
+  get captureCoords(): LatLng | null {
+    return toCoords(this.metadata?.latitude, this.metadata?.longitude);
+  }
+
+  // ==========================================
+  // โซนจับคู่รูปกับบ้าน — เรียงบ้านตามระยะห่างและเตือนเวลาเลือกไม่ตรง
+  // ==========================================
+
+  /**
+   * ระยะที่ถือว่า "น่าจะคนละบ้าน" — GPS มือถือคลาดเคลื่อน 5–20 ม. อยู่แล้ว
+   * ตั้งต่ำกว่านี้จะเตือนพร่ำเพรื่อจนเจ้าหน้าที่เลิกอ่าน
+   */
+  private readonly farMeters = 50;
+
+  /** พิกัดที่บ้านหลังนี้เคยเก็บไว้ — ยังไม่เคยจด (หรือหลังบ้านยังไม่มีคอลัมน์นี้) = null */
+  private memberCoords(member: any): LatLng | null {
+    return toCoords(member?.latitude, member?.longitude);
+  }
+
+  /**
+   * รายชื่อบ้านสำหรับ dropdown พร้อมระยะห่างจากจุดที่ถ่ายรูป
+   * มีพิกัดครบเมื่อไหร่จะเรียงบ้านที่ใกล้ที่สุดขึ้นก่อน — บ้านที่ถูกจะลอยมาอันดับแรก
+   * ลดทั้งโอกาสเลือกผิดและเวลาที่ต้องเลื่อนหาในลิสต์ยาว ๆ
+   * ถ้ารูปไม่มีพิกัดหรือยังไม่มีบ้านไหนเก็บไว้ ก็เรียงตามเดิมเหมือนไม่มีอะไรเกิดขึ้น
+   */
+  get memberOptions(): { member: any; meters: number | null }[] {
+    const photo = this.captureCoords;
+    const rows = this.members.map((member) => {
+      const coords = photo ? this.memberCoords(member) : null;
+      return { member, meters: coords ? distanceMeters(photo!, coords) : null };
+    });
+
+    // บ้านที่ยังไม่มีพิกัดต้องไปต่อท้าย ไม่ใช่ถูกมองว่าอยู่ไกลสุดหรือใกล้สุด
+    return rows.sort((a, b) => {
+      if (a.meters === null && b.meters === null) return 0;
+      if (a.meters === null) return 1;
+      if (b.meters === null) return -1;
+      return a.meters - b.meters;
+    });
+  }
+
+  /**
+   * ระยะที่บ้านอันดับ 1 ต้องทิ้งห่างอันดับ 2 ถึงจะกล้าเสนอ
+   * ใกล้พอ ๆ กันสองหลัง = GPS แยกไม่ออก ต้องให้คนเลือกเอง
+   */
+  private readonly minMarginMeters = 15;
+
+  /** บ้านที่ใกล้จุดถ่ายรูปที่สุดแบบมั่นใจพอ — เดาไม่ได้คืน null ดีกว่าเสนอผิด */
+  get nearestMember(): { member: any; meters: number } | null {
+    const photo = this.captureCoords;
+    if (!photo) return null;
+
+    const match = pickNearest(photo, this.members, (m) => this.memberCoords(m), {
+      maxMeters: this.farMeters,
+      minMargin: this.minMarginMeters
+    });
+    return match ? { member: match.item, meters: match.meters } : null;
+  }
+
+  /** ระยะจากจุดถ่ายรูปถึงบ้านที่เลือกไว้ — null ถ้าฝั่งใดฝั่งหนึ่งไม่มีพิกัด */
+  get selectedMemberDistance(): number | null {
+    const photo = this.captureCoords;
+    if (!photo || !this.selectedMemberId) return null;
+
+    const member = this.members.find((m) => m.id === Number(this.selectedMemberId));
+    const coords = member ? this.memberCoords(member) : null;
+    return coords ? distanceMeters(photo, coords) : null;
+  }
+
+  /** เลือกบ้านที่อยู่ไกลจากจุดถ่ายรูป — เตือนอย่างเดียว เพราะพิกัดที่เก็บไว้อาจเพี้ยนเองก็ได้ */
+  get isSelectedFarFromPhoto(): boolean {
+    const meters = this.selectedMemberDistance;
+    return meters !== null && meters > this.farMeters;
+  }
+
+  /** เลือกบ้านที่ระบบเดาให้จากพิกัด */
+  useNearestMember(): void {
+    const nearest = this.nearestMember;
+    if (!nearest) return;
+
+    this.selectedMemberId = nearest.member.id;
+    this.onMemberChange();
+  }
+
+  /**
+   * บ้านหลังนี้ยังไม่มีพิกัด แต่รูปที่เพิ่งจดมี — เก็บไว้เลย ครั้งหน้าจะช่วยเรียงบ้านให้
+   *
+   * ยิงแยกและกลืน error ทุกกรณี เพราะเป็นของแถม บิลออกสำเร็จไปแล้ว
+   * ห้ามให้ความล้มเหลวของเรื่องนี้ไปทำให้เจ้าหน้าที่คิดว่าออกบิลไม่สำเร็จ
+   */
+  private rememberMemberLocation(memberId: number): void {
+    const coords = this.captureCoords;
+    if (!coords) return;
+
+    const member = this.members.find((m) => m.id === memberId);
+    // มีพิกัดอยู่แล้วไม่ทับ — ของเดิมผ่านตาคนมาแล้ว เชื่อถือได้กว่ารูปใบล่าสุด
+    if (!member || this.memberCoords(member)) return;
+
+    // ส่งข้อมูลเดิมไปครบทุกช่อง เผื่อหลังบ้านเขียนทับทั้งแถว ไม่งั้นชื่อ/เบอร์จะหายไป
+    this.memberService
+      .updateMember({ ...member, latitude: coords.lat, longitude: coords.lng })
+      .subscribe({
+        next: () => {
+          member.latitude = coords.lat;
+          member.longitude = coords.lng;
+        },
+        error: (err) => console.warn('เก็บพิกัดบ้านไม่สำเร็จ ข้ามไปก่อน:', err)
+      });
+  }
+
+  // ==========================================
   // โซนคำนวณสด + เตือนก่อนบันทึก (เทียบกับเลขเดือนก่อน)
   // ==========================================
 
@@ -324,7 +501,9 @@ export class MeterCropperComponent implements OnInit {
     this.meterReadingService.uploadCroppedImage(formData).subscribe({
       next: (res) => {
         this.isLoading = false;
-        this.aiResult = res; // เก็บผลลัพธ์ที่ได้จาก AI มาแสดงหน้าจอ
+        // ผสมข้อมูลจากไฟล์ต้นฉบับเข้าไปด้วย เพราะรูปที่ส่งไปเป็นรูปครอปที่ไม่มี EXIF แล้ว
+        // ถ้าวันหลังหลังบ้านอ่านเองได้ ให้ค่าจากหลังบ้านชนะ (ทับทีหลัง)
+        this.aiResult = { ...(res ?? {}), metadata: { ...this.photoMeta, ...(res?.metadata ?? {}) } };
         this.cdr?.detectChanges();
       },
       error: (err) => {
@@ -341,24 +520,30 @@ export class MeterCropperComponent implements OnInit {
   //    (2) บันทึกการจดมิเตอร์ครั้งนี้ เพื่อให้ได้ meter_readings_id จริง
   //    (3) สร้างบิลจาก id จริงทั้งหมด
   confirmAndSave(confirmHighUsage = false) {
-    const currentUnit = Math.round(Number(this.aiResult?.read_unit));
-    if (!this.aiResult || !currentUnit || isNaN(currentUnit)) return;
+    // เช็ค null อย่างเดียว ห้ามใช้ !unit — มิเตอร์ที่เพิ่งติดใหม่อ่านได้ 0 ซึ่งต้องออกบิลได้
+    // และห้าม return เงียบ ๆ เพราะเจ้าหน้าที่จะเห็นแค่ปุ่มกดแล้วไม่มีอะไรเกิดขึ้น
+    const rawUnit = this.currentUnitValue;
+    if (rawUnit === null) {
+      toast.error('ยังไม่ได้กรอกเลขมิเตอร์ กรุณาใส่เลขที่อ่านได้ก่อนนะครับ', { id: 'need-unit' });
+      return;
+    }
+    if (rawUnit < 0) {
+      toast.error('เลขมิเตอร์ติดลบไม่ได้ กรุณาตรวจสอบตัวเลขอีกครั้งนะครับ', { id: 'need-unit' });
+      return;
+    }
 
     if (!this.selectedMemberId) {
       toast.error('กรุณาเลือกบ้านเลขที่ก่อนบันทึกนะครับ', { id: 'need-member' });
       return;
     }
 
+    const currentUnit = Math.round(rawUnit);
     const memberId = Number(this.selectedMemberId);
     const adminId = this.auth.admin()?.id;
     const billing = this.selectedBilling;
 
-    let readingDate = new Date().toISOString().slice(0, 10);
-    const captureDate = this.aiResult?.metadata?.captureDate;
-    if (captureDate) {
-      const datePart = captureDate.split(' ')[0];
-      if (datePart) readingDate = datePart.replace(/:/g, '-');
-    }
+    // วันถ่ายรูปคือวันที่จดมิเตอร์จริง อ่านจากรูปไม่ได้ค่อยถอยมาใช้วันนี้
+    const readingDate = this.print.isoDate(this.capturedAt ?? new Date());
 
     this.isSaving = true;
     this.saveSuccess = false;
@@ -401,6 +586,9 @@ export class MeterCropperComponent implements OnInit {
           this.highUsageWarning = null;
           this.cdr?.detectChanges();
           toast.success('บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้ว', { id: 'save-success' });
+
+          // จำไว้ว่าบ้านหลังนี้อยู่ตรงไหน เพื่อช่วยเรียงบ้านให้ในการจดครั้งถัดไป
+          this.rememberMemberLocation(memberId);
         },
         error: (err) => {
           this.isSaving = false;

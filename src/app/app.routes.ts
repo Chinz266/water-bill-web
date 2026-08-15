@@ -3,6 +3,7 @@ import { MeterCropperComponent } from './features/meter-reading/components/meter
 import { BillingHistoryComponent } from './features/meter-reading/components/billing-history/billing-history';
 import { HomeComponent } from './features/home/home';
 import { authGuard, guestGuard, memberGuard } from './features/auth/guards/auth.guard';
+import { batchScanLeaveGuard } from './features/meter-reading/components/batch-scan/batch-scan.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -28,6 +29,14 @@ export const routes: Routes = [
   { path: 'home', component: HomeComponent, canActivate: [authGuard] },
   { path: 'scan', component: MeterCropperComponent, canActivate: [authGuard] },
   { path: 'history', component: BillingHistoryComponent, canActivate: [authGuard] },
+  {
+    // สแกนหลายรูปรวดเดียว — แยกหน้าจากการจดทีละหลัง เพราะขั้นตอนคนละแบบกัน
+    path: 'scan-batch',
+    canActivate: [authGuard],
+    // กันเดินออกกลางคิว ไม่งั้นบิลจะออกไปครึ่งกองแล้วรายการที่เหลือหายไปกับหน้า
+    canDeactivate: [batchScanLeaveGuard],
+    loadComponent: () => import('./features/meter-reading/components/batch-scan/batch-scan').then(m => m.BatchScanComponent),
+  },
   {
     path: 'members',
     canActivate: [authGuard],

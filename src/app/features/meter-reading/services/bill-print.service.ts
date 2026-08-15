@@ -55,6 +55,31 @@ export class BillPrintService {
     return `${d.getDate()} ${this.thMonths[d.getMonth()]} ${d.getFullYear() + 543}`;
   }
 
+  /**
+   * '2026-08-14' ตามเวลาเครื่อง — ห้ามใช้ toISOString() เพราะมันคิดเป็น UTC
+   * ไทยเร็วกว่า UTC 7 ชั่วโมง ถ้าบันทึกช่วงเที่ยงคืนถึงตี 7 วันที่จะถอยไปเป็นเมื่อวาน
+   */
+  isoDate(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+
+  /**
+   * ตัวเลือกรอบบิลย้อนหลัง N เดือน (เดือนปัจจุบันอยู่หัวแถว)
+   * อยู่ที่นี่เพราะทั้งหน้าสแกนทีละใบและหน้าสแกนหลายรูปต้องใช้ชุดเดียวกัน
+   * ถ้าแยกกันเขียน เดือนที่เลือกได้ของสองหน้าจะไม่ตรงกันเมื่อแก้ทีหลัง
+   */
+  monthOptions(count = 6): { key: string; month: string; year: string; label: string }[] {
+    const now = new Date();
+    return Array.from({ length: count }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = String(d.getFullYear());
+      return { key: `${year}-${month}`, month, year, label: this.monthLabel(month, year) };
+    });
+  }
+
   // กำหนดชำระ = วันที่ 1 ของเดือนถัดจากรอบบิล
   // (บิลรอบกรกฎาคม → ชำระภายใน 1 สิงหาคม) ทุกบ้านจึงมีกำหนดวันเดียวกันทั้งหมู่บ้าน
   dueDate(bill: any): Date | null {

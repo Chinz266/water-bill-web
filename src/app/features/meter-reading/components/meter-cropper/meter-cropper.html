@@ -2,6 +2,17 @@
   <div class="page-head">
     <h1 class="page-title">สแกนมิเตอร์น้ำ</h1>
     <p class="page-subtitle">ถ่ายรูปหน้าปัดมิเตอร์ ครอบเฉพาะช่องตัวเลข แล้วให้ระบบอ่านให้ครับ</p>
+    <!-- สองโหมดสแกน วางไว้ให้เห็นตั้งแต่หัวหน้า สลับไปมาได้ตลอด -->
+    <nav class="scan-modes" aria-label="โหมดการสแกน">
+      <a class="scan-mode" routerLink="/scan" routerLinkActive="is-active">
+        <span class="scan-mode-title">📷 ถ่ายทีละหลัง</span>
+        <span class="scan-mode-sub">ครอปเองได้ แม่นที่สุด</span>
+      </a>
+      <a class="scan-mode" routerLink="/scan-batch" routerLinkActive="is-active">
+        <span class="scan-mode-title">🗂️ หลายรูป / ทั้งโฟลเดอร์</span>
+        <span class="scan-mode-sub">ถ่ายมาทั้งวันแล้วอัปทีเดียว</span>
+      </a>
+    </nav>
   </div>
 
   <!-- ขั้นที่ 1: เลือกบ้าน -->
@@ -19,9 +30,10 @@
       (ngModelChange)="onMemberChange()"
     >
       <option [ngValue]="null" disabled>— เลือกบ้านเลขที่ —</option>
-      @for (member of members; track member.id) {
-        <option [ngValue]="member.id">
-          {{ member.house_no }} — {{ member.fname }} {{ member.lname }}
+      <!-- ถ้ารูปมีพิกัด รายชื่อจะเรียงบ้านที่ใกล้จุดถ่ายรูปที่สุดขึ้นก่อน -->
+      @for (row of memberOptions; track row.member.id) {
+        <option [ngValue]="row.member.id">
+          {{ row.member.house_no }} — {{ row.member.fname }} {{ row.member.lname }}@if (row.meters !== null) { · ห่าง {{ row.meters | number: '1.0-0' }} ม.}
         </option>
       }
     </select>
@@ -59,6 +71,35 @@
       </div>
     } @else {
       <p class="field-hint">ระบบจะคิดค่าน้ำจากเลขมิเตอร์ตั้งต้นของบ้านหลังนี้ให้เอง</p>
+    }
+
+    <!-- ตัวช่วยจับคู่รูปกับบ้านจากพิกัดที่ติดมากับรูป (ดู geo.ts)
+         ขึ้นเฉพาะตอนที่ทั้งรูปและบ้านมีพิกัด — เดาไม่ได้ก็เงียบไว้ ดีกว่าเดาผิด -->
+    @if (!selectedMemberId && nearestMember; as nearest) {
+      <div class="alert alert-info save-alert">
+        <span>📍</span>
+        <span>
+          จุดที่ถ่ายรูปอยู่ใกล้บ้านเลขที่
+          <strong>{{ nearest.member.house_no }}</strong>
+          ({{ nearest.member.fname }} {{ nearest.member.lname }})
+          ห่างประมาณ {{ nearest.meters | number: '1.0-0' }} เมตรครับ
+        </span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="useNearestMember()">
+        เลือกบ้านเลขที่ {{ nearest.member.house_no }}
+      </button>
+    } @else if (isSelectedFarFromPhoto) {
+      <div class="alert alert-warning save-alert">
+        <span>⚠️</span>
+        <span>
+          บ้านที่เลือกอยู่ห่างจากจุดที่ถ่ายรูปประมาณ
+          <strong>{{ selectedMemberDistance | number: '1.0-0' }} เมตร</strong>
+          ลองเช็คอีกครั้งว่าเลือกบ้านถูกหลังไหมครับ
+          @if (nearestMember; as nearest) {
+            บ้านที่ใกล้ที่สุดคือ <strong>{{ nearest.member.house_no }}</strong>
+          }
+        </span>
+      </div>
     }
 
     <!-- 1 บ้าน = 1 บิลต่อเดือน — บอกตั้งแต่ตอนเลือก จะได้ไม่เสียเวลาถ่ายรูปฟรี -->
@@ -241,14 +282,20 @@
           <span class="verify-cap">รูปที่ถ่าย</span>
           <img [src]="croppedImage" alt="รูปมิเตอร์ที่ถ่าย" />
 
-          <div class="metadata-info" style="margin-top: 12px; font-size: 0.85rem; color: #64748b; line-height: 1.5; padding: 8px; background: #f8fafc; border-radius: 6px;">
-            @if (aiResult?.metadata?.captureDate) {
-              <div>📸 ถ่ายเมื่อ: {{ aiResult.metadata.captureDate }}</div>
+          <!-- ข้อมูลที่ติดมากับรูป — ทุกค่าผ่าน getter ที่กรองแล้ว ไม่อ่านจาก aiResult ตรง ๆ -->
+          <div class="photo-meta">
+            @if (capturedAt) {
+              <div class="photo-meta-row">📸 ถ่ายเมื่อ {{ captureDateLabel }}</div>
+            } @else if (hasUnreadableCaptureDate) {
+              <div class="photo-meta-row warn">⚠️ อ่านวันถ่ายจากรูปไม่ได้ ระบบจะใช้วันที่บันทึกวันนี้แทนครับ</div>
             }
-            @if (aiResult?.metadata?.latitude && aiResult?.metadata?.longitude) {
-              <div>📍 พิกัด: {{ aiResult.metadata.latitude | number:'1.4-4' }}, {{ aiResult.metadata.longitude | number:'1.4-4' }}</div>
+
+            @if (captureCoords; as coords) {
+              <div class="photo-meta-row">
+                📍 พิกัด {{ coords.lat | number: '1.4-4' }}, {{ coords.lng | number: '1.4-4' }}
+              </div>
             } @else {
-              <div style="color: #f59e0b;">⚠️ ไม่มีข้อมูลพิกัด GPS</div>
+              <div class="photo-meta-row warn">⚠️ รูปนี้ไม่มีข้อมูลพิกัด GPS ติดมาครับ</div>
             }
           </div>
         </div>
@@ -308,6 +355,26 @@
             เดือนนี้ใช้น้ำ <strong>{{ usageUnit | number }}</strong> หน่วย
             มากกว่าปกติหลายเท่า ลองเทียบกับรูปอีกครั้งก่อนบันทึกนะครับ
           </span>
+        </div>
+      }
+
+      <!-- หยิบรูปเก่าจากแกลเลอรีมาผิดใบ = บิลผิดเดือนแบบไม่มีใครทันสังเกต จึงต้องเตือน
+           แต่ไม่บล็อก เพราะจดปลายเดือนแล้วมาบันทึกต้นเดือนถัดไปก็ปกติ -->
+      @if (isCaptureOutsideBillingMonth) {
+        <div class="alert alert-warning save-alert">
+          <span>📅</span>
+          <span>
+            รูปนี้ถ่ายเมื่อ <strong>{{ captureDateLabel }}</strong>
+            แต่กำลังจะออกบิล{{ selectedBilling.label }}
+            ถ้าเลือกเดือนผิด กรุณาเลื่อนขึ้นไปแก้ในขั้นที่ 1 ก่อนนะครับ
+          </span>
+        </div>
+      }
+
+      @if (currentUnitValue === null) {
+        <div class="alert alert-warning save-alert">
+          <span>⚠️</span>
+          <span>ยังไม่ได้กรอกเลขมิเตอร์ กรุณาใส่เลขที่อ่านได้จากหน้าปัดก่อนนะครับ</span>
         </div>
       }
 
@@ -374,7 +441,8 @@
           (click)="confirmAndSave()"
           [disabled]="
             isSaving ||
-            !aiResult.read_unit ||
+            currentUnitValue === null ||
+            currentUnitValue < 0 ||
             !selectedMemberId ||
             isBelowPrevious ||
             existingBill?.payment_status === 'Paid'

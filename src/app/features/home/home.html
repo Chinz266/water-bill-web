@@ -10,10 +10,18 @@
     <div class="hero-body">
       <h2 class="hero-title">บันทึกเลขมิเตอร์น้ำ</h2>
       <p class="hero-text">ถ่ายรูปหน้าปัดมิเตอร์ แล้วระบบจะอ่านตัวเลขให้อัตโนมัติ ตรวจสอบอีกครั้งแล้วกดบันทึกได้เลย</p>
-      <button type="button" class="btn btn-primary hero-btn" routerLink="/scan">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
-        เริ่มสแกนมิเตอร์
-      </button>
+      <div class="hero-actions">
+        <button type="button" class="btn btn-primary hero-btn" routerLink="/scan">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+          ถ่ายทีละหลัง
+        </button>
+        <!-- ถ่ายมาทั้งวันแล้วค่อยมานั่งอัปทีเดียว — ทางเข้าต้องเห็นตั้งแต่หน้าแรก
+             ไม่งั้นเจ้าหน้าที่จะไม่รู้ว่ามีโหมดนี้อยู่ -->
+        <button type="button" class="btn btn-secondary hero-btn" routerLink="/scan-batch">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v13"/></svg>
+          อัปหลายรูป / ทั้งโฟลเดอร์
+        </button>
+      </div>
     </div>
   </div>
 

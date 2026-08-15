@@ -614,6 +614,12 @@ button.chip:hover {
   background: var(--warning-soft);
 }
 
+/* ข้อมูลช่วยตัดสินใจ ไม่ใช่คำเตือน — เช่นบ้านที่ระบบเดาให้จากพิกัดรูป */
+.alert-info {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+}
+
 /* ---------- ตัวหมุนรอโหลดในปุ่ม ---------- */
 .btn-spinner {
   width: 18px;
@@ -670,6 +676,58 @@ button.chip:hover {
   object-fit: contain;
   background: #0f172a;
   border-radius: var(--radius-sm);
+}
+
+/* แถบสลับโหมดสแกน (ทีละหลัง ↔ หลายรูป) — ใช้ร่วมกันทั้งสองหน้า
+   ทำเป็นแถบเต็มความกว้างแทนลิงก์ตัวเล็ก เพราะของเดิมเล็กจนไม่มีใครเห็นว่ามีอีกโหมด */
+.scan-modes {
+  display: flex;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.scan-mode {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  text-decoration: none;
+  color: var(--text-muted);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.scan-mode.is-active {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-2);
+}
+
+.scan-mode-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.scan-mode-sub {
+  font-size: 13px;
+}
+
+/* ข้อมูลที่ติดมากับรูป (วันถ่าย/พิกัด) — เป็นข้อมูลประกอบ จึงเบากว่าตัวเลขมิเตอร์ */
+.photo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text-muted);
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.photo-meta-row.warn {
+  color: var(--warning);
 }
 
 .verify-input {
