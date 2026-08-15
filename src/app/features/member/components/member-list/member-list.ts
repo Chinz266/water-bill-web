@@ -1,14 +1,18 @@
 import { ChangeDetectorRef, Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { toast } from 'ngx-sonner';
 import { MemberService } from '../../services/member.service';
 import { MeterReadingService } from '../../../meter-reading/services/meter-reading.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { Village, VillageService } from '../../../village/services/village.service';
-import { readPhotoMetadata } from '../../../meter-reading/services/exif';
-import { toCoords } from '../../../meter-reading/services/geo';
+import { parseCaptureDate, readPhotoMetadata } from '../../../meter-reading/services/exif';
+import { LatLng, distanceMeters, isFarFrom, medianCoords, toCoords } from '../../../meter-reading/services/geo';
+import { anchorDayOf, memberReadingDates } from '../../../meter-reading/services/billing-cycle';
+import { photoDataUrl } from '../../../meter-reading/services/photo-file';
+import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
 
 /**
  * ทะเบียนลูกบ้าน — เขียนใหม่ทั้งหน้า ตัดขั้นตอนที่คนใช้ต้องกดเองออกให้มากที่สุด
@@ -26,7 +30,7 @@ import { toCoords } from '../../../meter-reading/services/geo';
 @Component({
   selector: 'app-member-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './member-list.html',
   styleUrls: ['./member-list.css']
 })
@@ -35,6 +39,7 @@ export class MemberListComponent implements OnInit {
   private meterReadingService = inject(MeterReadingService);
   private villageService = inject(VillageService);
   private auth = inject(AuthService);
+  private print = inject(BillPrintService);
   private cdr = inject(ChangeDetectorRef);
 
   members: any[] = [];
@@ -112,6 +117,54 @@ export class MemberListComponent implements OnInit {
     return toCoords(member?.latitude, member?.longitude) !== null;
   }
 
+  // ==========================================
+  // จับพิกัดที่เพี้ยน — ของค้างจากตอนที่ระบบยังยอมรับค่าที่วัดจากเครื่องแบบหยาบ ๆ
+  // ==========================================
+
+  /** ใจกลางหมู่บ้านที่คิดจากพิกัดของบ้านทุกหลัง (ดู medianCoords ว่าทำไมไม่ใช้ค่าเฉลี่ย) */
+  private get villageCenter(): LatLng | null {
+    const points = this.members
+      .map((m) => toCoords(m?.latitude, m?.longitude))
+      .filter((p): p is LatLng => p !== null);
+
+    // ต่ำกว่า 3 หลังยังบอกไม่ได้ว่าหลังไหนคือตัวประหลาด อาจเป็นหลังที่ถูกก็ได้
+    return points.length >= 3 ? medianCoords(points) : null;
+  }
+
+  /**
+   * พิกัดของบ้านหลังนี้อยู่คนละที่กับหมู่บ้าน — เกือบทั้งหมดคือค่าที่เครื่องเดาจาก IP
+   * (คลาดเคลื่อนหลักสิบกิโล) ซึ่งระบบเคยยอมรับไว้ก่อนหน้านี้ ตอนนี้กันไม่ให้บันทึกแล้ว
+   * แต่ของเก่ายังค้างอยู่ในฐานข้อมูล และมันทำให้จับคู่รูปกับบ้านผิดหลังไปเรื่อย ๆ
+   */
+  isCoordsSuspicious(member: any): boolean {
+    return isFarFrom(this.villageCenter, toCoords(member?.latitude, member?.longitude));
+  }
+
+  /** ระยะจากใจกลางหมู่บ้านแบบอ่านง่าย ('214 กม.') ไว้บอกว่ามันผิดไปไกลแค่ไหน */
+  distanceFromVillage(member: any): string {
+    const coords = toCoords(member?.latitude, member?.longitude);
+    const center = this.villageCenter;
+    if (!coords || !center) return '';
+
+    const meters = distanceMeters(center, coords);
+    return meters >= 1000 ? `${Math.round(meters / 1000)} กม.` : `${Math.round(meters)} ม.`;
+  }
+
+  get suspiciousCoordsCount(): number {
+    return this.members.filter((m) => this.isCoordsSuspicious(m)).length;
+  }
+
+  /**
+   * วันประจำเดือนที่บ้านหลังนี้ถูกจด — แต่ละหลังไม่ตรงกัน เพราะเดินจดทั้งหมู่บ้าน
+   * ไม่จบในวันเดียว เจ้าหน้าที่จะได้รู้ว่าหลังไหนถึงคิวแล้วโดยไม่ต้องเปิดประวัติบิลดูทีละหลัง
+   *
+   * ใช้เฉพาะของที่ /member/all ส่งซ้อนมา ไม่ยิง API เพิ่มเพื่อข้อมูลประกอบชิ้นเดียว
+   * (ดู memberReadingDates) บ้านที่ยังไม่มีประวัติจะไม่ขึ้นอะไร ดีกว่าขึ้นเลขที่เดาเอา
+   */
+  readingDay(member: any): number | null {
+    return anchorDayOf(memberReadingDates(member));
+  }
+
   villageLabel(village: Village): string {
     const no = (village.village_no ?? '').toString().trim();
     const moo = no ? (no.startsWith('หมู่') ? no : `หมู่ ${no}`) : '';
@@ -158,6 +211,23 @@ export class MemberListComponent implements OnInit {
         maximumAge: 0
       });
     });
+  }
+
+  /**
+   * '±120 ม.' / '±100 กม.' — เครื่องที่ไม่มี GPS จริงคืนค่าคลาดเคลื่อนหลักแสนเมตร
+   * ซึ่งเขียนเป็นเมตรแล้วอ่านไม่ทันว่ามันผิดปกติขนาดไหน
+   */
+  accuracyLabel(meters: number): string {
+    return meters >= 1000 ? `±${Math.round(meters / 1000)} กม.` : `±${Math.round(meters)} ม.`;
+  }
+
+  /** ข้อความเดียวกันทุกที่ที่วัดพิกัดจากเครื่องแล้วได้ค่าที่ใช้แยกบ้านไม่ได้ */
+  private inaccurateMessage(accuracy: number): string {
+    return (
+      `เครื่องนี้บอกตำแหน่งคลาดเคลื่อนถึง ${this.accuracyLabel(accuracy)} ` +
+      `ซึ่งแยกบ้านไม่ได้ครับ (ต้องไม่เกิน ${this.maxAccuracyM} ม.) — ` +
+      'ให้ถ่ายรูปหน้าปัดด้วยมือถือที่เปิด GPS แล้วแนบรูป ระบบจะดึงพิกัดจากรูปให้เอง'
+    );
   }
 
   private geolocationMessage(err: any): string {
@@ -221,6 +291,15 @@ export class MemberListComponent implements OnInit {
   locationError: string | null = null;
   photoPreview: string | null = null;
 
+  /**
+   * วันเวลาที่กดชัตเตอร์ (อ่านจาก EXIF ของไฟล์ต้นฉบับ) — ใช้เป็นวันจดเลขตั้งต้น
+   * ไม่ใช่วันที่กดบันทึก เพราะเจ้าหน้าที่มักเดินเก็บข้อมูลทั้งซอยก่อน
+   * แล้วค่อยกลับมานั่งกรอกทีหลัง บางทีข้ามวัน
+   */
+  photoCapturedAt: Date | null = null;
+  /** รูปมีวันถ่ายติดมาแต่อ่านไม่ออก — ต้องบอกว่าระบบจะใช้วันนี้แทน ไม่ใช่เงียบ */
+  photoDateUnreadable = false;
+
   private emptyMember() {
     return {
       house_no: '',
@@ -269,11 +348,24 @@ export class MemberListComponent implements OnInit {
     this.coordsSource = 'none';
     this.locationError = null;
     this.photoPreview = null;
+    this.photoCapturedAt = null;
+    this.photoDateUnreadable = false;
     this.isLocating = false;
   }
 
-  captureLocation(): void {
+  /**
+   * วัดพิกัดจากเครื่อง — `manual` = คนกดปุ่มเอง ส่วนค่า false คือรอบที่ยิงให้ตอนเปิดหน้าต่าง
+   *
+   * เครื่องที่ไม่มี GPS จริง (คอมพิวเตอร์ หรือมือถือที่ปิดตำแหน่งไว้) จะเดาจากเน็ตที่ต่ออยู่
+   * แล้วคืนพิกัดกลางจังหวัดพร้อมความคลาดเคลื่อนหลักสิบกิโลเมตร ค่าแบบนั้นไม่ใช่
+   * "สัญญาณยังไม่นิ่ง" ที่รอแป๊บเดียวแล้วดีขึ้น แต่คือค่าที่ใช้ไม่ได้ตั้งแต่แรก
+   * จึงต้องทิ้งทันที ไม่เก็บใส่ฟอร์ม ไม่งั้นบ้านหลังนี้จะได้พิกัดมิเตอร์ที่ห่างจากตัวบ้านหลายสิบกิโล
+   */
+  captureLocation(manual = false): void {
     if (!this.isBrowser || this.isLocating) return;
+    // รูปถ่ายตอนยืนอยู่หน้ามิเตอร์ พิกัดในรูปจึงตรงกว่าจุดที่นั่งกรอกข้อมูลอยู่ตอนนี้
+    // การวัดอัตโนมัติตอนเปิดหน้าต่างต้องไม่ไปทับของที่ได้จากรูปแล้ว
+    if (!manual && this.coordsSource === 'photo') return;
 
     this.isLocating = true;
     this.locationError = null;
@@ -281,15 +373,18 @@ export class MemberListComponent implements OnInit {
     this.currentPosition().then(
       (position) => {
         this.isLocating = false;
+        const accuracy = Math.round(position.coords.accuracy);
+
+        if (accuracy > this.maxAccuracyM) {
+          this.locationError = this.inaccurateMessage(accuracy);
+          this.cdr.detectChanges();
+          return;
+        }
+
         this.newMember.latitude = position.coords.latitude;
         this.newMember.longitude = position.coords.longitude;
-        this.newMember.gps_accuracy_m = Math.round(position.coords.accuracy);
+        this.newMember.gps_accuracy_m = accuracy;
         this.coordsSource = 'gps';
-
-        // บอกตั้งแต่ตรงนี้ ดีกว่าปล่อยไปโดนหลังบ้านปฏิเสธตอนกดบันทึกแล้วต้องกรอกใหม่
-        if (this.newMember.gps_accuracy_m! > this.maxAccuracyM) {
-          this.locationError = `สัญญาณยังไม่นิ่ง (คลาดเคลื่อน ±${this.newMember.gps_accuracy_m} ม.) รอสักครู่แล้วกดวัดใหม่ครับ — ต้องไม่เกิน ${this.maxAccuracyM} ม.`;
-        }
         this.cdr.detectChanges();
       },
       (err) => {
@@ -301,7 +396,11 @@ export class MemberListComponent implements OnInit {
   }
 
   /**
-   * แนบรูปหน้าปัด — เป็นหลักฐานของเลขตั้งต้น
+   * แนบรูปหน้าปัด — เป็นหลักฐานของเลขตั้งต้น และเป็นที่มาของทั้ง "วันจด" กับ "พิกัด"
+   *
+   * ต้องอ่าน EXIF จากไฟล์ต้นฉบับตรงนี้เท่านั้น รูปที่ส่งขึ้นไปเป็น data URL
+   * ที่หลังบ้านเก็บเป็นไฟล์ใหม่ ข้อมูลพวกนี้จะอ่านย้อนหลังไม่ได้อีกแล้ว
+   *
    * ถ้ายังไม่มีพิกัดจากเครื่อง ใช้พิกัดที่ติดมากับรูปแทนได้ เพราะรูปถ่ายตอนยืนหน้ามิเตอร์
    * ซึ่งเป็นจุดเดียวกับที่พนักงานยืนตอนจดทุกเดือน
    */
@@ -312,8 +411,18 @@ export class MemberListComponent implements OnInit {
     if (!file) return;
 
     const meta = await readPhotoMetadata(file);
+
+    // วันถ่ายคือวันที่ไปยืนอ่านเลขจริง = จุดเริ่มรอบบิลใบแรกของบ้านหลังนี้
+    this.photoCapturedAt = parseCaptureDate(meta.captureDate);
+    this.photoDateUnreadable = !!meta.captureDate && this.photoCapturedAt === null;
+
+    /**
+     * พิกัดในรูปชนะพิกัดที่วัดจากเครื่องเสมอ — รูปถูกกดชัตเตอร์ตอนยืนอยู่หน้ามิเตอร์จริง
+     * ส่วนพิกัดที่วัดตอนนี้คือจุดที่นั่งกรอกข้อมูลอยู่ ซึ่งอาจเป็นที่ทำการหรือที่บ้านตัวเอง
+     * (ยังกดปุ่ม "วัดพิกัดใหม่" ทับได้ ถ้ายืนอยู่หน้ามิเตอร์จริงตอนกรอก)
+     */
     const coords = toCoords(meta.latitude, meta.longitude);
-    if (coords && this.coordsSource !== 'gps') {
+    if (coords) {
       this.newMember.latitude = coords.lat;
       this.newMember.longitude = coords.lng;
       // EXIF ไม่บอกความคลาดเคลื่อน จึงไม่ส่งไป หลังบ้านจะได้ไม่ต้องตรวจข้อนี้
@@ -322,20 +431,29 @@ export class MemberListComponent implements OnInit {
       this.locationError = null;
     }
 
-    // หลังบ้านรับรูปเป็น data URL (ดู MeterPhotoService)
-    const reader = new FileReader();
-    reader.onload = () => {
-      this.newMember.meter_photo = reader.result as string;
-      this.photoPreview = reader.result as string;
-      this.cdr.detectChanges();
-    };
-    reader.onerror = () => toast.error('อ่านไฟล์รูปไม่สำเร็จ ลองเลือกใหม่อีกครั้งครับ', { id: 'photo-read-error' });
-    reader.readAsDataURL(file);
+    /**
+     * ย่อก่อนส่งเสมอ — หลังบ้านรับรูปเป็น data URL ใน JSON ซึ่ง body-parser
+     * ตั้งเพดานไว้ 100kb ถ้าโยนไฟล์เต็ม (มือถือใบละ 3–8 MB + base64 บวกอีกหนึ่งในสาม)
+     * ทั้งคำขอจะโดนตีกลับเป็น entity.too.large ตั้งแต่ก่อนเข้า controller
+     * คือลงทะเบียนบ้านไม่ผ่านทั้งที่ข้อมูลอย่างอื่นถูกหมด
+     */
+    const data = await photoDataUrl(file);
+    if (!data) {
+      toast.error('อ่านไฟล์รูปไม่สำเร็จ ลองเลือกใหม่อีกครั้งครับ', { id: 'photo-read-error' });
+      return;
+    }
+
+    this.newMember.meter_photo = data;
+    this.photoPreview = data;
+    this.cdr.detectChanges();
   }
 
   removePhoto(): void {
     this.newMember.meter_photo = null;
     this.photoPreview = null;
+    // วันถ่ายมาจากรูปใบนั้นใบเดียว เอารูปออกแล้วต้องกลับไปใช้วันนี้ ไม่ใช่ค้างวันของรูปเก่า
+    this.photoCapturedAt = null;
+    this.photoDateUnreadable = false;
     // พิกัดที่ได้จากรูปต้องหายไปพร้อมรูป ไม่งั้นเหลือพิกัดที่ไม่มีที่มา
     if (this.coordsSource === 'photo') {
       this.newMember.latitude = null;
@@ -346,6 +464,15 @@ export class MemberListComponent implements OnInit {
 
   get hasCoords(): boolean {
     return toCoords(this.newMember.latitude, this.newMember.longitude) !== null;
+  }
+
+  /** วันที่จะถูกบันทึกเป็นวันจดเลขตั้งต้นจริง ๆ — ไม่มีวันถ่ายติดรูปก็ถอยมาใช้วันนี้ */
+  get registrationDate(): Date {
+    return this.photoCapturedAt ?? new Date();
+  }
+
+  get registrationDateLabel(): string {
+    return this.print.dateLabel(this.registrationDate);
   }
 
   saveMember(): void {
@@ -396,6 +523,8 @@ export class MemberListComponent implements OnInit {
         longitude: coords.lng,
         gps_accuracy_m: Number.isFinite(accuracy) ? accuracy : undefined,
         initial_meter_unit: initialUnit,
+        // วันถ่ายรูปคือวันที่อ่านเลขนี้จริง ๆ = จุดเริ่มรอบบิลใบแรกของบ้านหลังนี้
+        reading_date: this.print.isoDate(this.registrationDate),
         meter_photo: this.newMember.meter_photo || undefined
       })
       .subscribe({
@@ -436,10 +565,7 @@ export class MemberListComponent implements OnInit {
         if (accuracy > this.maxAccuracyM) {
           this.locatingMemberId = null;
           this.cdr.detectChanges();
-          toast.error(
-            `สัญญาณยังไม่นิ่ง (±${accuracy} ม.) พิกัดหยาบขนาดนี้แยกบ้านไม่ได้ครับ รอสักครู่แล้วกดใหม่`,
-            { id: 'member-coords-error' }
-          );
+          toast.error(this.inaccurateMessage(accuracy), { id: 'member-coords-error' });
           return;
         }
 
@@ -481,11 +607,14 @@ export class MemberListComponent implements OnInit {
   /** วัดพิกัดใหม่ให้บ้านที่กำลังแก้ — พิกัดที่วัดพลาดครั้งแรกต้องแก้ได้ */
   isLocatingEdit = false;
   editLocationError: string | null = null;
+  /** ผลของการดึงพิกัดจากรูป — บอกว่าย้ายไปไกลจากของเดิมแค่ไหน */
+  editCoordsNote: string | null = null;
 
   openEditModal(member: any): void {
     this.editingMember = { ...member };
     this.editErrors = { house_no: '', fname: '', phone: '' };
     this.editLocationError = null;
+    this.editCoordsNote = null;
     this.showEditModal = true;
   }
 
@@ -494,6 +623,7 @@ export class MemberListComponent implements OnInit {
     this.showEditModal = false;
     this.editingMember = null;
     this.isLocatingEdit = false;
+    this.editCoordsNote = null;
   }
 
   recaptureLocation(): void {
@@ -505,12 +635,17 @@ export class MemberListComponent implements OnInit {
     this.currentPosition().then(
       (position) => {
         this.isLocatingEdit = false;
+        const accuracy = Math.round(position.coords.accuracy);
+
+        // ค่าหยาบระดับกิโลเมตรต้องไม่ถูกเขียนทับลงไป พิกัดเดิมของบ้าน (ถ้ามี) ดีกว่าอยู่แล้ว
+        if (accuracy > this.maxAccuracyM) {
+          this.editLocationError = this.inaccurateMessage(accuracy);
+          this.cdr.detectChanges();
+          return;
+        }
+
         this.editingMember.latitude = position.coords.latitude;
         this.editingMember.longitude = position.coords.longitude;
-        const accuracy = Math.round(position.coords.accuracy);
-        if (accuracy > this.maxAccuracyM) {
-          this.editLocationError = `สัญญาณยังไม่นิ่ง (±${accuracy} ม.) ถ้าบันทึกไปตอนนี้พิกัดจะหยาบเกินกว่าจะแยกบ้านได้ครับ`;
-        }
         this.cdr.detectChanges();
       },
       (err) => {
@@ -519,6 +654,47 @@ export class MemberListComponent implements OnInit {
         this.cdr.detectChanges();
       }
     );
+  }
+
+  /**
+   * ดึงพิกัดจากรูปที่ถ่ายไว้แล้ว — ทางเดียวที่บ้านเก่าจะได้พิกัดโดยไม่ต้องเดินไปยืนใหม่
+   * ใช้แค่ค่าพิกัดใน EXIF ไม่ได้อัปโหลดตัวรูป (หน้าแก้ไขไม่ได้เก็บรูปหน้าปัด)
+   */
+  async onEditPhotoPicked(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file || !this.editingMember) return;
+
+    const meta = await readPhotoMetadata(file);
+    const coords = toCoords(meta.latitude, meta.longitude);
+
+    if (!coords) {
+      this.editLocationError =
+        'รูปนี้ไม่มีพิกัดติดมาครับ ต้องเป็นรูปที่ถ่ายตอนเปิดตำแหน่ง (GPS) ไว้ที่กล้อง';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    /**
+     * บอกด้วยว่าพิกัดใหม่ห่างจากของเดิมเท่าไหร่ — ถ้าห่างเป็นสิบกิโล แปลว่าพิกัดเดิม
+     * คือค่าที่เครื่องเดาจาก IP ไม่ใช่ตำแหน่งมิเตอร์จริง คนจะได้กล้ากดทับ
+     * ส่วนถ้าห่างไม่กี่เมตรก็แปลว่าของเดิมใช้ได้อยู่แล้ว จะได้ไม่ต้องเสียเวลาไล่แก้ทุกหลัง
+     */
+    const before = toCoords(this.editingMember.latitude, this.editingMember.longitude);
+    const moved = before ? Math.round(distanceMeters(before, coords)) : null;
+    this.editCoordsNote =
+      moved === null
+        ? 'ได้พิกัดจากรูปแล้ว กดบันทึกการแก้ไขเพื่อเก็บไว้นะครับ'
+        : moved >= 1000
+          ? `พิกัดในรูปห่างจากที่บันทึกไว้เดิมถึง ${Math.round(moved / 1000)} กม. — ของเดิมน่าจะเป็นค่าที่เครื่องเดาเอา ไม่ใช่ตำแหน่งมิเตอร์จริงครับ`
+          : `พิกัดในรูปห่างจากที่บันทึกไว้เดิม ${moved} ม.`;
+
+    this.editingMember.latitude = coords.lat;
+    this.editingMember.longitude = coords.lng;
+    this.editLocationError = null;
+    this.cdr.detectChanges();
+    toast.success('ดึงพิกัดจากรูปแล้ว กดบันทึกการแก้ไขเพื่อเก็บไว้นะครับ', { id: 'edit-coords-photo' });
   }
 
   updateMember(): void {

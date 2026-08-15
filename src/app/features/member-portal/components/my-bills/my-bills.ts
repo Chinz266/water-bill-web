@@ -76,6 +76,8 @@ export class MyBillsComponent implements OnInit {
     this.portal.getMyBills().subscribe({
       next: (bills) => {
         this.bills = bills ?? [];
+        // รอบของบิลใบหนึ่งต้องรู้วันจดของใบก่อนหน้า จึงคิดได้เฉพาะตอนมีบิลครบทั้งกอง
+        this.print.indexCycles(this.bills);
         this.isLoading = false;
         this.cdr.detectChanges();
       },
@@ -254,6 +256,11 @@ export class MyBillsComponent implements OnInit {
 
   dateLabel(value: string | Date | null | undefined): string {
     return this.print.dateLabel(value);
+  }
+
+  /** ช่วงวันจริงที่บิลใบนี้คิดค่าน้ำ — ว่างเมื่อเป็นบิลใบแรกของบ้าน (ไม่มีรอบก่อนให้เทียบ) */
+  cycleLabel(bill: any): string {
+    return this.print.cycleLabel(bill);
   }
 
   dueDate(bill: any): Date | null {

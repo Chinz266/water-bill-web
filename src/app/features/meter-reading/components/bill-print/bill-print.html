@@ -26,6 +26,13 @@
             <span>บ้านเลขที่</span>
             <span class="rc-strong">{{ bill.member?.house_no || '—' }}</span>
           </div>
+          <!-- ที่อยู่ขึ้นเฉพาะตอนตั้งค่าหมู่บ้านไว้แล้ว บิลเก่าที่ไม่มีข้อมูลจะไม่มีบรรทัดเปล่า -->
+          @if (print.villageAddress(bill); as address) {
+            <div class="rc-r">
+              <span>ที่อยู่</span>
+              <span>{{ address }}</span>
+            </div>
+          }
           <div class="rc-r">
             <span>ชื่อผู้ใช้น้ำ</span>
             <span>{{ print.ownerName(bill) }}</span>
@@ -59,6 +66,10 @@
         <div class="rc-readdate">
           วันที่จดมาตร
           {{ print.dateLabel(bill.meter_reading?.reading_date) }}
+          <!-- รอบจริงของบ้านหลังนี้ ไม่ใช่เดือนบนปฏิทิน — ใบแรกของบ้านยังไม่มีรอบให้เทียบ -->
+          @if (print.cycleLabel(bill); as cycle) {
+            · รอบ {{ cycle }}
+          }
         </div>
       </div>
 
@@ -138,6 +149,12 @@
             <span>บ้านเลขที่</span>
             <span class="slip-strong">{{ bill.member?.house_no || '—' }}</span>
           </div>
+          @if (print.villageAddress(bill); as address) {
+            <div class="slip-r">
+              <span>ที่อยู่</span>
+              <span>{{ address }}</span>
+            </div>
+          }
           <div class="slip-r">
             <span>ชื่อผู้ใช้น้ำ</span>
             <span>{{ print.ownerName(bill) }}</span>
@@ -162,6 +179,13 @@
             <span>หน่วยที่ใช้</span>
             <span class="slip-strong">{{ bill.usage_unit }} ลบ.ม.</span>
           </div>
+          <!-- ช่วงวันจริงของรอบ ลูกบ้านจะได้เห็นว่าเดือนนี้นับกี่วัน -->
+          @if (print.cycleLabel(bill); as cycle) {
+            <div class="slip-r">
+              <span>รอบที่คิด</span>
+              <span>{{ cycle }}</span>
+            </div>
+          }
           @if (bill.price_per_unit) {
             <div class="slip-r">
               <span>อัตราค่าน้ำ</span>

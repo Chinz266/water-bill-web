@@ -9,11 +9,13 @@ import { MeterCropperComponent } from './meter-cropper';
  * ต้องไม่ทำให้บันทึกวันจดมิเตอร์ผิดหรือหน้าจอดับ
  */
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
 /** วันที่ในรูปแบบ EXIF มาตรฐาน 'YYYY:MM:DD HH:mm:ss' */
-const exif = (d: Date) => {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} 08:30:00`;
-};
+const exif = (d: Date) => `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} 08:30:00`;
+
+/** วันที่แบบที่หลังบ้านคืนมาใน reading_date */
+const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 const daysAgo = (n: number) => {
   const d = new Date();
@@ -112,6 +114,64 @@ describe('MeterCropperComponent — ข้อมูลที่ติดมา�
       component.aiResult = { read_unit: 120, metadata: { captureDate: exif(today) } };
       component.billingKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
+      expect(component.isCaptureOutsideBillingMonth).toBe(false);
+    });
+  });
+
+  /**
+   * รอบบิลของแต่ละบ้านคิดจากวันจดจริง ไม่ใช่เดือนบนปฏิทิน (ดู billing-cycle.ts)
+   * เจ้าหน้าที่ต้องเห็นว่ารอบนี้กี่วัน และรูปใบนี้ควรลงรอบเดือนไหนของบ้านหลังนี้
+   */
+  describe('รอบบิลของบ้านที่เลือก', () => {
+    /** เลือกบ้านแล้วตอบประวัติการจดกลับไปให้ */
+    const selectHouseWithReadings = (dates: Date[]) => {
+      component.members = [{ id: 1, house_no: '99/1' }];
+      component.selectedMemberId = 1;
+      component.onMemberChange();
+
+      http
+        .expectOne(r => r.url.endsWith('/meter-readings/member/1'))
+        .flush(dates.map((date, i) => ({ id: i + 1, reading_date: iso(date), meter_unit: 100, members_id: 1 })));
+
+      // เลขตั้งต้น/บิลซ้ำของเดือนที่เลือก ไม่เกี่ยวกับเทสต์ชุดนี้แต่ต้องเคลียร์ทิ้ง
+      http.match(r => r.url.includes('/bills/member/')).forEach(r => r.flush(null));
+    };
+
+    it('รอบนี้นับจากวันจดครั้งก่อนถึงวันที่ถ่ายรูป', () => {
+      component.aiResult = { read_unit: 120, metadata: { captureDate: exif(daysAgo(1)) } };
+      selectHouseWithReadings([daysAgo(31)]);
+
+      expect(component.currentCycle?.days).toBe(30);
+      expect(component.cycleLabel).toContain('30 วัน');
+    });
+
+    it('เดือนก่อนลืมจดไปรอบหนึ่ง → รอบยาวผิดปกติ ต้องเห็นได้จากจำนวนวัน', () => {
+      component.aiResult = { read_unit: 120, metadata: { captureDate: exif(daysAgo(1)) } };
+      selectHouseWithReadings([daysAgo(90), daysAgo(61)]);
+
+      expect(component.currentCycle?.days).toBe(60);
+    });
+
+    it('บ้านใหม่ที่ยังไม่เคยจด → ไม่มีรอบให้แสดง (ไม่ใช่ 0 วัน)', () => {
+      component.aiResult = { read_unit: 120, metadata: { captureDate: exif(daysAgo(1)) } };
+      selectHouseWithReadings([]);
+
+      expect(component.currentCycle).toBeNull();
+      expect(component.cycleLabel).toBe('');
+    });
+
+    it('รูปเก่าจากเดือนก่อน → เสนอรอบเดือนนั้น แล้วกดเปลี่ยนได้ในปุ่มเดียว', () => {
+      const captured = daysAgo(40); // เกิน 31 วัน จึงเป็นคนละเดือนกับวันนี้เสมอ
+      component.aiResult = { read_unit: 120, metadata: { captureDate: exif(captured) } };
+
+      expect(component.isCaptureOutsideBillingMonth).toBe(true);
+      expect(component.suggestedBillingOption?.key).toBe(
+        `${captured.getFullYear()}-${pad(captured.getMonth() + 1)}`
+      );
+
+      component.useSuggestedBilling();
+
+      expect(component.billingKey).toBe(`${captured.getFullYear()}-${pad(captured.getMonth() + 1)}`);
       expect(component.isCaptureOutsideBillingMonth).toBe(false);
     });
   });
@@ -262,6 +322,28 @@ describe('MeterCropperComponent — ข้อมูลที่ติดมา�
       expect(saveAndCapture().reading_date).toBe(
         `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
       );
+    });
+
+    it('ส่งพิกัดกับเวลาที่ถ่ายไปเก็บคู่กับบิลด้วย (เดิมโหมดทีละหลังไม่ได้ส่งเลย)', () => {
+      component.aiResult = {
+        read_unit: 120,
+        metadata: { captureDate: exif(daysAgo(1)), latitude: 13.7563, longitude: 100.5018 }
+      };
+
+      const body = saveAndCapture();
+
+      expect(body.latitude).toBe(13.7563);
+      expect(body.longitude).toBe(100.5018);
+      expect(body.captured_at).toBeTruthy();
+    });
+
+    it('รูปไม่มีพิกัด → ไม่ส่งพิกัดขึ้นไป (0,0 คือกลางมหาสมุทร ไม่ใช่ค่าว่าง)', () => {
+      component.aiResult = { read_unit: 120, metadata: { latitude: 0, longitude: 0 } };
+
+      const body = saveAndCapture();
+
+      expect(body.latitude).toBeUndefined();
+      expect(body.longitude).toBeUndefined();
     });
 
     it('มิเตอร์ใหม่ที่อ่านได้ 0 ต้องออกบิลได้', () => {

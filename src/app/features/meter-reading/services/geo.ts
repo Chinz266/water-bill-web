@@ -29,6 +29,41 @@ export function toCoords(lat: unknown, lng: unknown): LatLng | null {
   return { lat: latitude, lng: longitude };
 }
 
+/**
+ * จุดกึ่งกลางของกลุ่มพิกัด — ใช้ค่ากลาง (median) ทีละแกน ไม่ใช่ค่าเฉลี่ย
+ *
+ * มีไว้หา "ใจกลางหมู่บ้าน" จากพิกัดของบ้านที่เก็บไว้ เพื่อจับบ้านที่พิกัดเพี้ยน
+ * ค่าเฉลี่ยใช้ไม่ได้ เพราะพิกัดที่เพี้ยนมักเพี้ยนไปไกลเป็นร้อยกิโล (เครื่องเดาจาก IP
+ * แล้วคืนจุดกึ่งกลางของเขตเน็ตแทนตำแหน่งจริง) หลังเดียวก็ลากค่าเฉลี่ยออกนอกหมู่บ้านได้
+ * ส่วนค่ากลางไม่สนใจว่าตัวนอกกลุ่มจะไกลแค่ไหน
+ */
+export function medianCoords(points: LatLng[]): LatLng | null {
+  const usable = (points ?? []).filter((p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (!usable.length) return null;
+
+  const middle = <K extends keyof LatLng>(key: K): number => {
+    const values = usable.map((p) => p[key]).sort((a, b) => a - b);
+    return values[Math.floor(values.length / 2)];
+  };
+
+  return { lat: middle('lat'), lng: middle('lng') };
+}
+
+/**
+ * ระยะที่ถือว่าพิกัด "หลุดออกไปนอกหมู่บ้าน" แล้ว
+ *
+ * หมู่บ้านจริงกว้างไม่กี่ร้อยเมตร ส่วนพิกัดที่เครื่องเดาจากเน็ต (ตอนหาสัญญาณ GPS ไม่ได้)
+ * มักหลุดไปเป็นสิบเป็นร้อยกิโล — ตั้ง 2 กม. จึงแยกสองอย่างนี้ออกจากกันได้ขาด
+ * โดยไม่ไปแตะพิกัดของหมู่บ้านที่บ้านกระจายกันไกลหน่อย
+ */
+export const OUTSIDE_VILLAGE_M = 2000;
+
+/** จุดนี้หลุดออกไปนอกกลุ่มหรือยัง — ข้อมูลไม่ครบให้ตอบ false ไว้ก่อน (ห้ามกล่าวหามั่ว) */
+export function isFarFrom(center: LatLng | null, point: LatLng | null, maxMeters = OUTSIDE_VILLAGE_M): boolean {
+  if (!center || !point) return false;
+  return distanceMeters(center, point) > maxMeters;
+}
+
 export interface NearestMatch<T> {
   item: T;
   meters: number;

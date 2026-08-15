@@ -12,7 +12,16 @@ import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
 import { PhotoMetadata, parseCaptureDate, readPhotoMetadata } from '../../services/exif';
-import { LatLng, distanceMeters, pickNearest, toCoords } from '../../services/geo';
+import { photoDataUrl } from '../../services/photo-file';
+import { LatLng, distanceMeters, isFarFrom, medianCoords, pickNearest, toCoords } from '../../services/geo';
+import {
+  BillingCycle,
+  anchorDayOf,
+  daysBetween,
+  latestReadingBefore,
+  suggestBillingMonth,
+  toLocalDate
+} from '../../services/billing-cycle';
 
 @Component({
   selector: 'app-meter-cropper',
@@ -29,6 +38,12 @@ export class MeterCropperComponent implements OnInit {
   imageChangedEvent: Event | null = null;
   /** วันถ่าย/พิกัดที่อ่านจากไฟล์ต้นฉบับตอนเลือกรูป — ครอปแล้วข้อมูลนี้หายไปจากภาพ */
   private photoMeta: PhotoMetadata = {};
+  /**
+   * รูปเต็มใบที่ย่อแล้ว เตรียมไว้แนบไปกับบิล — เก็บรูป "ก่อนครอป" เพราะเป็นหลักฐาน
+   * ที่คนเปิดดูย้อนหลังแล้วเทียบได้ว่าเป็นหน้าปัดของบ้านหลังนั้นจริง ส่วนภาพครอป
+   * เหลือแต่แถวตัวเลขซึ่งดูทีหลังก็บอกอะไรไม่ได้
+   */
+  private photoData: string | null = null;
   croppedImage: SafeUrl = '';
   croppedBlob: Blob | null | undefined = null;
   aiResult: any = null;
@@ -79,6 +94,9 @@ export class MeterCropperComponent implements OnInit {
   // หน่วยที่ใช้เดือนก่อน (ไว้เทียบว่าครั้งนี้กระโดดผิดปกติไหม)
   private previousUsage: number | null = null;
 
+  /** วันจดทั้งหมดของบ้านที่เลือก — ใช้หารอบประจำและช่วงวันของรอบที่กำลังจะออก */
+  private memberReadings: Date[] = [];
+
   // บิลที่เพิ่งสร้าง — เก็บไว้ให้กด "ยกเลิก" ย้อนได้ทันทีถ้าบันทึกผิด
   savedBill: any = null;
   isUndoing = false;
@@ -123,7 +141,10 @@ export class MeterCropperComponent implements OnInit {
   // เลือกบ้านแล้วรีบไปถามเลขตั้งต้น เอาไว้คำนวณและเตือนก่อนบันทึก
   onMemberChange(): void {
     this.resetLookups();
+    this.memberReadings = [];
     if (!this.selectedMemberId) return;
+
+    this.loadReadingHistory();
     this.loadForSelection();
   }
 
@@ -180,6 +201,29 @@ export class MeterCropperComponent implements OnInit {
     });
   }
 
+  /**
+   * ประวัติวันจดของบ้านหลังนี้ — ใช้หา "รอบประจำ" ของบ้าน (ดู billing-cycle.ts)
+   *
+   * แยกจาก loadForSelection() เพราะไม่ได้ขึ้นกับเดือนที่เลือก เปลี่ยนเดือนแล้วไม่ต้องถามซ้ำ
+   * และกลืน error ทิ้ง เพราะเป็นตัวช่วยเลือกรอบเท่านั้น พังแล้วต้องไม่ขวางการออกบิล
+   */
+  private loadReadingHistory(): void {
+    const memberId = Number(this.selectedMemberId);
+
+    this.meterReadingService.getReadingsByMember(memberId).subscribe({
+      next: (readings) => {
+        // เลือกบ้านใหม่ระหว่างรอคำตอบ = ประวัติที่เพิ่งมาถึงเป็นของบ้านหลังเก่า ต้องทิ้ง
+        if (Number(this.selectedMemberId) !== memberId) return;
+
+        this.memberReadings = (Array.isArray(readings) ? readings : [])
+          .map((reading) => toLocalDate(reading?.reading_date))
+          .filter((date): date is Date => date !== null);
+        this.cdr?.detectChanges();
+      },
+      error: (err) => console.warn('ดึงประวัติการจดของบ้านหลังนี้ไม่สำเร็จ ข้ามไปก่อน:', err)
+    });
+  }
+
   // ==========================================
   // โซนฟังก์ชันจัดการรูปภาพ (เลือกรูป & ครอปรูป)
   // ==========================================
@@ -189,6 +233,7 @@ export class MeterCropperComponent implements OnInit {
     this.aiResult = null;
     this.saveSuccess = false;
     this.photoMeta = {};
+    this.photoData = null;
     this.resetImage();
 
     // ต้องอ่าน EXIF จากไฟล์ต้นฉบับตอนนี้ ก่อนครอป — ภาพที่ครอปแล้วออกมาจาก canvas
@@ -200,6 +245,18 @@ export class MeterCropperComponent implements OnInit {
       this.photoMeta = meta;
       this.cdr?.detectChanges();
     });
+
+    // ย่อไว้เบื้องหลังตั้งแต่ตอนนี้ กว่าจะครอป-อ่านเลข-กดบันทึกก็พร้อมส่งพอดี
+    // ถ้ารอไปทำตอนกดบันทึก ปุ่มจะค้างรอการย่อรูปโดยไม่มีอะไรบอกว่าเกิดอะไรขึ้น
+    this.photoDataUrl(file).then((data) => {
+      this.photoData = data;
+      this.cdr?.detectChanges();
+    });
+  }
+
+  /** ห่อไว้เป็นเมธอดเพื่อให้เทสต์แทนได้ — jsdom เปิดรูปจริงไม่ได้ */
+  private photoDataUrl(file: File): Promise<string | null> {
+    return this.isBrowser ? photoDataUrl(file) : Promise.resolve(null);
   }
 
   imageCropped(event: any) {
@@ -326,20 +383,71 @@ export class MeterCropperComponent implements OnInit {
     return this.print.dateLabel(this.capturedAt);
   }
 
+  // ==========================================
+  // โซนรอบบิลของบ้านหลังนี้ (วิธีคิดอยู่ใน billing-cycle.ts)
+  // ==========================================
+
+  /** วันประจำเดือนที่บ้านหลังนี้ถูกจด — null เมื่อเป็นบ้านใหม่ที่ยังไม่มีประวัติ */
+  get houseAnchorDay(): number | null {
+    return anchorDayOf(this.memberReadings);
+  }
+
   /**
-   * รูปถ่ายคนละเดือนกับบิลที่กำลังจะออก — เตือนอย่างเดียวไม่บล็อก เพราะจดปลายเดือน
+   * ช่วงวันของรอบที่กำลังจะออกบิล: วันจดครั้งก่อน → วันถ่ายรูปใบนี้
+   *
+   * ตรงกับวิธีที่หลังบ้านคิดหน่วยน้ำอยู่แล้ว (เลขตั้งต้นมาจากการจดครั้งก่อนของบ้านหลังเดียวกัน)
+   * เจ้าหน้าที่จึงเห็นได้ทันทีว่ารอบนี้ยาวผิดปกติไหม เช่นเดือนก่อนลืมจดไปหนึ่งรอบ
+   * หน่วยน้ำจะพุ่งเป็นสองเท่าโดยที่ไม่มีใครใช้น้ำเพิ่ม
+   */
+  get currentCycle(): BillingCycle | null {
+    const end = this.capturedAt ?? new Date();
+    const start = latestReadingBefore(this.memberReadings, end);
+    if (!start) return null;
+
+    return { start, end, days: daysBetween(start, end) };
+  }
+
+  get cycleLabel(): string {
+    const cycle = this.currentCycle;
+    if (!cycle) return '';
+
+    return `${this.print.dateLabel(cycle.start)} – ${this.print.dateLabel(cycle.end)} (${cycle.days} วัน)`;
+  }
+
+  /**
+   * รอบเดือนที่ควรลง คิดจากวันถ่ายรูปเทียบกับรอบประจำของบ้านหลังนี้
+   * บ้านที่ถูกจดปลายเดือนแล้วไปจดวันที่ 2 ของเดือนถัดไป ยังเป็นรอบของเดือนก่อน
+   */
+  private get suggestedBilling(): { key: string; month: string; year: string } | null {
+    const captured = this.capturedAt;
+    return captured ? suggestBillingMonth(captured, this.houseAnchorDay) : null;
+  }
+
+  /**
+   * รูปใบนี้ไม่ตรงกับรอบที่เลือกไว้ — เตือนอย่างเดียวไม่บล็อก เพราะจดปลายเดือน
    * แล้วมาบันทึกต้นเดือนถัดไปเป็นเรื่องปกติ แต่อีกความเป็นไปได้คือหยิบรูปเก่า
    * จากแกลเลอรีมาผิดใบ ซึ่งจะกลายเป็นบิลผิดบ้านผิดเดือนโดยไม่มีใครทันสังเกต
    */
   get isCaptureOutsideBillingMonth(): boolean {
-    const captured = this.capturedAt;
-    if (!captured) return false;
+    const suggested = this.suggestedBilling;
+    return suggested !== null && suggested.key !== this.billingKey;
+  }
 
-    const billing = this.selectedBilling;
-    return (
-      captured.getFullYear() !== Number(billing.year) ||
-      captured.getMonth() + 1 !== Number(billing.month)
-    );
+  /** ตัวเลือกเดือนที่ตรงกับรอบที่ระบบเสนอ — null ถ้าเก่าเกินกว่าที่เลือกได้ในหน้านี้ */
+  get suggestedBillingOption() {
+    const suggested = this.suggestedBilling;
+    if (!suggested) return null;
+
+    return this.billingMonths.find((m) => m.key === suggested.key) ?? null;
+  }
+
+  /** กดครั้งเดียวเปลี่ยนไปใช้รอบที่ระบบเสนอ (ต้องโหลดเลขตั้งต้นของเดือนนั้นใหม่ด้วย) */
+  useSuggestedBilling(): void {
+    const option = this.suggestedBillingOption;
+    if (!option) return;
+
+    this.billingKey = option.key;
+    this.onBillingMonthChange();
   }
 
   /**
@@ -364,6 +472,16 @@ export class MeterCropperComponent implements OnInit {
   /** พิกัดที่บ้านหลังนี้เคยเก็บไว้ — ยังไม่เคยจด (หรือหลังบ้านยังไม่มีคอลัมน์นี้) = null */
   private memberCoords(member: any): LatLng | null {
     return toCoords(member?.latitude, member?.longitude);
+  }
+
+  /** ใจกลางหมู่บ้านจากพิกัดของบ้านทุกหลัง — ใช้ชี้ว่าพิกัดของหลังไหนหลุดกลุ่มไปไกล */
+  private get villageCenter(): LatLng | null {
+    const points = this.members
+      .map((m) => this.memberCoords(m))
+      .filter((p): p is LatLng => p !== null);
+
+    // ต่ำกว่า 3 หลังยังบอกไม่ได้ว่าหลังไหนคือตัวประหลาด
+    return points.length >= 3 ? medianCoords(points) : null;
   }
 
   /**
@@ -442,8 +560,17 @@ export class MeterCropperComponent implements OnInit {
     if (!coords) return;
 
     const member = this.members.find((m) => m.id === memberId);
-    // มีพิกัดอยู่แล้วไม่ทับ — ของเดิมผ่านตาคนมาแล้ว เชื่อถือได้กว่ารูปใบล่าสุด
-    if (!member || this.memberCoords(member)) return;
+    if (!member) return;
+
+    /**
+     * มีพิกัดที่ใช้ได้อยู่แล้วไม่ทับ — ของเดิมผ่านตาคนมาแล้ว เชื่อถือได้กว่ารูปใบล่าสุด
+     * (GPS มือถือคลาดเคลื่อนเป็นสิบเมตร ทับทุกครั้งมีแต่ทำให้ค่าที่เคยดีแกว่งไปเรื่อย ๆ)
+     *
+     * แต่ถ้าของเดิม "เสียชัด ๆ" คืออยู่ไกลจากหมู่บ้านเกิน 2 กม. — ซึ่งคือพิกัดที่เครื่อง
+     * เดาจากเน็ตตอนที่ระบบยังยอมรับไว้ — ต้องทับ ไม่งั้นบ้านหลังนั้นจะจับคู่รูปไม่ได้ตลอดไป
+     */
+    const existing = this.memberCoords(member);
+    if (existing && !isFarFrom(this.villageCenter, existing)) return;
 
     // ส่งข้อมูลเดิมไปครบทุกช่อง เผื่อหลังบ้านเขียนทับทั้งแถว ไม่งั้นชื่อ/เบอร์จะหายไป
     this.memberService
@@ -598,7 +725,13 @@ export class MeterCropperComponent implements OnInit {
             billing_year: billing.year,
             // ด่านกันอ่านหลักหาย/หลักเกิน — ส่งเฉพาะตอนเลขยังเป็นค่าที่ AI อ่านมา
             meter_digits: this.digitsToSend,
-            confirm_digit_change: confirmDigitChange
+            confirm_digit_change: confirmDigitChange,
+            // ของที่ติดมากับรูปต้นฉบับ — เดิมหน้านี้ไม่ได้ส่งเลย บิลจากโหมดทีละหลัง
+            // จึงไม่มีทั้งรูปหน้าปัดและพิกัดให้ตรวจย้อนหลัง ต่างจากโหมดกองที่ส่งอยู่แล้ว
+            latitude: this.captureCoords?.lat,
+            longitude: this.captureCoords?.lng,
+            captured_at: this.capturedAt?.toISOString(),
+            meter_photo: this.photoData ?? undefined
           });
         })
       )

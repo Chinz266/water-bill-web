@@ -4,6 +4,7 @@ import { BillingHistoryComponent } from './features/meter-reading/components/bil
 import { HomeComponent } from './features/home/home';
 import { authGuard, guestGuard, memberGuard } from './features/auth/guards/auth.guard';
 import { batchScanLeaveGuard } from './features/meter-reading/components/batch-scan/batch-scan.guard';
+import { batchRegisterLeaveGuard } from './features/member/components/batch-register/batch-register.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -41,6 +42,15 @@ export const routes: Routes = [
     path: 'members',
     canActivate: [authGuard],
     loadComponent: () => import('./features/member/components/member-list/member-list').then(m => m.MemberListComponent),
+  },
+  {
+    // ลงทะเบียนหลายบ้านจากรูปที่ถ่ายมา — แยกหน้าจากการเพิ่มทีละหลัง เพราะขั้นตอนกลับด้านกัน
+    // (ถ่ายให้ครบก่อนแล้วค่อยกรอก แทนที่จะยืนกรอกอยู่หน้ามิเตอร์ทีละหลัง)
+    path: 'members/batch',
+    canActivate: [authGuard],
+    // กันเดินออกกลางคิว ไม่งั้นบ้านจะถูกสร้างไปครึ่งกองแล้วที่เหลือหายไปกับหน้า
+    canDeactivate: [batchRegisterLeaveGuard],
+    loadComponent: () => import('./features/member/components/batch-register/batch-register').then(m => m.BatchRegisterComponent),
   },
   {
     path: 'village-settings',

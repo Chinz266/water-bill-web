@@ -234,6 +234,13 @@
           <dt>วันที่จดมิเตอร์</dt>
           <dd>{{ dateLabel(selectedBill.meter_reading?.reading_date) }}</dd>
         </div>
+        <!-- ลูกบ้านถามบ่อยว่าทำไมบางเดือนใช้น้ำเยอะกว่าเดิม บอกช่วงวันจริงไปเลยจะได้เทียบเองได้ -->
+        @if (cycleLabel(selectedBill); as cycle) {
+          <div class="detail-row">
+            <dt>รอบที่คิดค่าน้ำ</dt>
+            <dd>{{ cycle }}</dd>
+          </div>
+        }
         <div class="detail-row">
           <dt>เลขมิเตอร์ครั้งก่อน</dt>
           <dd>{{ selectedBill.previous_unit }} ลบ.ม.</dd>

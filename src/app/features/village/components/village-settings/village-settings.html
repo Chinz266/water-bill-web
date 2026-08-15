@@ -221,7 +221,24 @@
         </select>
       </div>
 
-      <div class="field"></div>
+      <div class="field">
+        <label class="field-label" for="zip_code">รหัสไปรษณีย์</label>
+        <input
+          id="zip_code"
+          class="field-input"
+          type="text"
+          inputmode="numeric"
+          maxlength="5"
+          formControlName="zip_code"
+          placeholder="เช่น 30130"
+          [class.invalid]="zipCode.invalid && zipCode.touched"
+        />
+        @if (zipCode.touched && zipCode.hasError('pattern')) {
+          <div class="field-error">รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก</div>
+        } @else {
+          <div class="field-hint">ใส่ตัวเลข 5 หลักตามรหัสของตำบลที่เลือก</div>
+        }
+      </div>
     </div>
 
     <div class="modal-actions">

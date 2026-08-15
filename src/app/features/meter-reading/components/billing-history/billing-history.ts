@@ -77,6 +77,11 @@ export class BillingHistoryComponent implements OnInit {
     return this.print.dateLabel(value);
   }
 
+  /** ช่วงวันจริงที่บิลใบนี้คิดค่าน้ำ — ว่างเมื่อเป็นใบแรกของบ้าน (ไม่มีรอบก่อนให้เทียบ) */
+  cycleLabel(bill: any): string {
+    return this.print.cycleLabel(bill);
+  }
+
   // ==========================================
   // จัดบิลเป็นกลุ่มตามเดือน (เดือนล่าสุดอยู่บนสุด)
   // ==========================================
@@ -217,6 +222,8 @@ export class BillingHistoryComponent implements OnInit {
       next: (data) => {
         this.bills = data;
         this.buildBillGroups(); // จัดกลุ่มรายเดือนใหม่ทุกครั้งที่โหลดข้อมูล
+        // รอบของบิลใบหนึ่งต้องรู้วันจดของใบก่อนหน้า จึงคิดได้เฉพาะตอนมีบิลครบทั้งกอง
+        this.print.indexCycles(this.bills);
         this.isLoading = false;
         this.isFetching = false;
 

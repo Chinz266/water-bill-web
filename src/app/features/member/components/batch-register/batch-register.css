@@ -1,4 +1,4 @@
-.batch {
+.reg {
   max-width: 860px;
   margin: 0 auto;
 }
@@ -13,6 +13,41 @@ svg {
   stroke-linejoin: round;
 }
 
+/* ---------- สลับกับหน้าเพิ่มทีละหลัง ---------- */
+.reg-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.reg-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.reg-mode.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.reg-mode-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reg-mode-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- โครงขั้นตอน ---------- */
 .step + .step {
   margin-top: var(--sp-2);
 }
@@ -42,24 +77,11 @@ svg {
   font-size: 19px;
 }
 
-/* ---------- คิวที่ค้างจากครั้งก่อน ---------- */
-.restore-card {
-  border: 1.5px solid var(--primary-soft-2);
-  background: var(--primary-soft);
+.village-field {
+  margin-bottom: var(--sp-2);
+  max-width: 320px;
 }
 
-.restore-text {
-  margin: var(--sp-1) 0 var(--sp-2);
-  font-size: 15px;
-}
-
-.restore-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-}
-
-/* ---------- เลือกรูป ---------- */
 .pick-row {
   display: flex;
   flex-wrap: wrap;
@@ -67,7 +89,6 @@ svg {
   margin-bottom: var(--sp-1);
 }
 
-/* label ที่ทำหน้าที่เป็นปุ่มเปิดตัวเลือกไฟล์ */
 .pick-btn {
   cursor: pointer;
 }
@@ -113,7 +134,6 @@ svg {
   color: var(--success);
 }
 
-/* ---------- แถบความคืบหน้า ---------- */
 .progress {
   margin-bottom: var(--sp-2);
 }
@@ -132,7 +152,7 @@ svg {
   transition: width 0.2s;
 }
 
-/* ---------- แต่ละรูปในคิว ---------- */
+/* ---------- แต่ละหลังในคิว ---------- */
 .rows {
   display: flex;
   flex-direction: column;
@@ -140,7 +160,7 @@ svg {
   margin-bottom: var(--sp-2);
 }
 
-.scan-row {
+.reg-row {
   display: flex;
   gap: 12px;
   padding: 12px;
@@ -149,12 +169,12 @@ svg {
 }
 
 /* แถวที่ยังบันทึกไม่ได้ต้องสะดุดตาตอนไล่ตรวจทีละสิบ ๆ แถว */
-.scan-row.is-blocked {
+.reg-row.is-blocked {
   border-color: var(--warning);
   background: #fffbeb;
 }
 
-.scan-row.is-saved {
+.reg-row.is-saved {
   border-color: var(--success-soft);
   background: var(--success-soft);
 }
@@ -168,7 +188,6 @@ svg {
   border-radius: var(--radius-sm);
 }
 
-/* ที่ยืนแทนรูปที่เปิดไม่ขึ้น — ต้องเห็นว่ามีแถวนี้อยู่ ไม่ใช่ช่องว่างเปล่า */
 .row-photo-broken {
   display: flex;
   align-items: center;
@@ -178,10 +197,6 @@ svg {
   text-align: center;
   color: var(--text-muted);
   background: var(--line-soft);
-}
-
-.row-confirm {
-  margin-top: var(--sp-1);
 }
 
 .row-body {
@@ -202,13 +217,12 @@ svg {
   font-weight: 700;
 }
 
-.row-date {
-  font-size: 14px;
+.row-meta {
+  font-size: 13px;
   color: var(--text-muted);
 }
 
-/* ของที่รูปไม่มีติดมา ต้องอ่านออกตั้งแต่กวาดตา ไม่ใช่กลืนไปกับข้อความสีเทา */
-.row-date.warn {
+.row-meta.warn {
   font-weight: 600;
   color: #92400e;
 }
@@ -231,16 +245,8 @@ svg {
 
 .row-fields {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--sp-1);
-}
-
-/* รอบบิล/หมู่บ้าน ของทั้งกอง */
-.pick-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--sp-1);
-  margin-bottom: 6px;
 }
 
 .row-field {
@@ -262,10 +268,6 @@ svg {
   font-size: 15px;
 }
 
-.row-field select.field-input {
-  padding-right: 36px;
-}
-
 .row-issue {
   margin-top: var(--sp-1);
   font-size: 14px;
@@ -274,55 +276,21 @@ svg {
 }
 
 .row-note {
-  margin-top: 2px;
+  margin-top: var(--sp-1);
   font-size: 13px;
   color: var(--text-muted);
 }
-
-/* สไตล์ของแถบ "ออกบิลอัตโนมัติ" (.auto-toggle, .row-note.ok) อยู่ใน styles.css
-   เพราะไฟล์นี้เต็ม budget 4kB แล้ว */
 
 .row-saved {
   font-size: 15px;
   color: #166534;
 }
 
-.row-crop {
-  margin-top: var(--sp-1);
-}
-
-/* ---------- กล่องครอปทีละรูป (โครง modal ใช้ .modal-* จาก styles.css) ---------- */
-/* พื้นเข้มช่วยให้เห็นขอบกรอบที่กำลังลากชัดขึ้น */
-.crop-frame {
-  background: #0f172a;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.crop-tools {
+.reg-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-1);
-  margin-top: var(--sp-1);
-}
-
-/* ---------- ตัวเลือกทับบิลเดิม ---------- */
-.replace-toggle {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: var(--sp-2);
-  padding: 12px;
-  font-size: 15px;
-  background: var(--line-soft);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.replace-toggle input {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  flex-shrink: 0;
+  margin-bottom: var(--sp-1);
 }
 
 @media (max-width: 640px) {
@@ -331,7 +299,7 @@ svg {
     row-gap: 12px;
   }
 
-  .scan-row {
+  .reg-row {
     flex-direction: column;
   }
 

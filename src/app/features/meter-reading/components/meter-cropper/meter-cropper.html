@@ -73,6 +73,12 @@
       <p class="field-hint">ระบบจะคิดค่าน้ำจากเลขมิเตอร์ตั้งต้นของบ้านหลังนี้ให้เอง</p>
     }
 
+    <!-- รอบของบ้านหลังนี้ไม่ตรงกับเดือนบนปฏิทิน เพราะเดินจดทั้งหมู่บ้านไม่จบในวันเดียว
+         (ดู billing-cycle.ts) — รอบที่ยาวผิดปกติคือสัญญาณว่าเดือนก่อนลืมจดไปรอบหนึ่ง -->
+    @if (selectedMemberId && cycleLabel) {
+      <p class="field-hint">🗓️ รอบนี้นับจากวันจดครั้งก่อน: <strong>{{ cycleLabel }}</strong></p>
+    }
+
     <!-- ตัวช่วยจับคู่รูปกับบ้านจากพิกัดที่ติดมากับรูป (ดู geo.ts)
          ขึ้นเฉพาะตอนที่ทั้งรูปและบ้านมีพิกัด — เดาไม่ได้ก็เงียบไว้ ดีกว่าเดาผิด -->
     @if (!selectedMemberId && nearestMember; as nearest) {
@@ -366,9 +372,18 @@
           <span>
             รูปนี้ถ่ายเมื่อ <strong>{{ captureDateLabel }}</strong>
             แต่กำลังจะออกบิล{{ selectedBilling.label }}
-            ถ้าเลือกเดือนผิด กรุณาเลื่อนขึ้นไปแก้ในขั้นที่ 1 ก่อนนะครับ
+            @if (suggestedBillingOption; as suggested) {
+              ตามรอบจดของบ้านหลังนี้ควรเป็น<strong>{{ suggested.label }}</strong>ครับ
+            } @else {
+              ถ้าเลือกเดือนผิด กรุณาเลื่อนขึ้นไปแก้ในขั้นที่ 1 ก่อนนะครับ
+            }
           </span>
         </div>
+        @if (suggestedBillingOption; as suggested) {
+          <button type="button" class="btn btn-secondary btn-sm" (click)="useSuggestedBilling()">
+            เปลี่ยนไปออกบิล{{ suggested.label }}
+          </button>
+        }
       }
 
       @if (currentUnitValue === null) {

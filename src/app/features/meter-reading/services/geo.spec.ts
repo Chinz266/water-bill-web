@@ -1,4 +1,4 @@
-import { distanceMeters, toCoords } from './geo';
+import { distanceMeters, medianCoords, toCoords } from './geo';
 
 describe('toCoords — กรองพิกัดที่ใช้ไม่ได้ทิ้ง', () => {
   it('ตัวเลขปกติใช้ได้', () => {
@@ -22,6 +22,23 @@ describe('toCoords — กรองพิกัดที่ใช้ไม่ไ
   it('ค่าหลุดขอบเขตโลก → null', () => {
     expect(toCoords(91, 100)).toBeNull();
     expect(toCoords(13, 181)).toBeNull();
+  });
+});
+
+describe('medianCoords — ใจกลางหมู่บ้าน', () => {
+  it('บ้านหลังที่พิกัดเพี้ยนไปไกลต้องไม่ลากจุดกึ่งกลางตามไปด้วย', () => {
+    const center = medianCoords([
+      { lat: 14.9799, lng: 102.0977 },
+      { lat: 14.98, lng: 102.0978 },
+      { lat: 14.9801, lng: 102.0979 },
+      { lat: 14.98335, lng: 100.0 } // ค่าที่เครื่องเดาจาก IP ห่างไปสองร้อยกิโล
+    ]);
+
+    expect(center?.lng).toBeGreaterThan(102);
+  });
+
+  it('ไม่มีพิกัดเลย → null', () => {
+    expect(medianCoords([])).toBeNull();
   });
 });
 

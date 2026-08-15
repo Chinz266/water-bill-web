@@ -1,4 +1,5 @@
 import { ApplicationRef, Injectable, inject, signal } from '@angular/core';
+import { BillingCycle, buildCycleIndex } from './billing-cycle';
 
 /**
  * ศูนย์กลางของ "บิลที่พิมพ์ออกกระดาษ"
@@ -30,6 +31,36 @@ export class BillPrintService {
     const member = bill?.member;
     if (!member) return 'ไม่พบข้อมูลลูกบ้าน';
     return `${member.fname ?? ''} ${member.lname ?? ''}`.trim() || 'ไม่ระบุชื่อ';
+  }
+
+  /**
+   * ที่อยู่เต็มบรรทัดเดียวจบ — รวมชื่อหมู่บ้านกับหมู่ที่ไว้ในนี้ด้วย
+   * 'บ้านโนนกราด หมู่ที่ 1 ตำบลหนองงูเหลือม อำเภอเฉลิมพระเกียรติ จังหวัดนครราชสีมา 30000'
+   *
+   * ข้อมูลติดมากับบิลจากหลังบ้าน (bill.member.village) ไม่ได้ยิง /villages เพิ่ม
+   * เพราะพอร์ทัลลูกบ้านเรียก endpoint นั้นไม่ได้ (เป็นสิทธิ์ admin)
+   */
+  villageAddress(bill: any): string {
+    const village = bill?.member?.village;
+    if (!village) return '';
+
+    const name = String(village.village_name ?? '').trim();
+    // ช่องชื่อหมู่บ้านให้กรอกชื่อเปล่า ๆ (ดูหน้าตั้งค่าหมู่บ้าน) คำนำหน้าจึงต้องเติมตอนนี้
+    // แต่ถ้าใครกรอกมาพร้อมคำนำหน้าแล้ว อย่าเติมซ้ำจนกลายเป็น "บ้านหมู่บ้าน..."
+    const villageName = !name || /^(บ้าน|หมู่บ้าน)/.test(name) ? name : `บ้าน${name}`;
+    const no = String(village.village_no ?? '').replace(/\D/g, '');
+
+    // ส่วนที่ยังไม่ได้ตั้งค่าให้หายไปทั้งท่อน ดีกว่าพิมพ์คำว่า "ตำบล" ค้างไว้เฉย ๆ
+    return [
+      villageName,
+      no && `หมู่ที่ ${no}`,
+      village.subdistrict && `ตำบล${village.subdistrict}`,
+      village.district && `อำเภอ${village.district}`,
+      village.province && `จังหวัด${village.province}`,
+      village.zip_code,
+    ]
+      .filter(Boolean)
+      .join(' ');
   }
 
   private readonly thMonths = [
@@ -97,6 +128,45 @@ export class BillPrintService {
     const d = new Date(bill.create_date);
     if (isNaN(d.getTime())) return null;
     return new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+
+  // ==========================================
+  // ช่วงวันที่ของรอบบิล (วิธีคิดอยู่ใน billing-cycle.ts)
+  // ==========================================
+
+  /**
+   * รอบบิลของแต่ละใบ คีย์ด้วย id ของบิล
+   *
+   * รอบของใบหนึ่งต้องรู้ "วันจดของใบก่อนหน้าของบ้านหลังเดียวกัน" ซึ่งดูจากตัวบิล
+   * ใบเดียวไม่ได้ และหลังบ้านก็ไม่ได้ส่งติดมาด้วย หน้าที่ถือบิลทั้งกองอยู่แล้ว
+   * (ประวัติบิล / หน้าลูกบ้าน) จึงเป็นคนเรียก indexCycles() ตอนโหลดข้อมูลเสร็จ
+   * ใบที่ยังไม่ได้ทำดัชนีจะได้ค่าว่าง แล้ว template ซ่อนบรรทัดนั้นไปเอง
+   */
+  private readonly cycles = signal<Map<number, BillingCycle>>(new Map());
+
+  indexCycles(bills: any[]): void {
+    this.cycles.set(buildCycleIndex(bills ?? []));
+  }
+
+  cycleOf(bill: any): BillingCycle | null {
+    const id = Number(bill?.id);
+    return Number.isFinite(id) ? this.cycles().get(id) ?? null : null;
+  }
+
+  /**
+   * '5 กรกฎาคม – 4 สิงหาคม 2569 (30 วัน)'
+   * ปีของวันเริ่มรอบตัดทิ้งเมื่อเป็นปีเดียวกัน เพราะบรรทัดนี้ต้องลงสลิปใบเล็กได้ด้วย
+   */
+  cycleLabel(bill: any): string {
+    const cycle = this.cycleOf(bill);
+    if (!cycle) return '';
+
+    const sameYear = cycle.start.getFullYear() === cycle.end.getFullYear();
+    const start = sameYear
+      ? `${cycle.start.getDate()} ${this.thMonths[cycle.start.getMonth()]}`
+      : this.dateLabel(cycle.start);
+
+    return `${start} – ${this.dateLabel(cycle.end)} (${cycle.days} วัน)`;
   }
 
   // ==========================================

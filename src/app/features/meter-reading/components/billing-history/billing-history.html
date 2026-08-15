@@ -290,6 +290,13 @@
             <dt>วันที่จดมาตร</dt>
             <dd>{{ dateLabel(selectedBill.meter_reading?.reading_date) }}</dd>
           </div>
+          <!-- รอบจริงของบ้านหลังนี้ ไม่ใช่เดือนบนปฏิทิน — ใบแรกของบ้านไม่มีรอบให้เทียบ -->
+          @if (cycleLabel(selectedBill); as cycle) {
+            <div class="detail-row">
+              <dt>รอบที่คิดค่าน้ำ</dt>
+              <dd>{{ cycle }}</dd>
+            </div>
+          }
           <div class="detail-row">
             <dt>วันที่ออกบิล</dt>
             <dd>{{ dateLabel(selectedBill.create_date) }}</dd>

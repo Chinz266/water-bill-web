@@ -17,6 +17,11 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
       เพิ่มบ้าน
     </button>
+    <!-- ทางลัดสำหรับตอนลงทะเบียนทั้งหมู่บ้าน — ยืนกรอกทีละหลังกลางแดดทำจริงไม่ไหว -->
+    <a class="btn btn-secondary add-btn" routerLink="/members/batch">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      เพิ่มหลายหลังจากรูป
+    </a>
   </div>
 
   @if (isLoading) {
@@ -56,7 +61,21 @@
         <span>📍</span>
         <span>
           ยังมีอีก <strong>{{ missingCoordsCount }}</strong> หลังที่ไม่มีพิกัดมิเตอร์
-          ระบบจะจับคู่รูปให้อัตโนมัติไม่ได้ครับ — เดินไปยืนหน้ามิเตอร์แล้วกด "เก็บพิกัด" ในรายการได้เลย
+          ระบบจะจับคู่รูปให้อัตโนมัติไม่ได้ครับ — กด "แก้ไข" แล้วดึงพิกัดจากรูปที่ถ่ายไว้ได้เลย
+          หรือถ้ายืนอยู่หน้ามิเตอร์ก็กด "เก็บพิกัด" ในรายการได้
+        </span>
+      </div>
+    }
+
+    <!-- พิกัดที่อยู่คนละที่กับหมู่บ้าน = ค่าที่เครื่องเดาจาก IP ตอนที่ระบบยังยอมรับไว้
+         ต้องไล่แก้ ไม่งั้นการจับคู่รูปกับบ้านจะผิดหลังไปเรื่อย ๆ โดยไม่มีใครรู้ -->
+    @if (suspiciousCoordsCount > 0) {
+      <div class="alert alert-danger coords-alert">
+        <span>⚠️</span>
+        <span>
+          มี <strong>{{ suspiciousCoordsCount }}</strong> หลังที่พิกัดอยู่ไกลจากหมู่บ้านผิดปกติ
+          ส่วนใหญ่คือค่าที่เครื่องเดาเอาตอนหาสัญญาณ GPS ไม่ได้ ไม่ใช่ตำแหน่งมิเตอร์จริงครับ
+          — กด "แก้ไข" แล้ว "ดึงพิกัดจากรูปที่ถ่ายไว้" เพื่อทับค่าที่ผิด
         </span>
       </div>
     }
@@ -80,6 +99,7 @@
                 <th>บ้านเลขที่</th>
                 <th>เจ้าของบ้าน</th>
                 <th>เบอร์โทรศัพท์</th>
+                <th>วันจดประจำ</th>
                 <th>พิกัดมิเตอร์</th>
                 <th class="th-actions">จัดการ</th>
               </tr>
@@ -90,8 +110,20 @@
                   <td class="cell-strong">{{ member.house_no }}</td>
                   <td>{{ ownerName(member) }}</td>
                   <td class="cell-muted">{{ member.phone || '—' }}</td>
+                  <!-- รอบบิลของแต่ละหลังไม่ตรงกัน เพราะเดินจดทั้งหมู่บ้านไม่จบในวันเดียว -->
+                  <td class="cell-muted">
+                    @if (readingDay(member); as day) {
+                      ประมาณวันที่ {{ day }}
+                    } @else {
+                      —
+                    }
+                  </td>
                   <td>
-                    @if (hasMemberCoords(member)) {
+                    @if (isCoordsSuspicious(member)) {
+                      <span class="chip chip-warning" [title]="'ห่างจากหมู่บ้าน ' + distanceFromVillage(member)">
+                        พิกัดผิดปกติ ({{ distanceFromVillage(member) }})
+                      </span>
+                    } @else if (hasMemberCoords(member)) {
                       <span class="chip chip-success">มีพิกัดแล้ว</span>
                     } @else {
                       <button
@@ -137,6 +169,8 @@
               <span class="chip chip-info">บ้านเลขที่ {{ member.house_no }}</span>
               @if (!hasMemberCoords(member)) {
                 <span class="chip chip-warning">ไม่มีพิกัด</span>
+              } @else if (isCoordsSuspicious(member)) {
+                <span class="chip chip-warning">พิกัดผิดปกติ ({{ distanceFromVillage(member) }})</span>
               }
             </div>
             <p class="member-name">{{ ownerName(member) }}</p>
@@ -144,6 +178,12 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 5.2 2 2 0 0 1 6 3Z"/></svg>
               {{ member.phone || 'ไม่ได้ระบุเบอร์โทร' }}
             </p>
+            @if (readingDay(member); as day) {
+              <p class="reading-day text-muted">
+                <span aria-hidden="true">🗓️</span>
+                จดประจำประมาณวันที่ {{ day }} ของเดือน
+              </p>
+            }
 
             @if (!hasMemberCoords(member)) {
               <button
@@ -199,14 +239,14 @@
           <span>
             ได้พิกัดแล้ว ({{ newMember.latitude | number: '1.5-5' }}, {{ newMember.longitude | number: '1.5-5' }})
             @if (coordsSource === 'gps' && newMember.gps_accuracy_m) {
-              · คลาดเคลื่อน ±{{ newMember.gps_accuracy_m }} ม.
+              · วัดจากเครื่อง คลาดเคลื่อน {{ accuracyLabel(newMember.gps_accuracy_m) }}
             } @else if (coordsSource === 'photo') {
-              · อ่านจากรูปที่แนบมา
+              · อ่านจากรูปที่แนบมา (ถ่ายตอนยืนหน้ามิเตอร์)
             }
           </span>
         } @else {
           <span>📍</span>
-          <span>ยังไม่ได้พิกัด — ต้องยืนอยู่หน้ามิเตอร์ของบ้านหลังนี้ครับ</span>
+          <span>ยังไม่ได้พิกัด — แนบรูปหน้าปัดที่เปิด GPS ถ่ายไว้ หรือยืนอยู่หน้ามิเตอร์แล้วกดวัดครับ</span>
         }
       </div>
 
@@ -215,8 +255,8 @@
       }
 
       @if (!isLocating) {
-        <button type="button" class="btn btn-ghost btn-sm coords-retry" (click)="captureLocation()">
-          {{ hasCoords ? 'วัดพิกัดใหม่' : 'ลองหาพิกัดอีกครั้ง' }}
+        <button type="button" class="btn btn-ghost btn-sm coords-retry" (click)="captureLocation(true)">
+          {{ hasCoords ? 'วัดพิกัดใหม่จากเครื่อง' : 'ลองวัดพิกัดจากเครื่องอีกครั้ง' }}
         </button>
       }
 
@@ -265,6 +305,8 @@
       </div>
       <p class="field-hint">
         เลขมิเตอร์คือตัวตั้งต้นของบ้านหลังนี้ ถ้ากรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
+        ระบบจะบันทึกว่าจดไว้เมื่อ <strong>{{ registrationDateLabel }}</strong>
+        ซึ่งเป็นวันเริ่มรอบบิลใบแรกของบ้านหลังนี้
       </p>
 
       <!-- ชื่อช่องเดียว คำแรกเป็นชื่อ ที่เหลือเป็นนามสกุล -->
@@ -309,13 +351,41 @@
             <img [src]="photoPreview" alt="รูปมิเตอร์ตอนลงทะเบียน" />
             <button type="button" class="btn btn-ghost btn-sm" (click)="removePhoto()">เอารูปออก</button>
           </div>
+
+          <!-- ข้อมูลที่ติดมากับรูป ต้องเห็นก่อนกดบันทึก เพราะกลายเป็นวันเริ่มรอบบิล
+               กับตำแหน่งมิเตอร์ของบ้านหลังนี้ไปตลอด แก้ทีหลังลำบาก -->
+          <ul class="photo-meta">
+            <li>
+              <span aria-hidden="true">📅</span>
+              @if (photoCapturedAt) {
+                <span>ถ่ายเมื่อ <strong>{{ registrationDateLabel }}</strong> — ใช้เป็นวันจดเลขตั้งต้น</span>
+              } @else if (photoDateUnreadable) {
+                <span>รูปนี้อ่านวันถ่ายไม่ออก ระบบจะลงวันจดเป็นวันนี้ ({{ registrationDateLabel }}) ครับ</span>
+              } @else {
+                <span>รูปนี้ไม่มีวันเวลาติดมา ระบบจะลงวันจดเป็นวันนี้ ({{ registrationDateLabel }}) ครับ</span>
+              }
+            </li>
+            <li>
+              <span aria-hidden="true">📍</span>
+              @if (coordsSource === 'photo') {
+                <span>ใช้พิกัดที่ติดมากับรูปเป็นตำแหน่งมิเตอร์ของบ้านหลังนี้</span>
+              } @else if (hasCoords) {
+                <span>รูปนี้ไม่มีพิกัดติดมา ระบบใช้พิกัดที่กดวัดจากเครื่องแทน</span>
+              } @else {
+                <span>รูปนี้ไม่มีพิกัดติดมา ต้องเปิด GPS ที่กล้องแล้วถ่ายใหม่ หรือกดวัดพิกัดด้านบนครับ</span>
+              }
+            </li>
+          </ul>
         } @else {
           <label class="btn btn-secondary btn-block" for="add-photo">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
             ถ่ายรูปหน้าปัดเก็บไว้ (ไม่บังคับ)
           </label>
           <input id="add-photo" type="file" accept="image/*" capture="environment" (change)="onPhotoPicked($event)" hidden />
-          <p class="field-hint">เป็นหลักฐานของเลขตั้งต้น และถ้ารูปมี GPS ติดมา ระบบใช้เป็นพิกัดแทนได้ครับ</p>
+          <p class="field-hint">
+            เป็นหลักฐานของเลขตั้งต้น และระบบจะดึงวันเวลาที่ถ่ายมาเป็นวันจด
+            กับใช้ GPS ในรูปเป็นพิกัดมิเตอร์ให้ด้วยครับ
+          </p>
         }
       </div>
 
@@ -411,7 +481,11 @@
       <!-- พิกัดคือสิ่งที่ระบบใช้จับคู่รูปมิเตอร์กับบ้าน วัดพลาดครั้งแรกต้องแก้ได้ -->
       <div class="field">
         <label class="field-label">พิกัดมิเตอร์</label>
-        <div class="coords-status" [class.is-ready]="hasMemberCoords(editingMember)">
+        <div
+          class="coords-status"
+          [class.is-ready]="hasMemberCoords(editingMember) && !isCoordsSuspicious(editingMember)"
+          [class.is-error]="isCoordsSuspicious(editingMember)"
+        >
           @if (hasMemberCoords(editingMember)) {
             <span>📍</span>
             <span>{{ editingMember.latitude | number: '1.5-5' }}, {{ editingMember.longitude | number: '1.5-5' }}</span>
@@ -420,19 +494,41 @@
             <span>ยังไม่มีพิกัด</span>
           }
         </div>
-        <button type="button" class="btn btn-secondary btn-block" (click)="recaptureLocation()" [disabled]="isLocatingEdit">
+
+        <!-- พิกัดที่ห่างจากหมู่บ้านเป็นสิบกิโล = ค่าที่เครื่องเดาเอา ต้องบอกตรงนี้ให้ชัด
+             ไม่งั้นคนจะเห็นว่า "มีพิกัดแล้ว" แล้วปล่อยไว้อย่างนั้น -->
+        @if (isCoordsSuspicious(editingMember)) {
+          <p class="field-error">
+            พิกัดนี้อยู่ห่างจากหมู่บ้านถึง {{ distanceFromVillage(editingMember) }}
+            ซึ่งไม่ใช่ตำแหน่งมิเตอร์จริงแน่นอนครับ — ส่วนใหญ่คือค่าที่เครื่องเดาเอาตอนหาสัญญาณ GPS ไม่ได้
+            กดดึงพิกัดจากรูปที่ถ่ายไว้ทับได้เลย
+          </p>
+        }
+
+        @if (editCoordsNote) {
+          <p class="field-hint">{{ editCoordsNote }}</p>
+        }
+        <!-- ดึงจากรูปมาก่อน เพราะเป็นทางเดียวที่ทำได้ตอนนั่งอยู่ที่ทำการ
+             ส่วนการวัดจากเครื่องต้องเดินไปยืนหน้ามิเตอร์จริง ๆ ถึงจะได้ค่าที่ใช้ได้ -->
+        <label class="btn btn-secondary btn-block" for="edit-coords-photo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          ดึงพิกัดจากรูปที่ถ่ายไว้
+        </label>
+        <input id="edit-coords-photo" type="file" accept="image/*" (change)="onEditPhotoPicked($event)" hidden />
+
+        <button type="button" class="btn btn-ghost btn-block" (click)="recaptureLocation()" [disabled]="isLocatingEdit">
           @if (isLocatingEdit) {
             <span class="btn-spinner dark"></span>
             กำลังหาสัญญาณ...
           } @else {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-            วัดพิกัดใหม่ตรงจุดที่ยืนอยู่
+            วัดจากเครื่อง (ต้องยืนอยู่หน้ามิเตอร์)
           }
         </button>
         @if (editLocationError) {
           <p class="field-error">{{ editLocationError }}</p>
         } @else {
-          <p class="field-hint">ต้องยืนอยู่หน้ามิเตอร์ของบ้านหลังนี้ตอนกดนะครับ</p>
+          <p class="field-hint">รูปที่ถ่ายด้วยมือถือที่เปิด GPS ไว้จะมีพิกัดติดมาในไฟล์ ระบบดึงออกมาให้ได้เลยครับ</p>
         }
       </div>
 
