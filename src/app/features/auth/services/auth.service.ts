@@ -19,9 +19,6 @@ export interface AppUser {
   role: UserRole;
 }
 
-/** ชื่อเดิมที่โค้ดส่วนอื่นเรียกใช้อยู่ — เก็บไว้เพื่อไม่ให้ต้องแก้ทั้งโปรเจกต์ */
-export type Admin = AppUser;
-
 export interface LoginPayload {
   email: string;
   password: string;

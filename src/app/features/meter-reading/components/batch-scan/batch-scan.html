@@ -1,22 +1,12 @@
 <div class="batch">
   <div class="page-head">
-    <h1 class="page-title">สแกนหลายรูปพร้อมกัน</h1>
+    <h1 class="page-title">สแกนมิเตอร์น้ำ</h1>
     <p class="page-subtitle">
-      เลือกรูปที่ถ่ายมาทั้งวัน ระบบจะจับคู่บ้านจาก<strong>พิกัดในรูป</strong>และ<strong>เลขมิเตอร์</strong>ให้
-      ใบไหนที่พิกัดยืนยันบ้านได้ (ห่างไม่เกิน 25 ม.) จะ<strong>ออกบิลให้เองทันที</strong>
+      ถ่ายทีละหลังหรือเลือกรูปที่ถ่ายมาทั้งวันก็ได้ แล้ว<strong>ปล่อยได้เลย</strong> —
+      ระบบอ่านเลขเอง จับคู่บ้านจาก<strong>พิกัดในรูป</strong>และ<strong>เลขมิเตอร์</strong>
+      แล้ว<strong>ออกบิลให้เอง</strong>เฉพาะใบที่ยืนยันบ้านได้และไม่มีอะไรน่าสงสัย
       ที่เหลือค่อยตรวจทีเดียวครับ
     </p>
-
-    <nav class="scan-modes" aria-label="โหมดการสแกน">
-      <a class="scan-mode" routerLink="/scan" routerLinkActive="is-active">
-        <span class="scan-mode-title">📷 ถ่ายทีละหลัง</span>
-        <span class="scan-mode-sub">ครอปเองได้ แม่นที่สุด</span>
-      </a>
-      <a class="scan-mode" routerLink="/scan-batch" routerLinkActive="is-active">
-        <span class="scan-mode-title">🗂️ หลายรูป / ทั้งโฟลเดอร์</span>
-        <span class="scan-mode-sub">ถ่ายมาทั้งวันแล้วอัปทีเดียว</span>
-      </a>
-    </nav>
   </div>
 
   <!-- คิวที่ค้างจากครั้งก่อน (ไฟดับ/เน็ตหลุด/ปิดแท็บ) — ถามก่อน ไม่ยัดกลับมาเอง -->
@@ -55,7 +45,12 @@
       @if (villages.length > 1) {
         <label class="row-field">
           <span class="row-cap">หมู่บ้าน</span>
-          <select class="field-input" [(ngModel)]="villagesId" [disabled]="isBusy">
+          <select
+            class="field-input"
+            [(ngModel)]="villagesId"
+            (ngModelChange)="refreshAllNearby()"
+            [disabled]="isBusy"
+          >
             <option [ngValue]="null">— ทุกหมู่บ้าน —</option>
             @for (v of villages; track v.id) {
               <option [ngValue]="v.id">{{ v.village_name }}</option>
@@ -66,10 +61,19 @@
     </div>
     <p class="field-hint">
       ทั้งกองใช้รอบบิลเดียวกัน เพราะระบบต้องใช้เดือนนี้คิดเลขตั้งต้นของทุกบ้านเพื่อจับคู่รูป
+      — เลือกรูปแล้วระบบจะตั้งรอบให้ตรงกับวันถ่ายในรูปเอง เปลี่ยนทีหลังได้ครับ
     </p>
 
     <div class="pick-row">
-      <label class="btn btn-primary pick-btn" for="batch-files">
+      <!-- ถ่ายสด ๆ ทีละหลัง (capture=environment = กล้องหลัง) — เดิมเป็นอีกหน้าหนึ่ง
+           ถ่ายซ้ำได้เรื่อย ๆ รูปใหม่ต่อท้ายคิวเดิม ไม่ทับของเก่า -->
+      <label class="btn btn-primary pick-btn" for="batch-camera">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+        ถ่ายมิเตอร์เลย
+      </label>
+      <input id="batch-camera" type="file" accept="image/*" capture="environment" (change)="onFilesPicked($event)" hidden />
+
+      <label class="btn btn-secondary pick-btn" for="batch-files">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v13"/></svg>
         เลือกหลายรูป
       </label>
@@ -146,19 +150,26 @@
         </div>
       }
 
-      <button type="button" class="btn btn-primary btn-block" (click)="analyze()" [disabled]="isBusy || !analyzableRows.length">
+      <!-- ทางปกติไม่ต้องกดปุ่มนี้ ระบบยิงอ่านให้เองหลังเลือกรูป — เหลือไว้เผื่อรอบที่ยิงเอง
+           ล้มทั้งชุด (เน็ตหลุด) แล้วต้องมีทางสั่งซ้ำ จึงเป็นปุ่มรอง ไม่ใช่ปุ่มหลักของหน้า -->
+      <button type="button" class="btn btn-secondary btn-block" (click)="analyze()" [disabled]="isBusy || !analyzableRows.length">
         @if (isAnalyzing) {
           <span class="btn-spinner"></span>
           กำลังอ่าน {{ progress.total }} รูป...
         } @else {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-          อ่านเลขและจับคู่บ้าน ({{ analyzableRows.length }} รูป)
+          อ่านเลขอีกครั้ง ({{ analyzableRows.length }} รูป)
         }
       </button>
 
       @if (isAnalyzing) {
         <p class="field-hint">
           ระบบอ่านทีละใบเรียงกันไป ถ้ารูปเยอะอาจใช้เวลาหลายนาที รอจนขึ้นผลนะครับ
+        </p>
+      } @else if (analyzableRows.length) {
+        <p class="field-hint">
+          ระบบจะเริ่มอ่านให้เองในอีกไม่กี่วินาที ไม่ต้องกดปุ่มก็ได้ครับ
+          (กดได้ถ้าอยากให้เริ่มเดี๋ยวนี้ หรืออ่านรอบที่ล้มไปใหม่)
         </p>
       }
     </section>
@@ -266,6 +277,35 @@
                   </label>
                 </div>
 
+                <!-- มิเตอร์ติดกันเป็นแถว (ตึกแถว/บ้านแฝด) GPS ชี้ขาดไม่ได้ — ยกบ้านที่ใกล้
+                     จุดถ่ายรูปที่สุดมาให้กดทีเดียว ดีกว่าให้เลื่อนหาใน dropdown ยาว ๆ เอง -->
+                @if (showNearbyChoices(row)) {
+                  <div class="row-nearby">
+                    <span class="row-cap">
+                      @if (row.memberId) {
+                        มิเตอร์แถวนี้อยู่ใกล้กันหลายหลัง เทียบกับรูปแล้วเลือกหลังที่ถ่ายจริงครับ
+                      } @else {
+                        จุดที่ถ่ายรูปอยู่ใกล้บ้านพวกนี้ครับ
+                      }
+                    </span>
+                    <div class="nearby-list">
+                      @for (near of row.nearby; track near.member.id) {
+                        <button
+                          type="button"
+                          class="nearby-btn"
+                          [class.is-on]="near.member.id === row.memberId"
+                          (click)="pickNearby(row, near.member)"
+                          [disabled]="isBusy"
+                        >
+                          <span class="nearby-house">{{ near.member.house_no }}</span>
+                          <span class="nearby-name">{{ near.member.fname }} {{ near.member.lname }}</span>
+                          <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม.</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+
                 <!-- ทางกลับไปใช้วิธีที่แม่นกว่าเฉพาะใบที่อ่านมาไม่ดี — รูปเต็มใบ AI ต้องหา
                      หน้าปัดเองก่อน ครอบกรอบให้แล้วเหลืองานแค่อ่านตัวเลข -->
                 @if (row.file) {
@@ -282,11 +322,11 @@
                 }
 
                 <!-- บ้านที่ลงทะเบียนตอนระบบยังยอมรับพิกัดที่เครื่องเดาจากเน็ต จะมีพิกัดผิด
-                     อยู่คนละอำเภอ รูปจึงไม่มีวันตรงกับมัน — ซ่อมให้ตอนออกบิลใบนี้เลย -->
+                     อยู่คนละอำเภอ รูปจึงไม่มีวันตรงกับมัน — บอกให้ไปตามแก้ ระบบไม่ทับให้เอง -->
                 @if (needsCoordsRepair(row)) {
                   <p class="row-note">
                     🛠️ พิกัดที่บ้านหลังนี้ลงทะเบียนไว้ใช้ไม่ได้ (ไม่มี หรืออยู่ไกลจากหมู่บ้านผิดปกติ)
-                    ระบบจะเก็บพิกัดจากรูปใบนี้ให้แทนหลังออกบิลเสร็จครับ
+                    ออกบิลได้ตามปกติครับ แต่รบกวนไปเติมพิกัดให้บ้านหลังนี้ที่หน้าทะเบียนลูกบ้านด้วย
                   </p>
                 }
 
@@ -296,7 +336,6 @@
                   @if (isConfirmedByCoords(row)) {
                     <p class="row-note ok">
                       📍 พิกัดในรูปตรงกับบ้านที่เลือก (ห่าง {{ meters | number: '1.0-0' }} ม.)
-                      @if (autoSavable(row)) { · ใบนี้จะถูกออกบิลอัตโนมัติ }
                     </p>
                   } @else {
                     <p class="row-issue">
@@ -304,6 +343,11 @@
                       ลองเช็คว่าเลือกบ้านถูกหลังไหมครับ
                     </p>
                   }
+                }
+
+                <!-- ใบไหนระบบจะออกให้เอง ต้องเห็นได้ก่อนคิวเริ่มเดิน ไม่ใช่รู้ตอนบิลออกไปแล้ว -->
+                @if (autoSavable(row)) {
+                  <p class="row-note ok">⚡ ใบนี้ยืนยันบ้านได้แล้ว ระบบจะออกบิลให้เองครับ</p>
                 }
 
                 @if (row.matchReason) {
@@ -351,16 +395,18 @@
         </span>
       </label>
 
-      <!-- ออกบิลเองเฉพาะใบที่พิกัดในรูปยืนยันบ้านได้จริง ที่เหลือยังต้องผ่านตาคน -->
+      <!-- ออกบิลเองเฉพาะใบที่ยืนยันบ้านได้และไม่มีอะไรน่าสงสัย ที่เหลือยังต้องผ่านตาคน -->
       <div class="alert alert-info auto-note">
         <span>⚡</span>
         <span>
-          ใบที่จุดถ่ายรูปห่างจากมิเตอร์ของบ้านไม่เกิน <strong>25 เมตร</strong>
-          ระบบถือว่าพิกัดยืนยันบ้านแล้ว จะ<strong>ออกบิลให้เองทันทีหลังอ่านเลขเสร็จ</strong>
-          ไม่ต้องเลือกบ้านและไม่ต้องกดปุ่มด้านล่างอีก
+          ระบบ<strong>ออกบิลให้เองทันทีหลังอ่านเลขเสร็จ</strong> เฉพาะใบที่ยืนยันบ้านได้
+          — จุดถ่ายรูปห่างจากมิเตอร์ไม่เกิน <strong>25 เมตร</strong>
+          หรือ<strong>เลขมิเตอร์ชี้บ้านได้แบบมั่นใจสูง</strong>โดยพิกัดไม่ค้าน
           ระหว่างที่คิวเดินอยู่กด "หยุดคิว" ได้ตลอด
           <br />
-          ใบที่พิกัดไม่ตรง ไม่มีพิกัด หรือชี้บ้านซ้ำกับรูปอื่น ยังต้องตรวจแล้วกดออกบิลเองเหมือนเดิม
+          ใบที่ AI อ่านเลขไม่ชัด (ต่ำกว่า 85%) · รูปไม่มีวันถ่าย · วันถ่ายคนละเดือนกับรอบบิล ·
+          หน่วยน้ำพุ่งผิดปกติ · ชี้บ้านซ้ำกับรูปอื่น หรือมีบิลของรอบนี้อยู่แล้ว
+          ระบบจะไม่แตะให้ ต้องตรวจแล้วกดออกบิลเองเหมือนเดิม
           @if (autoSavableRows.length) {
             — <strong>ตอนนี้เข้าเงื่อนไข {{ autoSavableRows.length }} ใบ</strong>
           }

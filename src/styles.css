@@ -634,86 +634,6 @@ button.chip:hover {
   to { transform: rotate(360deg); }
 }
 
-/* ---------- หน้าสแกนมิเตอร์: เทียบรูปกับเลข + สรุปการใช้น้ำ ----------
-   วางที่ global เพราะ CSS ต่อ component ของหน้าสแกนเต็ม budget 4kB แล้ว */
-.prev-note {
-  margin-top: 12px;
-  padding: 12px 16px;
-  font-size: 16px;
-  background: var(--primary-soft);
-  border-radius: var(--radius-sm);
-}
-
-.prev-note strong {
-  font-size: 18px;
-  color: var(--primary-hover);
-}
-
-.verify {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.verify-photo {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.verify-cap {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.verify-photo img {
-  width: 100%;
-  height: 100%;
-  min-height: 96px;
-  max-height: 200px;
-  object-fit: contain;
-  background: #0f172a;
-  border-radius: var(--radius-sm);
-}
-
-/* แถบสลับโหมดสแกน (ทีละหลัง ↔ หลายรูป) — ใช้ร่วมกันทั้งสองหน้า
-   ทำเป็นแถบเต็มความกว้างแทนลิงก์ตัวเล็ก เพราะของเดิมเล็กจนไม่มีใครเห็นว่ามีอีกโหมด */
-.scan-modes {
-  display: flex;
-  gap: var(--sp-1);
-  margin-top: var(--sp-2);
-}
-
-.scan-mode {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 14px;
-  text-decoration: none;
-  color: var(--text-muted);
-  background: var(--card);
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-
-.scan-mode.is-active {
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-  border-color: var(--primary-soft-2);
-}
-
-.scan-mode-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.scan-mode-sub {
-  font-size: 13px;
-}
-
 /* ข้อมูลที่ติดมากับรูป (วันถ่าย/พิกัด) — เป็นข้อมูลประกอบ จึงเบากว่าตัวเลขมิเตอร์ */
 .photo-meta {
   display: flex;
@@ -728,77 +648,6 @@ button.chip:hover {
 
 .photo-meta-row.warn {
   color: var(--warning);
-}
-
-.verify-input {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.usage-summary {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 12px;
-  background: var(--line-soft);
-  border-radius: var(--radius-sm);
-}
-
-.usage-cell {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  text-align: center;
-}
-
-.usage-cap {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.usage-val {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.usage-val small {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.usage-op {
-  display: flex;
-  align-items: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-.usage-total {
-  padding: 4px 8px;
-  background: var(--primary-soft);
-  border-radius: 10px;
-}
-
-.usage-total .usage-val {
-  color: var(--primary-hover);
-}
-
-@media (max-width: 640px) {
-  .verify {
-    grid-template-columns: 1fr;
-  }
-
-  .verify-photo img {
-    max-height: 160px;
-  }
 }
 
 /* ---------- หน้าลูกบ้าน: การ์ดติดต่อผู้ดูแล ---------- */
@@ -912,6 +761,58 @@ button.chip:hover {
 .row-note.ok {
   font-weight: 600;
   color: #166534;
+}
+
+/* ปุ่มบ้านใกล้เคียงของแต่ละแถว (มิเตอร์ติดกันจน GPS แยกไม่ออก)
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+   ปุ่มใหญ่พอกดด้วยนิ้วโป้งบนมือถือ เพราะใช้ตอนยืนอยู่หน้าบ้านจริง */
+.row-nearby {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--sp-1);
+}
+
+.nearby-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nearby-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 132px;
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--text);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.nearby-btn.is-on {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-2);
+}
+
+.nearby-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nearby-house {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.nearby-name,
+.nearby-meters {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .gallery-link svg {

@@ -1,7 +1,6 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { ImageCropperComponent, ImageTransform } from 'ngx-image-cropper';
 import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
@@ -10,7 +9,9 @@ import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
 import { LatLng, distanceMeters, isFarFrom, medianCoords, pickNearest, toCoords } from '../../services/geo';
+import { logCoordsMismatch } from '../../services/coords-log';
 import { parseCaptureDate, readPhotoMetadata } from '../../services/exif';
+import { suggestBillingMonth } from '../../services/billing-cycle';
 import { photoDataUrl } from '../../services/photo-file';
 import { Village, VillageService } from '../../../village/services/village.service';
 import { StoredQueue, StoredRow, clearQueue, loadQueue, saveQueue } from '../../services/batch-queue.store';
@@ -71,6 +72,8 @@ interface ScanRow {
   matchConfidence: 'high' | 'medium' | 'ambiguous' | 'none' | null;
   matchReason: string | null;
   candidates: Candidate[];
+  /** บ้านที่มิเตอร์อยู่ใกล้จุดถ่ายรูปใบนี้ เรียงจากใกล้ไปไกล (ดู refreshNearby) */
+  nearby: { member: any; meters: number }[];
   warnings: string[];
 
   unit: number | null;
@@ -101,14 +104,16 @@ interface ScanRow {
  * ไม่ใช่ GPS ซึ่งแยกบ้านที่ห่างกัน 8–20 ม. ไม่ได้จริง
  *
  * หน้านี้ทำแค่ 3 อย่าง: ส่งรูปไปให้วิเคราะห์ · ให้คนตรวจ/แก้ · ยิงออกบิลทีละใบ
+ * สองอย่างแรกเดินเองตั้งแต่เลือกรูป (ดู scheduleAutoAnalyze / saveAutoMatched)
  *
- * ⚠️ ห้ามออกบิลเองอัตโนมัติเด็ดขาด ทุกแถวต้องผ่านตาคนก่อน เพราะเดิมพันคือ
- *    เงินที่ลูกบ้านต้องจ่าย และมีเคสที่เลขมิเตอร์อย่างเดียวแยกไม่ออกจริง ๆ
+ * ⚠️ "ออกบิลเอง" ไม่ใช่ "ออกบิลทุกใบ" — ปล่อยผ่านได้เฉพาะใบที่ยืนยันบ้านได้จริง
+ *    และไม่มีอะไรน่าสงสัยเลยสักอย่าง (ดู autoSavable) เดิมพันคือเงินที่ลูกบ้านต้องจ่าย
+ *    ใบที่เหลือตกมาให้คนตรวจเหมือนเดิม — เพิ่มด่านเข้าไปได้ อย่าถอดออก
  */
 @Component({
   selector: 'app-batch-scan',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ImageCropperComponent],
+  imports: [CommonModule, FormsModule, ImageCropperComponent],
   templateUrl: './batch-scan.html',
   styleUrls: ['./batch-scan.css']
 })
@@ -140,6 +145,16 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   /** ระยะที่ถือว่าพิกัดในรูป "ยืนยัน" บ้านหลังนั้นได้ — สั้นกว่าระยะที่ใช้เดาบ้านครึ่งหนึ่ง */
   private readonly confirmMeters = 25;
+
+  /**
+   * ไกลกว่านี้ถือว่าพิกัดในรูป "ค้าน" บ้านที่จับคู่มาจากเลขมิเตอร์
+   * GPS มือถือเพี้ยนได้ 5–20 ม. บวกกับพิกัดมิเตอร์ที่จดไว้เพี้ยนได้อีกพอกัน
+   * เกิน 50 ม. จึงไม่ใช่ความคลาดเคลื่อนแล้ว แต่เป็นคนละบ้าน
+   */
+  private readonly conflictMeters = 50;
+
+  /** ต่ำกว่านี้ถือว่า AI ยังอ่านเลขไม่ชัดพอจะปล่อยผ่านโดยไม่มีคนดู */
+  private readonly trustedConfidence = 85;
 
   membersFailed = false;
   isLoadingMembers = true;
@@ -176,6 +191,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.isBrowser) window.removeEventListener('beforeunload', this.warnBeforeUnload);
+    if (this.autoAnalyzeTimer) clearTimeout(this.autoAnalyzeTimer);
     this.rows.forEach((row) => this.releasePreview(row));
   }
 
@@ -191,6 +207,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       next: (members) => {
         this.members = members ?? [];
         this.isLoadingMembers = false;
+        // รายชื่อบ้านมาช้ากว่าการเลือกรูปได้ (คนเปิดหน้าแล้วกดเลือกทันที) ตอนนั้น
+        // matchByCoords ยังไม่มีบ้านให้เทียบเลยคืนมือเปล่า ถ้าไม่ไล่จับคู่ซ้ำตรงนี้
+        // ทั้งกองจะไม่มีบ้านให้เลยทั้งที่พิกัดครบ แล้วไม่มีอะไรมาเรียกให้อีกแล้ว
+        this.rows.forEach((row) => this.matchByCoords(row));
+        this.refreshAllNearby();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -245,11 +266,16 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     // จับคู่บ้านจากพิกัดในรูปได้ตั้งแต่ตอนนี้ ไม่ต้องรอหลังบ้านอ่านเลขเสร็จ
     this.rows.forEach((row) => this.matchByCoords(row));
+    this.refreshAllNearby();
+    // ต้องตั้งรอบบิลให้ตรงกับวันถ่าย "ก่อน" ยิงอ่าน เพราะเลขตั้งต้นที่หลังบ้านใช้จับคู่บ้าน
+    // คิดจากรอบบิลที่ส่งไปด้วย — ส่งเดือนผิดคือได้เลขตั้งต้นผิดแล้วจับคู่ผิดตั้งแต่ต้นทาง
+    this.syncBillingToPhotos();
     this.persist();
     this.cdr.detectChanges();
 
     // ย่อรูปไว้เบื้องหลัง กว่าจะไล่ตรวจเสร็จก็พร้อมส่งพอดี (ดู photoData)
     void this.preparePhotos();
+    this.scheduleAutoAnalyze();
 
     if (skipped > 0) toast.success(`ข้ามไฟล์ที่ไม่ใช่รูป ${skipped} ไฟล์ครับ`, { id: 'batch-skipped' });
     if (duplicated > 0) toast.success(`ข้ามรูปที่อยู่ในคิวอยู่แล้ว ${duplicated} รูปครับ`, { id: 'batch-dup-file' });
@@ -260,6 +286,89 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   private keyOf(file: File): string {
     return `${file.name}|${file.size}|${file.lastModified}`;
+  }
+
+  // ==========================================
+  // อ่านเลขเองตั้งแต่เลือกรูป
+  // ==========================================
+
+  /**
+   * หน่วงก่อนยิงอ่านเอง — เลือกหลายรูปแล้วกดเลือกเพิ่มอีกชุดตามหลังเป็นเรื่องปกติ
+   * (โฟลเดอร์ละซอย หรือกดพลาดแล้วเลือกใหม่) ยิงทันทีที่ input แรกเปลี่ยนจะได้สองรอบ
+   * แล้วชุดหลังต้องรอชุดแรกจบก่อนเพราะ isBusy ค้างอยู่ — รวมเป็นรอบเดียวจบเร็วกว่า
+   */
+  private readonly autoAnalyzeDelayMs = 1200;
+  private autoAnalyzeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * เลือกรูปแล้วอ่านเลขให้เลย ไม่ต้องกดปุ่ม
+   *
+   * ปุ่ม "อ่านเลข" ยังอยู่ เพราะรอบที่ยิงเองอาจล้มทั้งชุด (เน็ตหลุดกลางทาง) แล้วต้องมี
+   * ทางกดซ้ำ — แต่ทางปกติต้องไม่ต้องกด เจ้าหน้าที่เลือกรูปเสร็จก็ควรได้ไปตรวจผลเลย
+   */
+  private scheduleAutoAnalyze(): void {
+    if (!this.isBrowser) return;
+    if (this.autoAnalyzeTimer) clearTimeout(this.autoAnalyzeTimer);
+
+    this.autoAnalyzeTimer = setTimeout(() => {
+      this.autoAnalyzeTimer = null;
+      // กดปุ่มเองทัน หรือกำลังออกบิลค้างอยู่ → ปล่อยผ่าน ไม่แย่งคิวกัน
+      if (this.isBusy || !this.analyzableRows.length) return;
+      this.analyze();
+    }, this.autoAnalyzeDelayMs);
+  }
+
+  /**
+   * ตั้งรอบบิลตามเดือนของวันถ่ายที่พบมากที่สุดในกอง
+   *
+   * ค่าตั้งต้นคือ "เดือนนี้" ซึ่งผิดทันทีที่ไปจดสิ้นเดือนแล้วมานั่งอัปวันที่ 1–2 ของ
+   * เดือนถัดไป (เกิดประจำ) บิลทั้งกองจะไปลงเดือนใหม่ เดือนที่ใช้น้ำจริงไม่มีบิล
+   * แถมกินโควตา "1 บ้าน 1 บิลต่อเดือน" ของเดือนที่ยังไม่ได้ไปจดอีก
+   *
+   * ใช้เสียงข้างมากเพราะกองหนึ่งคือรอบเดินจดรอบเดียว รูปหลงมาจากวันอื่นหนึ่งสองใบ
+   * ต้องไม่ลากทั้งกองตาม (ใบพวกนั้นจะโดนเตือนรายแถวเองที่ isOutsideBillingMonth)
+   */
+  private syncBillingToPhotos(): void {
+    // ออกบิลไปแล้วบางใบ = ใบที่ออกไปใช้รอบเดิม เปลี่ยนตอนนี้จะเหลือกองที่คนละรอบกัน
+    if (this.rows.some((row) => row.status === 'saved')) return;
+
+    const votes = new Map<string, number>();
+    for (const row of this.rows) {
+      const key = this.suggestedBillingKey(row);
+      if (key) votes.set(key, (votes.get(key) ?? 0) + 1);
+    }
+    if (!votes.size) return;
+
+    const [winner] = [...votes.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (winner === this.billingKey) return;
+
+    // เลือกได้แค่เดือนที่มีในลิสต์ (ย้อนหลัง 6 เดือน) รูปเก่ากว่านั้นปล่อยให้คนเลือกเอง
+    const option = this.billingMonths.find((m) => m.key === winner);
+    if (!option) return;
+
+    this.billingKey = option.key;
+    toast.success(`ตั้งรอบบิลเป็น ${option.label} ตามวันถ่ายในรูปให้แล้วครับ`, { id: 'batch-billing-auto' });
+  }
+
+  /** รอบเดือนที่รูปใบนี้ควรลง ตามวันที่ถ่าย — null เมื่อรูปไม่มีวันถ่ายติดมา */
+  private suggestedBillingKey(row: ScanRow): string | null {
+    // ไม่มีประวัติการจดรายบ้านในหน้านี้ (ต้องยิง API ต่อบ้าน) จึงเทียบได้แค่ระดับเดือน
+    // ปฏิทิน ส่วนการเลื่อนรอบตามวันจดประจำของบ้านเป็นงานของโหมดทีละหลัง
+    return row.capturedAt ? suggestBillingMonth(row.capturedAt, null).key : null;
+  }
+
+  /** วันถ่ายของรูปใบนี้อยู่คนละเดือนกับรอบบิลที่ตั้งไว้ทั้งกอง */
+  isOutsideBillingMonth(row: ScanRow): boolean {
+    const key = this.suggestedBillingKey(row);
+    return key !== null && key !== this.billingKey;
+  }
+
+  /** ชื่อรอบเดือนตามวันถ่ายของรูปใบนี้ (ภาษาไทย พ.ศ.) — ใช้ในข้อความเตือน */
+  private suggestedBillingLabel(row: ScanRow): string {
+    if (!row.capturedAt) return '—';
+
+    const suggested = suggestBillingMonth(row.capturedAt, null);
+    return this.print.monthLabel(suggested.month, suggested.year);
   }
 
   /**
@@ -291,6 +400,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       matchConfidence: null,
       matchReason: null,
       candidates: [],
+      nearby: [],
       warnings: [],
       unit: null,
       confidence: null,
@@ -354,7 +464,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // ซ่อมพิกัดบ้านที่เสีย — ต้นเหตุที่รูปกับบ้าน "พิกัดไม่ตรงกัน" สักที
+  // พิกัดบ้านที่เสีย — ต้นเหตุที่รูปกับบ้าน "พิกัดไม่ตรงกัน" สักที
   // ==========================================
 
   /**
@@ -377,10 +487,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return isFarFrom(this.villageCenter, coords);
   }
 
-  /** บ้านหลังนี้พิกัดเสีย และรูปใบนี้มีพิกัดที่ใช้ซ่อมได้ */
+  /** บ้านหลังนี้พิกัดเสีย และรูปใบนี้มีพิกัดที่เอาไปแก้ได้ */
   needsCoordsRepair(row: ScanRow): boolean {
     if (row.latitude === null || row.longitude === null) return false;
-    // จับคู่ด้วยพิกัดมาเอง แล้วจะเอาพิกัดไปทับพิกัดไม่ได้ วนเป็นงูกินหาง
+    // จับคู่ด้วยพิกัดมาเอง แล้วจะเอาพิกัดไปเทียบกับพิกัดไม่ได้ วนเป็นงูกินหาง
     if (row.matchedBy === 'none' || row.matchedByCoords) return false;
 
     const member = this.members.find((m) => m.id === Number(row.memberId));
@@ -388,32 +498,28 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * เอาพิกัดในรูปไปทับพิกัดที่เสียของบ้าน — ทำหลังออกบิลใบนั้นสำเร็จแล้วเท่านั้น
+   * บอกว่าบ้านหลังนี้พิกัดไม่ตรงกับรูป — รายงานอย่างเดียว ไม่เขียนทับให้เอง
    *
-   * นี่คือทางแก้ของปัญหา "พิกัดไม่ตรงกับที่ลงทะเบียน" ที่แก้ที่ต้นเหตุ: บ้านจำนวนหนึ่ง
-   * ถูกลงทะเบียนตอนที่ระบบยังยอมรับพิกัดที่เครื่องเดาจากเน็ต (คลาดเคลื่อนหลักสิบกิโล)
-   * รูปที่ถ่ายหน้ามิเตอร์จึงไม่มีทางตรงกับค่านั้นได้เลย ไม่ว่าจะถ่ายดีแค่ไหน
+   * ปัญหาต้นทางคือบ้านจำนวนหนึ่งถูกลงทะเบียนตอนที่ระบบยังยอมรับพิกัดที่เครื่องเดาจากเน็ต
+   * (คลาดเคลื่อนหลักสิบกิโล) รูปที่ถ่ายหน้ามิเตอร์จึงไม่มีทางตรงกับค่านั้นได้เลย
    *
-   * เขียนทับเฉพาะตอนที่ของเดิม "เสียชัด ๆ" (ไม่มี หรือหลุดออกไปนอกหมู่บ้านเกิน 2 กม.)
-   * พิกัดที่ใช้ได้อยู่แล้วต้องไม่ถูกแตะ เพราะ GPS มือถือคลาดเคลื่อนได้เป็นสิบเมตร
-   * การเอาค่าใหม่ไปทับทุกครั้งมีแต่ทำให้ค่าที่เคยดีแกว่งไปเรื่อย ๆ
-   *
-   * ยิงแยกและกลืน error ทุกกรณี — บิลออกสำเร็จไปแล้ว ห้ามให้เรื่องนี้ทำให้ดูเหมือนล้มเหลว
+   * ของเดิมหน้านี้ทับให้เงียบ ๆ หลังออกบิลผ่าน แต่การแก้ทะเบียนโดยไม่มีใครสั่งและ
+   * ไม่มีใครเห็น ทำให้ตอนจับคู่ผิดหลัง (รูปถ่ายจากหน้าบ้านอื่น) พิกัดที่ถูกอยู่แล้วหายไป
+   * โดยไม่เหลือร่องรอย — ตอนนี้จึงปล่อยเป็นบรรทัดรายงานลง terminal แล้วให้คนไปกดแก้
+   * ที่หน้าทะเบียนลูกบ้าน ซึ่งมีทั้งปุ่มเติมพิกัดจากรูปและปุ่มยกพิกัดจากครั้งที่จดอยู่แล้ว
    */
-  private repairMemberCoords(row: ScanRow): void {
+  private reportCoordsMismatch(row: ScanRow): void {
     if (!this.needsCoordsRepair(row)) return;
 
     const member = this.members.find((m) => m.id === Number(row.memberId));
     if (!member) return;
 
-    const coords = { lat: row.latitude!, lng: row.longitude! };
-    this.memberService.updateMember({ ...member, latitude: coords.lat, longitude: coords.lng }).subscribe({
-      next: () => {
-        member.latitude = coords.lat;
-        member.longitude = coords.lng;
-        this.cdr.detectChanges();
-      },
-      error: (err) => console.warn('ซ่อมพิกัดบ้านไม่สำเร็จ ข้ามไปก่อน:', err)
+    logCoordsMismatch({
+      source: 'batch-scan',
+      houseNo: member.house_no,
+      memberId: member.id,
+      saved: toCoords(member.latitude, member.longitude),
+      photo: { lat: row.latitude!, lng: row.longitude! }
     });
   }
 
@@ -467,6 +573,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   analyze(): void {
     if (this.isBusy) return;
+
+    // กดเองทันก่อน → ทิ้งรอบที่ตั้งเวลาไว้ ไม่งั้นพอครบเวลาจะยิงซ้ำให้อีกกอง
+    if (this.autoAnalyzeTimer) {
+      clearTimeout(this.autoAnalyzeTimer);
+      this.autoAnalyzeTimer = null;
+    }
 
     const queue = this.analyzableRows;
     if (!queue.length) {
@@ -555,6 +667,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       if (coords) {
         row.latitude = coords.lat;
         row.longitude = coords.lng;
+        // พิกัดเปลี่ยน = บ้านที่อยู่ใกล้จุดถ่ายก็เปลี่ยนตาม
+        this.refreshNearby(row);
       }
 
       // คนแก้บ้านเองไว้แล้วต้องไม่ให้ผลจากหลังบ้านทับ
@@ -730,12 +844,44 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** ข้อมูลของบ้านที่แถวนี้เลือกอยู่ เท่าที่หลังบ้านส่งมาตอนจับคู่ (ไม่เจอ = คนเลือกเอง) */
+  private candidateOf(row: ScanRow): Candidate | null {
+    if (!row.memberId) return null;
+    return row.candidates.find((c) => Number(c.members_id) === Number(row.memberId)) ?? null;
+  }
+
+  /**
+   * บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว — หลังบ้านจะตีกลับถ้าไม่ได้สั่งให้ทับ
+   * รู้ตั้งแต่ตอนจับคู่แล้ว จึงบอกก่อนดีกว่าปล่อยให้ยิงไปโดนปฏิเสธทีละใบ
+   */
+  alreadyBilled(row: ScanRow): boolean {
+    return !!this.candidateOf(row)?.already_billed;
+  }
+
+  /**
+   * หน่วยน้ำรอบนี้พุ่งเกินที่บ้านหลังนี้เคยใช้มาก — เกณฑ์เดียวกับโหมดทีละหลัง
+   * (เกิน 3 เท่าและต่างกันตั้งแต่ 30 หน่วย กันเตือนพร่ำเพรื่อกับบ้านที่ใช้น้ำน้อย ๆ)
+   *
+   * ส่วนใหญ่ไม่ใช่คนใช้น้ำเยอะจริง แต่เป็นอ่านเลขหลักเกิน หรือจับคู่ผิดบ้าน
+   */
+  abnormalUsage(row: ScanRow): { usage: number; average: number } | null {
+    const candidate = this.candidateOf(row);
+    const average = Number(candidate?.average_usage);
+    const usage = Number(candidate?.usage_unit);
+    if (!Number.isFinite(average) || !Number.isFinite(usage) || average <= 0) return null;
+
+    return usage > average * 3 && usage - average >= 30 ? { usage, average } : null;
+  }
+
   blockingIssue(row: ScanRow): string | null {
     if (row.status === 'saved') return null;
     if (!row.memberId) return 'ยังไม่รู้ว่าเป็นบ้านหลังไหน กรุณาเลือกเองครับ';
     if (row.unit === null) return 'ยังไม่มีเลขมิเตอร์ กรุณากรอกเองครับ';
     if (row.unit < 0) return 'เลขมิเตอร์ติดลบไม่ได้ครับ';
     if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
+    if (!this.replaceExisting && this.alreadyBilled(row)) {
+      return 'บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ถ้าจะออกใหม่ให้ติ๊ก "ลบใบเดิมแล้วออกใหม่" ด้านล่างครับ';
+    }
     return null;
   }
 
@@ -749,6 +895,32 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       notes.push('ค้างอยู่ตอนออกบิลรอบก่อน กดออกบิลซ้ำได้ ถ้ามีบิลอยู่แล้วระบบจะบอกเอง');
     }
     if (row.croppedRead) notes.push('เลขนี้มาจากการครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่');
+
+    // วันถ่ายผิดรอบ = ไม่ใช่แค่วันบนบิลเพี้ยน แต่หน่วยน้ำของรอบถัดไปจะเพี้ยนตามไปด้วย
+    // เพราะรอบถัดไปนับจากวันจดครั้งนี้ และรูปหลงกองมามักแปลว่าหยิบรูปเก่ามาผิดใบ
+    if (this.isOutsideBillingMonth(row)) {
+      notes.push(
+        `รูปนี้ถ่ายรอบ ${this.suggestedBillingLabel(row)} ซึ่งคนละเดือนกับรอบบิลที่เลือกไว้ ` +
+          'ถ้าตั้งใจออกย้อนหลังก็ผ่านได้ แต่ระบบจะไม่ออกบิลให้เองใบนี้ครับ'
+      );
+    }
+    if (row.capturedAt && row.capturedAt.getTime() > Date.now()) {
+      notes.push('วันถ่ายในรูปเป็นวันในอนาคต — นาฬิกาในกล้องน่าจะตั้งไม่ตรง');
+    }
+
+    // หน่วยพุ่งแรงมักไม่ใช่คนใช้น้ำเยอะ แต่เป็นอ่านหลักเกินหรือจับคู่ผิดบ้าน
+    // ต้องเห็นก่อนกดออกบิล ไม่ใช่ไปรู้ตอนโดนหลังบ้านตีกลับทีละใบ
+    const jump = this.abnormalUsage(row);
+    if (jump) {
+      notes.push(
+        `หน่วยรอบนี้ ${jump.usage} สูงกว่าที่บ้านหลังนี้เคยใช้ (เฉลี่ย ${Math.round(jump.average)}) มาก ` +
+          'เทียบเลขกับหน้าปัดอีกครั้งก่อนออกบิลครับ'
+      );
+    }
+    if (this.replaceExisting && this.alreadyBilled(row)) {
+      notes.push('บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ใบเดิมจะถูกลบทิ้งแล้วออกใหม่');
+    }
+
     if (row.confidence !== null && row.confidence < 85) {
       notes.push(
         row.file
@@ -773,31 +945,142 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return distanceMeters({ lat: row.latitude, lng: row.longitude }, coords);
   }
 
-  /** พิกัดในรูปยืนยันได้ว่าเป็นบ้านหลังที่เลือกจริง (ยืนถ่ายอยู่หน้ามิเตอร์ของหลังนั้น) */
+  /**
+   * พิกัดในรูปยืนยันได้ว่าเป็นบ้านหลังที่เลือกจริง (ยืนถ่ายอยู่หน้ามิเตอร์ของหลังนั้น)
+   *
+   * ใกล้อย่างเดียวไม่พอ — บ้านที่มิเตอร์ติดกันเป็นแถว (ตึกแถว/บ้านแฝด) จะเข้าเกณฑ์ 25 ม.
+   * พร้อมกันหลายหลัง แล้วระบบจะออกบิลให้เองโดยเลือกหลังที่ใกล้กว่าแค่ไม่กี่เมตร ซึ่งเป็น
+   * ระยะที่ GPS มือถือเพี้ยนได้อยู่แล้ว ต้องทิ้งห่างหลังรองพอสมควรถึงจะเรียกว่ายืนยันได้
+   */
   isConfirmedByCoords(row: ScanRow): boolean {
     const meters = this.distanceToSelected(row);
-    return meters !== null && meters <= this.confirmMeters;
+    return meters !== null && meters <= this.confirmMeters && !this.hasCloseRival(row);
+  }
+
+  // ==========================================
+  // มิเตอร์ที่อยู่ใกล้กันจน GPS แยกบ้านไม่ออก
+  // ==========================================
+
+  /** ระยะที่หยิบบ้านมาเป็นตัวเลือกให้กด — กว้างกว่าระยะยืนยัน เพราะพิกัดที่จดไว้ก็เพี้ยนได้ */
+  private readonly nearbyMeters = 60;
+
+  /** ระยะที่หลังรองต้องห่างกว่าหลังที่เลือก ถึงจะถือว่า "คนละบ้านกันชัด ๆ" */
+  private readonly rivalMarginMeters = 15;
+
+  /** เลือกให้กดสูงสุด 3 หลัง — มากกว่านี้กลายเป็นลิสต์ที่ต้องอ่าน ซึ่ง dropdown ทำอยู่แล้ว */
+  private readonly maxNearby = 3;
+
+  /**
+   * บ้านที่อยู่ใกล้จุดถ่ายรูปใบนี้ เรียงจากใกล้ไปไกล — คิดใหม่เมื่อพิกัด/รายชื่อบ้านเปลี่ยน
+   * เก็บไว้ที่แถวแทนที่จะคำนวณสดใน template เพราะ getter ใน @for จะถูกเรียกซ้ำทุกรอบ
+   * change detection คูณจำนวนบ้านทั้งหมู่บ้าน
+   */
+  private refreshNearby(row: ScanRow): void {
+    if (row.latitude === null || row.longitude === null) {
+      row.nearby = [];
+      return;
+    }
+
+    const photo = { lat: row.latitude, lng: row.longitude };
+    row.nearby = this.matchableMembers
+      .map((member) => {
+        const coords = toCoords(member?.latitude, member?.longitude);
+        return coords ? { member, meters: distanceMeters(photo, coords) } : null;
+      })
+      .filter((near): near is { member: any; meters: number } => near !== null && near.meters <= this.nearbyMeters)
+      .sort((a, b) => a.meters - b.meters)
+      .slice(0, this.maxNearby);
+  }
+
+  /** เรียกใหม่ทั้งกอง — ใช้ตอนรายชื่อบ้านมาถึงช้า หรือเปลี่ยนหมู่บ้านที่จับคู่ */
+  refreshAllNearby(): void {
+    this.rows.forEach((row) => this.refreshNearby(row));
+  }
+
+  /** มีบ้านหลังอื่นอยู่ใกล้พอ ๆ กับหลังที่เลือก — GPS ชี้ขาดไม่ได้ ต้องให้คนดู */
+  hasCloseRival(row: ScanRow): boolean {
+    const mine = this.distanceToSelected(row);
+    if (mine === null) return false;
+
+    return row.nearby.some(
+      (near) => Number(near.member.id) !== Number(row.memberId) && near.meters - mine < this.rivalMarginMeters
+    );
   }
 
   /**
-   * แถวที่ระบบออกบิลให้เองทันทีหลังอ่านเลขเสร็จ — พิกัดในรูปยืนยันบ้านได้แล้ว
-   * ก็ไม่ต้องให้คนมานั่งเลือกบ้านซ้ำอีกรอบ
+   * ควรโชว์ปุ่มบ้านใกล้เคียงให้กดเลือกไหม — โชว์เมื่อพิกัดชี้ไม่ขาด
+   * (ยังไม่รู้ว่าบ้านไหน หรือมีหลังอื่นใกล้พอ ๆ กัน) ส่วนใบที่ชัดแล้วไม่ต้องรก
+   */
+  showNearbyChoices(row: ScanRow): boolean {
+    if (row.status === 'saved' || row.nearby.length === 0) return false;
+
+    return !row.memberId || this.hasCloseRival(row);
+  }
+
+  /** กดเลือกบ้านจากปุ่มลัด — ถือเป็นคนเลือกเอง ผลจากหลังบ้านจะไม่มาทับทีหลัง */
+  pickNearby(row: ScanRow, member: any): void {
+    if (this.isBusy) return;
+
+    row.memberId = member.id;
+    this.onMemberChanged(row);
+  }
+
+  /**
+   * พิกัดในรูป "ค้าน" บ้านที่เลือกอยู่ — เทียบได้แล้วห่างเกินที่ GPS เพี้ยนได้
+   * ไม่มีพิกัดฝั่งใดฝั่งหนึ่งไม่นับว่าค้าน (เทียบไม่ได้ ≠ ขัดแย้ง)
+   */
+  private coordsDisagree(row: ScanRow): boolean {
+    const meters = this.distanceToSelected(row);
+    return meters !== null && meters > this.conflictMeters;
+  }
+
+  /**
+   * หลังบ้านชี้บ้านหลังนี้จาก **เลขมิเตอร์** แบบมั่นใจสูง
    *
-   * เงื่อนไข:
-   *   1. พิกัดในรูปห่างจากมิเตอร์ของบ้านที่จับคู่ได้ไม่เกิน 25 ม.
-   *      — สั้นกว่าระยะที่ใช้ "เดา" บ้าน (50 ม.) ครึ่งหนึ่ง เพราะตรงนี้ไม่มีคนมาตรวจซ้ำแล้ว
-   *      — บ้านที่พิกัดในฐานข้อมูลเพี้ยน (ค่าที่เครื่องเดาจาก IP) จะตกด่านนี้ไปเอง
-   *   2. ไม่ติดด่านปกติ (มีเลขมิเตอร์ · ไม่ติดลบ · ไม่ซ้ำกับรูปอื่นในกอง)
+   * เลขมิเตอร์เป็นยอดสะสมที่แต่ละบ้านห่างกันมาก จึงแม่นกว่า GPS ที่แยกบ้านห่างกัน
+   * 8–20 ม. ไม่ออก — ทางนี้จึงเชื่อได้พอ ๆ กับพิกัด และเป็นทางเดียวที่เหลือสำหรับ
+   * รูปจากมือถือที่ปิด GPS หรือบ้านที่ยังไม่เคยเก็บพิกัดไว้ (ก่อนหน้านี้ตกไปทั้งกอง)
    *
-   * ⚠️ ด่านที่ยังทำงานเต็มที่และไม่เคยถูกข้ามให้: เลขน้อยกว่าเลขตั้งต้น (เช็คก่อนยิงทุกใบ)
-   *    · หน่วยน้ำสูงผิดปกติ · จำนวนหลักบนหน้าปัดเปลี่ยน — สามอย่างหลังหลังบ้านเป็นคนบล็อก
-   *    และธง confirm_* ไม่เคยถูกส่งเป็น true เอง ใบที่ติดด่านจะตกมาให้คนกดยืนยันเสมอ
+   * ต้องเป็นข้อเสนอจากหลังบ้านเท่านั้น (matchedByCoords = จับคู่จากพิกัด ซึ่งตั้งเป็น
+   * "ควรตรวจก่อน" อยู่แล้ว) และถ้ามีพิกัดครบทั้งสองฝั่งก็ต้องไม่ค้างกันด้วย
+   */
+  private isConfirmedByMeterUnit(row: ScanRow): boolean {
+    if (row.matchedBy !== 'system' || row.matchedByCoords) return false;
+    if (row.matchConfidence !== 'high') return false;
+
+    return !this.coordsDisagree(row);
+  }
+
+  /**
+   * แถวที่ระบบออกบิลให้เองทันทีหลังอ่านเลขเสร็จ
+   *
+   * ต้อง "ยืนยันบ้านได้" ด้วยทางใดทางหนึ่ง:
+   *   ก. พิกัดในรูปห่างจากมิเตอร์ของบ้านไม่เกิน 25 ม. — สั้นกว่าระยะที่ใช้เดาบ้าน (50 ม.)
+   *      ครึ่งหนึ่ง เพราะตรงนี้ไม่มีคนมาตรวจซ้ำแล้ว บ้านที่พิกัดในทะเบียนเพี้ยนตกด่านนี้เอง
+   *   ข. หลังบ้านจับคู่จากเลขมิเตอร์แบบมั่นใจสูง และพิกัด (ถ้ามี) ไม่ค้าน
+   *
+   * แล้วต้องไม่มีอะไรน่าสงสัยเลยสักอย่าง:
+   *   1. ไม่ติดด่านปกติ (มีเลขมิเตอร์ · ไม่ติดลบ · ไม่ซ้ำในกอง · ไม่มีบิลของรอบนี้อยู่แล้ว)
+   *   2. AI อ่านเลขชัด ≥ 85% — อ่านมั่ว ๆ แล้วบ้านถูกก็ยังเป็นบิลผิดยอด และเลขที่เพี้ยน
+   *      ไม่กี่หน่วยลอดด่านหน่วยน้ำ/จำนวนหลักของหลังบ้านไปได้สบาย
+   *   3. รูปมีวันถ่าย และวันถ่ายอยู่ในรอบเดือนที่กำลังออก — ไม่มีวันถ่ายแปลว่าบิลจะไปลง
+   *      วันที่กดอัปโหลด ซึ่งเพี้ยนตั้งแต่วันจดไปจนถึงจำนวนวันของรอบถัดไป
+   *   4. หลังบ้านไม่ได้แนบคำเตือนมา และหน่วยน้ำไม่พุ่งผิดปกติ
+   *
+   * ⚠️ ด่านของหลังบ้านยังทำงานเต็มที่ทุกใบและไม่เคยถูกข้ามให้: เลขน้อยกว่าเลขตั้งต้น
+   *    (เช็คก่อนยิง) · หน่วยน้ำสูงผิดปกติ · จำนวนหลักบนหน้าปัดเปลี่ยน — ธง confirm_*
+   *    ไม่เคยถูกส่งเป็น true เอง ใบที่ติดด่านตกมาให้คนกดยืนยันเสมอ
    */
   autoSavable(row: ScanRow): boolean {
     if (row.status === 'saved') return false;
     if (this.blockingIssue(row) !== null) return false;
 
-    return this.isConfirmedByCoords(row);
+    if (row.confidence === null || row.confidence < this.trustedConfidence) return false;
+    if (row.capturedAt === null || this.isOutsideBillingMonth(row)) return false;
+    if (row.warnings.length > 0) return false;
+    if (this.abnormalUsage(row)) return false;
+
+    return this.isConfirmedByCoords(row) || this.isConfirmedByMeterUnit(row);
   }
 
   get savableRows(): ScanRow[] {
@@ -876,7 +1159,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * ออกบิลเองเฉพาะใบที่พิกัดยืนยันบ้านได้ (เรียกทันทีที่อ่านเลขเสร็จ)
+   * ออกบิลเองเฉพาะใบที่ยืนยันบ้านได้และไม่มีอะไรน่าสงสัย (เรียกทันทีที่อ่านเลขเสร็จ)
    * ใบที่ไม่เข้าเงื่อนไขไม่ถูกแตะเลย ยังรอให้คนตรวจแล้วกดปุ่มออกบิลเหมือนเดิม
    */
   private saveAutoMatched(): void {
@@ -886,7 +1169,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (!queue.length) return;
 
     toast.success(
-      `กำลังออกบิลอัตโนมัติ ${queue.length} ใบที่พิกัดในรูปตรงกับบ้านครับ`,
+      `กำลังออกบิลอัตโนมัติ ${queue.length} ใบที่ยืนยันบ้านได้แล้วครับ`,
       { id: 'batch-auto-save' }
     );
     this.runQueue(queue);
@@ -969,12 +1252,38 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * ใบเดิมของรอบนี้มี id อะไร — ต้องรู้ "ก่อน" ยิงออกบิล เพราะหลังยิงแล้วบ้านหลังนั้นจะมี
+   * บิลของเดือนเดียวกันสองใบ แล้วแยกไม่ออกว่าใบไหนคือใบเก่าที่ต้องเก็บกวาด (ดู dropReplacedBill)
+   */
   private postBill(
     queue: ScanRow[],
     index: number,
     rateId: number,
     currentUnit: number,
     billing: { month: string; year: string }
+  ): void {
+    const row = queue[index];
+
+    if (!this.replaceExisting || !this.alreadyBilled(row)) {
+      this.sendBill(queue, index, rateId, currentUnit, billing, null);
+      return;
+    }
+
+    this.meterReadingService.getBillForMonth(Number(row.memberId), billing.month, billing.year).subscribe({
+      next: (bill: any) => this.sendBill(queue, index, rateId, currentUnit, billing, bill?.id ?? null),
+      // ถามไม่ได้ก็ออกบิลต่อ แค่เก็บกวาดใบเก่าให้ไม่ได้เท่านั้น
+      error: () => this.sendBill(queue, index, rateId, currentUnit, billing, null)
+    });
+  }
+
+  private sendBill(
+    queue: ScanRow[],
+    index: number,
+    rateId: number,
+    currentUnit: number,
+    billing: { month: string; year: string },
+    oldBillId: number | null
   ): void {
     const row = queue[index];
 
@@ -1005,9 +1314,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         next: (bill: any) => {
           row.status = 'saved';
           row.billId = bill?.id ?? null;
+          this.dropReplacedBill(oldBillId, row.billId);
           // บิลออกแล้ว = ยืนยันแล้วว่ารูปใบนี้เป็นของบ้านหลังนี้จริง
-          // ถ้าพิกัดที่บ้านเก็บไว้เสีย นี่คือจังหวะที่ซ่อมได้โดยไม่ต้องเดินไปเก็บใหม่
-          this.repairMemberCoords(row);
+          // ถ้าพิกัดที่บ้านเก็บไว้เสีย นี่คือจังหวะที่รู้ได้ชัดที่สุดว่าต้องตามไปแก้หลังไหน
+          this.reportCoordsMismatch(row);
           this.progress.done = index + 1;
           // เก็บทุกใบ — ไฟดับตอนใบที่ 12 ต้องรู้ว่า 11 ใบแรกออกไปแล้ว
           this.persist();
@@ -1025,6 +1335,30 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * ส่ง replace ไปแล้วแต่ใบเดิมยังอยู่ — เก็บกวาดให้จากฝั่งนี้
+   *
+   * หลังบ้านคืนบิลใบใหม่มาแต่ไม่ได้ลบใบเดิมทิ้งจริง บ้านหลังนั้นเลยเหลือบิลของเดือนเดียวกัน
+   * สองใบ ซึ่งลูกบ้านเห็นทั้งคู่ในพอร์ทัลและยอดค้างถูกนับซ้ำ
+   *
+   * ลบหลังใบใหม่ออกสำเร็จเท่านั้น — ลบก่อนแล้วใบใหม่ติดด่านของหลังบ้าน บ้านหลังนั้น
+   * จะไม่เหลือบิลของเดือนนั้นเลย ส่วน 404 คือหลังบ้านลบให้เองแล้ว ปล่อยผ่านเงียบ ๆ
+   */
+  private dropReplacedBill(oldBillId: number | null, newBillId: number | null): void {
+    if (!oldBillId || oldBillId === newBillId) return;
+
+    this.meterReadingService.deleteBill(oldBillId).subscribe({
+      error: (err: any) => {
+        if (err?.status === 404) return;
+
+        console.error('ลบบิลใบเดิมที่ถูกทับไม่สำเร็จ:', err);
+        toast.error('ออกบิลใหม่แล้ว แต่ลบใบเดิมบางใบไม่ได้ กรุณาไปลบที่หน้าประวัติบิลด้วยนะครับ', {
+          id: 'batch-replace-cleanup'
+        });
+      }
+    });
+  }
+
   // ==========================================
   // คิวที่ค้างจากครั้งก่อน (ไฟดับ/ปิดแท็บ)
   // ==========================================
@@ -1039,6 +1373,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     this.rows = stored.rows.filter((row) => row.status !== 'saved').map((row) => this.fromStored(row));
     this.seq = Math.max(0, ...this.rows.map((row) => row.seq));
+    // แถวที่กู้มายังมีพิกัดของรูปติดมาด้วย ปุ่มบ้านใกล้เคียงจึงยังใช้ได้แม้ตัวรูปหายไปแล้ว
+    this.refreshAllNearby();
     if (stored.rows[0]?.billingKey) this.billingKey = stored.rows[0].billingKey;
     this.pendingRestore = null;
     this.cdr.detectChanges();
@@ -1070,6 +1406,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       matchConfidence: null,
       matchReason: null,
       candidates: [],
+      nearby: [],
       warnings: [],
       unit: row.unit,
       confidence: row.confidence,

@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { MeterCropperComponent } from './features/meter-reading/components/meter-cropper/meter-cropper';
 import { BillingHistoryComponent } from './features/meter-reading/components/billing-history/billing-history';
 import { HomeComponent } from './features/home/home';
 import { authGuard, guestGuard, memberGuard } from './features/auth/guards/auth.guard';
@@ -28,10 +27,12 @@ export const routes: Routes = [
 
   // 🌟 หน้าที่ต้องล็อกอินก่อนถึงจะเข้าได้
   { path: 'home', component: HomeComponent, canActivate: [authGuard] },
-  { path: 'scan', component: MeterCropperComponent, canActivate: [authGuard] },
+  // โหมดจดทีละหลังถูกยุบรวมเข้ากับหน้าสแกนแล้ว (เลือกรูปเดียวก็เดินทางเดิมได้ ครอปได้ในแถว)
+  // เหลือ redirect ไว้เพราะลิงก์เก่า/บุ๊กมาร์กของเจ้าหน้าที่ยังชี้มาที่ /scan
+  { path: 'scan', redirectTo: 'scan-batch', pathMatch: 'full' },
   { path: 'history', component: BillingHistoryComponent, canActivate: [authGuard] },
   {
-    // สแกนหลายรูปรวดเดียว — แยกหน้าจากการจดทีละหลัง เพราะขั้นตอนคนละแบบกัน
+    // หน้าสแกนมิเตอร์หน้าเดียวของระบบ — ถ่ายทีละหลังหรืออัปทั้งโฟลเดอร์ก็ทางนี้
     path: 'scan-batch',
     canActivate: [authGuard],
     // กันเดินออกกลางคิว ไม่งั้นบิลจะออกไปครึ่งกองแล้วรายการที่เหลือหายไปกับหน้า

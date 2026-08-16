@@ -34,6 +34,7 @@ const row = (over: any = {}) => ({
   matchConfidence: null,
   matchReason: null,
   candidates: [],
+  nearby: [],
   warnings: [],
   unit: null,
   confidence: null,
@@ -210,6 +211,25 @@ describe('BatchScanComponent', () => {
       expect(component.rows[0].memberId).toBeNull();
     });
 
+    /**
+     * เปิดหน้าแล้วกดเลือกรูปทันทีเป็นเรื่องปกติ ตอนนั้น /member/all ยังไม่กลับมา
+     * matchByCoords เลยไม่มีบ้านให้เทียบ — ถ้าไม่ไล่ซ้ำตอนรายชื่อมาถึง ทั้งกอง
+     * จะค้างที่ "ยังไม่รู้ว่าบ้านไหน" ทั้งที่พิกัดครบ และไม่มีอะไรมาเรียกให้อีกแล้ว
+     */
+    it('รายชื่อบ้านมาถึงหลังเลือกรูป → ไล่จับคู่จากพิกัดให้ใหม่', () => {
+      component.members = [];
+      component.rows = [row({ seq: 1, latitude: 13.75, longitude: 100.5 })] as any;
+
+      component.loadMembers();
+      http.expectOne(r => r.url.endsWith('/member/all')).flush([
+        houseAt(1, '99/1', 13.75, 100.5),
+        houseAt(2, '99/2', 13.7505, 100.5)
+      ]);
+
+      expect(component.rows[0].memberId).toBe(1);
+      expect(component.rows[0].matchedByCoords).toBe(true);
+    });
+
     it('หลังบ้านเสนอบ้านมาแล้ว (จับจากเลขมิเตอร์ซึ่งแม่นกว่า) → พิกัดต้องไม่ไปทับ', () => {
       component.members = [houseAt(1, '99/1', 13.75, 100.5), houseAt(2, '99/2', 13.7505, 100.5)];
       component.rows = [row({ seq: 1, latitude: 13.7505, longitude: 100.5 })] as any;
@@ -367,15 +387,32 @@ describe('BatchScanComponent', () => {
   });
 
   /**
-   * พิกัดในรูปยืนยันบ้านได้แล้วก็ไม่ต้องให้คนมานั่งเลือกบ้านซ้ำ ระบบออกบิลต่อให้เลย
-   * ระยะ 25 ม. คือเส้นแบ่ง — สั้นกว่าระยะที่ใช้ "เดา" บ้านครึ่งหนึ่ง เพราะไม่มีคนตรวจซ้ำแล้ว
+   * ใบที่ยืนยันบ้านได้แล้วไม่ต้องให้คนมานั่งกดซ้ำ ระบบออกบิลต่อให้เลย
+   *
+   * ยืนยันได้ 2 ทาง: พิกัดในรูปห่างมิเตอร์ไม่เกิน 25 ม. (สั้นกว่าระยะที่ใช้ "เดา" บ้าน
+   * ครึ่งหนึ่ง) หรือหลังบ้านชี้บ้านจากเลขมิเตอร์แบบมั่นใจสูงโดยพิกัดไม่ค้าน
+   *
+   * แต่ยืนยันบ้านได้อย่างเดียวไม่พอ — เลขต้องชัด วันถ่ายต้องมีและอยู่ในรอบที่กำลังออก
+   * ไม่งั้นได้บ้านถูกแต่ยอดผิดหรือลงผิดเดือน ซึ่งไม่มีใครมาตรวจให้แล้ว
    */
-  describe('ออกบิลอัตโนมัติเมื่อพิกัดตรงกับบ้าน', () => {
-    /** บ้าน 99/1 มีพิกัด ส่วนรูปถ่ายห่างจากมิเตอร์ตามที่กำหนด (0.0001 องศา ≈ 11 ม.) */
+  describe('ออกบิลอัตโนมัติเมื่อยืนยันบ้านได้', () => {
+    /** ใบที่ผ่านทุกด่าน — บ้าน 99/1 มีพิกัด รูปถ่ายตรงจุดนั้น เลขชัด วันถ่ายอยู่ในรอบ */
     const setup = (over: any = {}) => {
       component.members = [{ ...house(1, '99/1'), latitude: 13.75, longitude: 100.5 }];
       component.rows = [
-        row({ seq: 1, memberId: 1, matchedBy: 'system', unit: 1250, confidence: 95, latitude: 13.75, longitude: 100.5, status: 'ready', ...over })
+        row({
+          seq: 1,
+          memberId: 1,
+          matchedBy: 'system',
+          matchConfidence: 'high',
+          unit: 1250,
+          confidence: 95,
+          latitude: 13.75,
+          longitude: 100.5,
+          capturedAt: new Date(),
+          status: 'ready',
+          ...over
+        })
       ] as any;
       return component.rows[0];
     };
@@ -384,24 +421,88 @@ describe('BatchScanComponent', () => {
       expect(component.autoSavable(setup())).toBe(true);
     });
 
-    it('ถ่ายห่างจากมิเตอร์ของบ้านนั้นเกิน 25 ม. → ต้องให้คนตรวจ', () => {
-      // 0.0005 องศาละติจูด ≈ 55 ม.
-      expect(component.autoSavable(setup({ latitude: 13.7505 }))).toBe(false);
+    it('รูปไม่มีพิกัด แต่เลขมิเตอร์ชี้บ้านแบบมั่นใจสูง → ออกให้ (เลขมิเตอร์แม่นกว่า GPS)', () => {
+      expect(component.autoSavable(setup({ latitude: null, longitude: null }))).toBe(true);
     });
 
-    it('รูปไม่มีพิกัด → ยืนยันบ้านไม่ได้ ต้องให้คนตรวจ', () => {
-      expect(component.autoSavable(setup({ latitude: null, longitude: null }))).toBe(false);
-    });
-
-    it('บ้านที่จับคู่ได้ยังไม่มีพิกัดเก็บไว้ → เทียบไม่ได้ ต้องให้คนตรวจ', () => {
+    it('บ้านยังไม่เคยเก็บพิกัด แต่เลขมิเตอร์ชี้ได้ → ออกให้ (เทียบพิกัดไม่ได้ ≠ ขัดแย้ง)', () => {
       const target = setup();
       component.members = [house(1, '99/1')];
 
+      expect(component.autoSavable(target)).toBe(true);
+    });
+
+    it('เลขมิเตอร์ชี้มั่นใจสูงแต่พิกัดค้านกันเกิน 50 ม. → ต้องให้คนตรวจ', () => {
+      // 0.0005 องศาละติจูด ≈ 55 ม. ไกลเกินกว่าที่ GPS จะเพี้ยนได้ = คนละบ้าน
+      expect(component.autoSavable(setup({ latitude: 13.7505 }))).toBe(false);
+    });
+
+    it('เลขมิเตอร์ชี้ได้ไม่มั่นใจ และพิกัดก็ยืนยันไม่ได้ → ต้องให้คนตรวจ', () => {
+      expect(
+        component.autoSavable(setup({ latitude: null, longitude: null, matchConfidence: 'medium' }))
+      ).toBe(false);
+    });
+
+    it('บ้านที่ได้มาจากพิกัดในรูปเอง → ไม่นับเป็นการยืนยันด้วยเลขมิเตอร์ (งูกินหาง)', () => {
+      expect(
+        component.autoSavable(setup({ latitude: null, longitude: null, matchedByCoords: true }))
+      ).toBe(false);
+    });
+
+    it('คนเลือกบ้านเอง → ไม่ต้องออกให้ คนอยู่หน้าจออยู่แล้ว', () => {
+      expect(
+        component.autoSavable(setup({ latitude: null, longitude: null, matchedBy: 'manual' }))
+      ).toBe(false);
+    });
+
+    /**
+     * เลขที่อ่านมาไม่ชัดคือยอดที่ลูกบ้านต้องจ่ายไม่ชัด — ด่านของหลังบ้าน (หน่วยน้ำสูงผิดปกติ
+     * กับจำนวนหลักเปลี่ยน) จับได้แค่ที่เพี้ยนแรง ๆ ส่วนอ่าน 1250 เป็น 1258 ลอดไปได้สบาย
+     */
+    it('อ่านเลขมาไม่ชัด → ไม่ออกให้เอง แม้พิกัดจะตรง', () => {
+      expect(component.autoSavable(setup({ confidence: 60 }))).toBe(false);
+    });
+
+    it('ไม่รู้ว่าอ่านมาชัดแค่ไหน → ไม่ออกให้เอง', () => {
+      expect(component.autoSavable(setup({ confidence: null }))).toBe(false);
+    });
+
+    /** ไม่มีวันถ่าย = บิลไปลงวันที่กดอัปโหลด ซึ่งลากจำนวนวันของรอบถัดไปเพี้ยนตามไปด้วย */
+    it('รูปไม่มีวันถ่าย → ไม่ออกให้เอง', () => {
+      expect(component.autoSavable(setup({ capturedAt: null }))).toBe(false);
+    });
+
+    it('วันถ่ายคนละเดือนกับรอบบิลที่เลือก → ไม่ออกให้เอง (มักคือหยิบรูปเก่ามาผิดใบ)', () => {
+      const old = new Date();
+      old.setMonth(old.getMonth() - 2);
+
+      expect(component.autoSavable(setup({ capturedAt: old }))).toBe(false);
+    });
+
+    it('หลังบ้านแนบคำเตือนมา → ไม่ออกให้เอง', () => {
+      expect(component.autoSavable(setup({ warnings: ['เลขกระโดดจากเดือนก่อนเยอะ'] }))).toBe(false);
+    });
+
+    it('หน่วยน้ำพุ่งเกินที่บ้านหลังนี้เคยใช้มาก → ไม่ออกให้เอง', () => {
+      const target = setup({
+        candidates: [{ members_id: 1, house_no: '99/1', name: 'สมชาย ใจดี', usage_unit: 400, average_usage: 25 }]
+      });
+
+      expect(component.abnormalUsage(target)).toEqual({ usage: 400, average: 25 });
       expect(component.autoSavable(target)).toBe(false);
     });
 
-    it('อ่านเลขมาไม่ชัดแต่พิกัดตรง → ยังออกให้ (ด่านหน่วยน้ำ/จำนวนหลักของหลังบ้านยังกันอยู่)', () => {
-      expect(component.autoSavable(setup({ confidence: 60 }))).toBe(true);
+    it('บ้านหลังนี้มีบิลของรอบนี้แล้ว → บล็อกไว้ก่อน ไม่ยิงไปให้หลังบ้านตีกลับ', () => {
+      const target = setup({
+        candidates: [{ members_id: 1, house_no: '99/1', name: 'สมชาย ใจดี', usage_unit: 30, already_billed: true }]
+      });
+
+      expect(component.blockingIssue(target)).toContain('มีบิลของรอบนี้อยู่แล้ว');
+      expect(component.autoSavable(target)).toBe(false);
+
+      // สั่งให้ทับแล้วก็เดินต่อได้ (คนติ๊กเอง = รู้ตัวว่าใบเดิมจะถูกลบ)
+      component.replaceExisting = true;
+      expect(component.blockingIssue(target)).toBeNull();
     });
 
     it('ติดด่านปกติ (เช่นยังไม่มีเลข) → ไม่ถูกข้ามให้', () => {
@@ -420,11 +521,13 @@ describe('BatchScanComponent', () => {
 
     it('อ่านเลขเสร็จแล้วยิงออกบิลต่อให้ทันที ไม่ต้องกดปุ่ม', () => {
       component.members = [{ ...house(1, '99/1'), latitude: 13.75, longitude: 100.5 }];
-      component.rows = [row({ seq: 1, latitude: 13.75, longitude: 100.5 })] as any;
+      component.rows = [
+        row({ seq: 1, latitude: 13.75, longitude: 100.5, capturedAt: new Date() })
+      ] as any;
 
       component.analyze();
       http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({
-        results: [result({ photo_taken: null })] // พิกัดใช้ของที่อ่านเองจากไฟล์
+        results: [result({ photo_taken: null })] // พิกัด/วันถ่ายใช้ของที่อ่านเองจากไฟล์
       });
 
       http.expectOne(r => r.url.endsWith('/water-rates/active')).flush({ id: 5 });
@@ -439,7 +542,10 @@ describe('BatchScanComponent', () => {
       component.rows = [row({ seq: 1, latitude: 13.75, longitude: 100.5 })] as any;
 
       component.analyze();
-      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({ results: [result()] });
+      // อ่านเลขไม่ชัด + รูปไม่มีวันถ่าย = ตกด่านทั้งสองข้อ ต่อให้จับคู่บ้านได้ก็ตาม
+      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({
+        results: [result({ reading: { success: true, meter_unit: 1250, confidence: 0.4 }, photo_taken: null })]
+      });
 
       http.expectNone(r => r.url.endsWith('/water-rates/active'));
       expect(component.isSaving).toBe(false);
@@ -447,7 +553,9 @@ describe('BatchScanComponent', () => {
 
     it('ด่านเลขน้อยกว่าเลขตั้งต้นยังทำงาน แม้เป็นใบที่ออกให้เอง', () => {
       component.members = [{ ...house(1, '99/1'), latitude: 13.75, longitude: 100.5 }];
-      component.rows = [row({ seq: 1, latitude: 13.75, longitude: 100.5 })] as any;
+      component.rows = [
+        row({ seq: 1, latitude: 13.75, longitude: 100.5, capturedAt: new Date() })
+      ] as any;
 
       component.analyze();
       http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({ results: [result({ photo_taken: null })] });
@@ -462,10 +570,132 @@ describe('BatchScanComponent', () => {
   });
 
   /**
-   * บ้านที่ลงทะเบียนตอนระบบยังยอมรับพิกัดที่เครื่องเดาจากเน็ต จะมีพิกัดอยู่คนละอำเภอ
-   * รูปที่ถ่ายหน้ามิเตอร์จึงไม่มีทางตรงกับมันได้เลย — ต้องซ่อมค่านั้นให้ ไม่ใช่ปล่อยไว้
+   * เลือกรูปเสร็จต้องได้ไปตรวจผลเลย ไม่ใช่มานั่งกดปุ่ม "อ่านเลข" อีกที
+   * จุดที่พลาดง่ายคือยิงสองรอบตอนคนเลือกรูปเพิ่ม แล้วชุดหลังไปต่อคิวชุดแรกไม่ได้
    */
-  describe('ซ่อมพิกัดบ้านที่เสีย', () => {
+  describe('อ่านเลขเองตั้งแต่เลือกรูป', () => {
+    const image = (name: string) => new File(['รูปจำลอง'], name, { type: 'image/jpeg' });
+
+    const pick = async (files: File[]) => {
+      const input = { files, value: '' } as unknown as HTMLInputElement;
+      await component.onFilesPicked({ target: input } as unknown as Event);
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      // ย่อรูปต้องใช้ canvas ซึ่ง jsdom ไม่มี และไม่เกี่ยวกับเส้นทางที่กำลังทดสอบ
+      vi.spyOn(component as any, 'photoDataUrl').mockResolvedValue(null);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it('เลือกรูปแล้วยิงอ่านให้เอง ไม่ต้องกดปุ่ม', async () => {
+      await pick([image('meter-1.jpg')]);
+      http.expectNone(r => r.url.endsWith('/bills/scan-batch')); // ยังไม่ถึงเวลา
+
+      vi.advanceTimersByTime(2000);
+
+      const req = http.expectOne(r => r.url.endsWith('/bills/scan-batch'));
+      expect((req.request.body as FormData).getAll('files').length).toBe(1);
+      req.flush({ results: [] });
+    });
+
+    it('เลือกเพิ่มอีกชุดตามหลัง → รวมเป็นรอบเดียว ไม่ยิงสองครั้ง', async () => {
+      await pick([image('meter-1.jpg')]);
+      vi.advanceTimersByTime(500);
+      await pick([image('meter-2.jpg')]);
+      vi.advanceTimersByTime(2000);
+
+      const req = http.expectOne(r => r.url.endsWith('/bills/scan-batch'));
+      expect((req.request.body as FormData).getAll('files').length).toBe(2);
+      req.flush({ results: [] });
+    });
+
+    it('กดปุ่มเองทันก่อน → ไม่ยิงซ้ำตอนครบเวลา', async () => {
+      await pick([image('meter-1.jpg')]);
+      component.analyze();
+      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({ results: [] });
+
+      vi.advanceTimersByTime(2000);
+
+      http.expectNone(r => r.url.endsWith('/bills/scan-batch'));
+    });
+  });
+
+  /**
+   * ค่าตั้งต้นของรอบบิลคือ "เดือนนี้" ซึ่งผิดทันทีที่ไปจดสิ้นเดือนแล้วมาอัปวันที่ 1–2
+   * ของเดือนถัดไป (เกิดประจำ) — บิลทั้งกองจะไปลงเดือนใหม่ เดือนที่ใช้น้ำจริงไม่มีบิล
+   */
+  describe('ตั้งรอบบิลตามวันถ่ายในรูป', () => {
+    /** ย้อนไป N เดือนจากวันนี้ แล้วคืนคีย์รอบบิลแบบเดียวกับ monthOptions */
+    const monthsAgo = (n: number) => {
+      const date = new Date();
+      date.setDate(1);
+      date.setMonth(date.getMonth() - n);
+      return { date, key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` };
+    };
+
+    it('รูปส่วนใหญ่ถ่ายเดือนก่อน → ตั้งรอบบิลเป็นเดือนนั้นให้เอง', () => {
+      const last = monthsAgo(1);
+      component.rows = [
+        row({ seq: 1, capturedAt: last.date }),
+        row({ seq: 2, capturedAt: last.date }),
+        row({ seq: 3, capturedAt: new Date() })
+      ] as any;
+
+      (component as any).syncBillingToPhotos();
+
+      expect(component.billingKey).toBe(last.key);
+      // ใบที่หลงกองมาจากเดือนอื่นต้องถูกทักรายแถว ไม่ใช่ลากทั้งกองตาม
+      expect(component.isOutsideBillingMonth(component.rows[2])).toBe(true);
+      expect(component.notes(component.rows[2]).join(' ')).toContain('คนละเดือนกับรอบบิล');
+    });
+
+    it('ออกบิลไปแล้วบางใบ → ไม่เปลี่ยนรอบให้ (จะเหลือกองที่คนละรอบกัน)', () => {
+      const before = component.billingKey;
+      component.rows = [
+        row({ seq: 1, capturedAt: monthsAgo(1).date }),
+        row({ seq: 2, capturedAt: monthsAgo(1).date, status: 'saved' })
+      ] as any;
+
+      (component as any).syncBillingToPhotos();
+
+      expect(component.billingKey).toBe(before);
+    });
+
+    it('รูปเก่ากว่าเดือนที่เลือกได้ → ปล่อยให้คนเลือกเอง ไม่ตั้งมั่ว', () => {
+      const before = component.billingKey;
+      component.rows = [row({ seq: 1, capturedAt: monthsAgo(11).date })] as any;
+
+      (component as any).syncBillingToPhotos();
+
+      expect(component.billingKey).toBe(before);
+    });
+  });
+
+  /**
+   * บ้านที่ลงทะเบียนตอนระบบยังยอมรับพิกัดที่เครื่องเดาจากเน็ต จะมีพิกัดอยู่คนละอำเภอ
+   * รูปที่ถ่ายหน้ามิเตอร์จึงไม่มีทางตรงกับมันได้เลย — หน้านี้มีหน้าที่ "บอกว่าหลังไหน"
+   * เท่านั้น ห้ามยิงแก้ทะเบียนเอง (ทับผิดหลังทีเดียวคือพิกัดที่ถูกหายโดยไม่มีร่องรอย)
+   */
+  describe('รายงานพิกัดบ้านที่เสีย', () => {
+    /** บรรทัดรายงานออก terminal — เก็บไว้ตรวจว่าบอกบ้านหลังที่ถูกต้อง */
+    let warned: string[];
+
+    beforeEach(() => {
+      warned = [];
+      vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+        warned.push(args.join(' '));
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     /** หมู่บ้านอยู่แถว 13.75, 100.5 — ต้องมีอย่างน้อย 3 หลังถึงจะรู้ว่าใจกลางอยู่ไหน */
     const village = () => [
       { ...house(1, '99/1'), latitude: 13.75, longitude: 100.5 },
@@ -480,8 +710,8 @@ describe('BatchScanComponent', () => {
       http.expectOne(r => r.url.endsWith('/bills/scan')).flush({ id: 901 });
     };
 
-    it('พิกัดของบ้านอยู่ไกลหมู่บ้านคนละเรื่อง → ทับด้วยพิกัดในรูปหลังออกบิลสำเร็จ', () => {
-      const broken = { ...house(4, '99/4'), latitude: 14.98335, longitude: 100.0 }; // ค่าที่เครื่องเดาจาก IP
+    it('พิกัดของบ้านอยู่ไกลหมู่บ้านคนละเรื่อง → รายงานออก terminal ไม่แก้ทะเบียนให้เอง', () => {
+      const broken = { ...house(4, '99/4'), latitude: 14.98335, longitude: 102.12286 }; // ค้างมาจากหมู่บ้านคนละจังหวัด
       component.members = [...village(), broken];
       component.rows = [
         row({ seq: 1, memberId: 4, matchedBy: 'system', unit: 120, latitude: 13.7503, longitude: 100.5003 })
@@ -490,13 +720,15 @@ describe('BatchScanComponent', () => {
       expect(component.needsCoordsRepair(component.rows[0])).toBe(true);
       saveOneRow();
 
-      const update = http.expectOne(r => r.url.endsWith('/member/update'));
-      expect(update.request.body.latitude).toBe(13.7503);
-      expect(update.request.body.longitude).toBe(100.5003);
-      update.flush({});
+      http.expectNone(r => r.url.endsWith('/member/update'));
+      expect(warned).toHaveLength(1);
+      expect(warned[0]).toContain('99/4');
+      expect(warned[0]).toContain('13.750300,100.500300');
+      // พิกัดเดิมต้องยังอยู่ครบ ไม่ถูกแตะจากในหน้านี้
+      expect(broken.latitude).toBe(14.98335);
     });
 
-    it('บ้านที่ยังไม่มีพิกัดเลย → เก็บพิกัดจากรูปให้ด้วย', () => {
+    it('บ้านที่ยังไม่มีพิกัดเลย → รายงานเหมือนกัน (จับคู่รูปอัตโนมัติไม่ได้เท่ากัน)', () => {
       component.members = [...village(), house(4, '99/4')];
       component.rows = [
         row({ seq: 1, memberId: 4, matchedBy: 'system', unit: 120, latitude: 13.7503, longitude: 100.5003 })
@@ -504,10 +736,11 @@ describe('BatchScanComponent', () => {
 
       saveOneRow();
 
-      http.expectOne(r => r.url.endsWith('/member/update')).flush({});
+      http.expectNone(r => r.url.endsWith('/member/update'));
+      expect(warned[0]).toContain('ยังไม่มี');
     });
 
-    it('พิกัดเดิมใช้ได้อยู่แล้ว → ห้ามทับ (GPS มือถือแกว่งเป็นสิบเมตรทุกครั้งที่ถ่าย)', () => {
+    it('พิกัดเดิมใช้ได้อยู่แล้ว → เงียบไว้ (GPS มือถือแกว่งเป็นสิบเมตรทุกครั้งที่ถ่าย)', () => {
       component.members = village();
       component.rows = [
         row({ seq: 1, memberId: 1, matchedBy: 'system', unit: 120, latitude: 13.7501, longitude: 100.5001 })
@@ -517,10 +750,11 @@ describe('BatchScanComponent', () => {
       saveOneRow();
 
       http.expectNone(r => r.url.endsWith('/member/update'));
+      expect(warned).toHaveLength(0);
     });
 
-    it('บ้านที่ได้มาจากพิกัดในรูปเอง → ห้ามเอาพิกัดไปทับพิกัด (งูกินหาง)', () => {
-      component.members = [...village(), { ...house(4, '99/4'), latitude: 14.98335, longitude: 100.0 }];
+    it('บ้านที่ได้มาจากพิกัดในรูปเอง → ไม่รายงาน (เอาพิกัดไปตัดสินพิกัดตัวเอง งูกินหาง)', () => {
+      component.members = [...village(), { ...house(4, '99/4'), latitude: 14.98335, longitude: 102.12286 }];
       component.rows = [
         row({ seq: 1, memberId: 4, matchedBy: 'system', matchedByCoords: true, unit: 120, latitude: 13.7503, longitude: 100.5003 })
       ] as any;
@@ -528,10 +762,10 @@ describe('BatchScanComponent', () => {
       expect(component.needsCoordsRepair(component.rows[0])).toBe(false);
     });
 
-    it('ยังมีบ้านที่มีพิกัดไม่ถึง 3 หลัง → ยังตัดสินไม่ได้ ห้ามทับของใคร', () => {
+    it('ยังมีบ้านที่มีพิกัดไม่ถึง 3 หลัง → ยังตัดสินไม่ได้ ห้ามกล่าวหาใคร', () => {
       component.members = [
         { ...house(1, '99/1'), latitude: 13.75, longitude: 100.5 },
-        { ...house(4, '99/4'), latitude: 14.98335, longitude: 100.0 }
+        { ...house(4, '99/4'), latitude: 14.98335, longitude: 102.12286 }
       ];
       component.rows = [
         row({ seq: 1, memberId: 4, matchedBy: 'system', unit: 120, latitude: 13.7503, longitude: 100.5003 })
@@ -540,14 +774,13 @@ describe('BatchScanComponent', () => {
       expect(component.needsCoordsRepair(component.rows[0])).toBe(false);
     });
 
-    it('ซ่อมพิกัดไม่สำเร็จ ต้องไม่ทำให้บิลที่ออกไปแล้วดูเหมือนล้มเหลว', () => {
+    it('รายงานแล้วบิลที่ออกไปต้องยังนับว่าสำเร็จ (เป็นแค่ข้อสังเกต ไม่ใช่ความล้มเหลว)', () => {
       component.members = [...village(), house(4, '99/4')];
       component.rows = [
         row({ seq: 1, memberId: 4, matchedBy: 'system', unit: 120, latitude: 13.7503, longitude: 100.5003 })
       ] as any;
 
       saveOneRow();
-      http.expectOne(r => r.url.endsWith('/member/update')).flush({ message: 'ล่ม' }, { status: 500, statusText: 'Server Error' });
 
       expect(component.rows[0].status).toBe('saved');
       expect(component.savedCount).toBe(1);

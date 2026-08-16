@@ -1,0 +1,7 @@
+{
+  "github.copilot.chat.commitMessage.instructions": [
+    {
+      "text": "Always write commit messages in Thai language."
+    }
+  ]
+}

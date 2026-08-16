@@ -35,6 +35,7 @@ const row = (over: any = {}) => ({
   matchConfidence: null,
   matchReason: null,
   candidates: [],
+  nearby: [],
   warnings: [],
   unit: null,
   confidence: null,

@@ -70,16 +70,6 @@ export class MeterReadingService {
     return this.http.get<MeterReading[]>(`${this.apiUrl}/meter-readings/member/${memberId}`);
   }
 
-  // 🌟 4. บันทึกการจดมิเตอร์ลงฐานข้อมูล — ต้องทำก่อนสร้างบิลเสมอ เพราะบิลอ้างถึง meter_readings_id
-  createMeterReading(payload: {
-    reading_date: string;
-    meter_unit: number;
-    members_id: number;
-    create_by?: number;
-  }): Observable<MeterReading> {
-    return this.http.post<MeterReading>(`${this.apiUrl}/meter-readings`, payload);
-  }
-
   /** บิลของบ้านหลังนี้ในเดือน/ปีที่ระบุ — null ถ้ายังไม่เคยออกบิล (1 บ้านมีบิลได้เดือนละใบ) */
   getBillForMonth(memberId: number, month: string, year: string): Observable<any> {
     return this.http.get(
@@ -120,10 +110,12 @@ export class MeterReadingService {
     /** เดือนบิลแบบ 2 หลัก ('01'-'12') — มาจากที่เจ้าหน้าที่เลือก ไม่ใช่วันที่กดบันทึก */
     billing_month: string;
     billing_year: string;
-    /** พิกัดจุดที่ยืนถ่ายรูป — หลังบ้านเก็บไว้เรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้ */
+    /**
+     * พิกัดจุดที่ยืนถ่ายรูป (จาก EXIF) — หลังบ้านเก็บไว้เรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้
+     * EXIF ไม่มีค่าความคลาดเคลื่อนติดมา จึงไม่มี gps_accuracy_m ให้ส่ง
+     */
     latitude?: number;
     longitude?: number;
-    gps_accuracy_m?: number;
     /** วันเวลาที่กดชัตเตอร์จริง (ISO) เก็บเป็นหลักฐานคู่กับรูป */
     captured_at?: string;
     /** รูปหน้าปัดเป็น data URL — หลังบ้านเก็บเป็นไฟล์แล้วบันทึก path ไว้ */

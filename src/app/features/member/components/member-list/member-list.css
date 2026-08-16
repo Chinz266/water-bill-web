@@ -128,10 +128,6 @@ svg {
   border-color: var(--danger);
 }
 
-.coords-retry {
-  margin-top: var(--sp-1);
-}
-
 .btn-spinner.dark {
   border-color: var(--primary-soft-2);
   border-top-color: var(--primary);
