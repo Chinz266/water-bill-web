@@ -38,11 +38,16 @@ const row = (over: any = {}) => ({
   confidence: 95,
   confirmHighUsage: false,
   confirmDigitChange: false,
+  confirmLowConfidence: false,
+  confirmDuplicateLocation: false,
+  confirmStalePhoto: false,
   croppedRead: false,
   ocrUnit: 1250,
   meterDigits: 4,
+  ocrConfidence: 0.95,
   status: 'ready',
   error: null,
+  errorCode: null,
   billId: null,
   ...over
 });
@@ -110,7 +115,30 @@ describe('BatchScanComponent — ด่านจำนวนหลัก', () =>
     expect(runToScan().request.body.meter_digits).toBeUndefined();
   });
 
-  it('โดนบล็อกเพราะจำนวนหลักไม่ตรง → ขึ้นปุ่มยืนยัน แล้วรอบถัดไปส่งธงไปด้วย', () => {
+  it('โดนบล็อกด้วยรหัส DIGIT_CHANGE → ขึ้นปุ่มยืนยัน แล้วรอบถัดไปส่งธงไปด้วย', () => {
+    component.rows = [row()] as any;
+
+    runToScan().flush(
+      { message: 'หน้าปัดมิเตอร์ของบ้านหลังนี้เคยอ่านได้ 5 หลัก แต่รอบนี้อ่านได้ 4 หลัก', code: 'DIGIT_CHANGE' },
+      { status: 409, statusText: 'Conflict' }
+    );
+
+    expect(component.rows[0].status).toBe('save_failed');
+    const step = component.pendingConfirm(component.rows[0] as any)!;
+    // ด่านคนละตัวกัน ต้องไม่ขึ้นปุ่มยืนยันของด่านอื่นสลับกัน
+    expect(step.flag).toBe('confirmDigitChange');
+
+    component.confirmStep(component.rows[0] as any, step);
+    expect(component.rows[0].status).toBe('ready');
+
+    expect(runToScan().request.body.confirm_digit_change).toBe(true);
+  });
+
+  /**
+   * หลังบ้านยังส่งรหัสมาไม่ครบทุกด่าน ระหว่างนี้ยังต้องอ่านจากข้อความให้ได้
+   * ไม่งั้นบ้านที่ติดด่านจะออกบิลไม่ได้เลยจนกว่าหลังบ้านจะ deploy รอบใหม่
+   */
+  it('409 ที่ยังไม่มีรหัสติดมา → ยังหาปุ่มยืนยันจากข้อความได้', () => {
     component.rows = [row()] as any;
 
     runToScan().flush(
@@ -118,15 +146,7 @@ describe('BatchScanComponent — ด่านจำนวนหลัก', () =>
       { status: 409, statusText: 'Conflict' }
     );
 
-    expect(component.rows[0].status).toBe('save_failed');
-    expect(component.needsDigitConfirm(component.rows[0])).toBe(true);
-    // ด่านคนละตัวกัน ต้องไม่ขึ้นปุ่มยืนยันหน่วยน้ำสูงผิดปกติสลับกัน
-    expect(component.needsHighUsageConfirm(component.rows[0])).toBe(false);
-
-    component.confirmDigitChange(component.rows[0]);
-    expect(component.rows[0].status).toBe('ready');
-
-    expect(runToScan().request.body.confirm_digit_change).toBe(true);
+    expect(component.pendingConfirm(component.rows[0] as any)?.flag).toBe('confirmDigitChange');
   });
 
   it('ครอปอ่านใหม่แล้วได้เลขใหม่ → คำยืนยันจำนวนหลักของเลขเก่าต้องหลุดไปด้วย', () => {

@@ -42,3 +42,32 @@ export function logCoordsMismatch(report: CoordsReport): void {
       ' | แก้ที่หน้าทะเบียนลูกบ้าน'
   );
 }
+
+/** รูปหนึ่งใบที่พิกัดชี้ได้สองหลังพอ ๆ กัน — ระบบเลือกให้ไม่ได้ ต้องให้คนกด */
+export interface AmbiguousReport {
+  source: CoordsReport['source'];
+  photo: LatLng;
+  /** หลังที่ใกล้ที่สุด และหลังรองที่ตามมาติด ๆ จนแยกไม่ออก */
+  nearest: { houseNo: unknown; meters: number };
+  rival: { houseNo: unknown; meters: number };
+}
+
+/**
+ * รายงานจุดที่ GPS ชี้ขาดไม่ได้ ลง terminal — ไม่ได้มีไว้ให้ระบบเอาไปตัดสินอะไรต่อ
+ *
+ * มีไว้ให้ไล่ดูย้อนหลังว่าหมู่บ้านไหน/ช่วงบ้านเลขที่ไหนที่มิเตอร์อยู่ชิดกันจนเจ้าหน้าที่
+ * ต้องมากดเลือกเองซ้ำ ๆ ทุกเดือน จุดพวกนั้นแก้ที่ต้นเหตุได้ (ไปวัดพิกัดของสองหลังนั้นใหม่
+ * ให้ตรงมิเตอร์จริง) ซึ่งคุ้มกว่ามาไล่กดทีละรอบบิล
+ *
+ * ใช้ console.info ไม่ใช่ warn — ไม่มีอะไรพัง แค่ระบบไม่มั่นใจแล้วส่งงานคืนคนตามที่ควรเป็น
+ */
+export function logAmbiguousMatch(report: AmbiguousReport): void {
+  const gap = Math.abs(report.rival.meters - report.nearest.meters);
+
+  console.info(
+    `[coords] พิกัดชี้ได้หลายหลัง | ${report.nearest.houseNo} (${gapLabel(report.nearest.meters)})` +
+      ` กับ ${report.rival.houseNo} (${gapLabel(report.rival.meters)}) ต่างกัน ${gapLabel(gap)}` +
+      ` | รูป ${point(report.photo)} | ${report.source}` +
+      ' | ถ้าเจอซ้ำทุกเดือน ให้ไปวัดพิกัดสองหลังนี้ใหม่ที่หน้าทะเบียนลูกบ้าน'
+  );
+}

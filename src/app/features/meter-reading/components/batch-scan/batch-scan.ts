@@ -6,15 +6,16 @@ import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
-import { extractErrorMessage } from '../../../auth/services/auth-error';
+import { extractErrorCode, extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
 import { LatLng, distanceMeters, isFarFrom, medianCoords, pickNearest, toCoords } from '../../services/geo';
-import { logCoordsMismatch } from '../../services/coords-log';
+import { logAmbiguousMatch, logCoordsMismatch } from '../../services/coords-log';
 import { parseCaptureDate, readPhotoMetadata } from '../../services/exif';
 import { suggestBillingMonth } from '../../services/billing-cycle';
 import { photoDataUrl } from '../../services/photo-file';
 import { Village, VillageService } from '../../../village/services/village.service';
 import { StoredQueue, StoredRow, clearQueue, loadQueue, saveQueue } from '../../services/batch-queue.store';
+import { DeviceLocationComponent } from '../device-location/device-location';
 
 /**
  * สถานะของแต่ละแถว — แยก "อ่านไม่ผ่าน" กับ "ออกบิลไม่ผ่าน" ออกจากกัน
@@ -41,6 +42,70 @@ interface Candidate {
   already_billed: boolean;
   score: number;
   distance_m: number | null;
+}
+
+/**
+ * ด่านของหลังบ้านที่ "คนดูแล้วยืนยันได้" — ตีกลับมาพร้อมรหัส แล้วขึ้นปุ่มให้กดยืนยันในแถว
+ *
+ * ทุกด่านที่ไม่อยู่ในตารางนี้ (รูปถูกใช้ไปแล้ว · บิลจ่ายเงินแล้ว · มีบิลของรอบถัดไปแล้ว)
+ * ตั้งใจไม่มีปุ่มให้กด — เป็นเรื่องที่ต้องไปแก้ที่ต้นทาง ไม่ใช่กดข้ามแล้วออกบิลทับ
+ *
+ * `legacy` คือทางถอยไว้อ่านจากข้อความ ระหว่างที่หลังบ้านยังส่งรหัสมาไม่ครบทุกด่าน
+ * ใช้ต่อเมื่อ **ไม่มีรหัสติดมาเลย** เท่านั้น ใบที่มีรหัสแล้วต้องตัดสินจากรหัสอย่างเดียว
+ * ไม่งั้นข้อความของด่านที่ห้ามข้ามอาจไปเข้าเงื่อนไขของด่านที่มีปุ่ม แล้วได้ปุ่มข้ามมาฟรี ๆ
+ * ลบ legacy ทิ้งได้เมื่อหลังบ้านส่งรหัสครบแล้ว
+ */
+interface ConfirmStep {
+  code: string;
+  legacy: RegExp | null;
+  /** ธงใน ScanRow ที่จะถูกตั้งเป็น true เมื่อคนกดยืนยัน */
+  flag: 'confirmHighUsage' | 'confirmDigitChange' | 'confirmLowConfidence' | 'confirmDuplicateLocation' | 'confirmStalePhoto';
+  label: string;
+}
+
+const CONFIRM_STEPS: readonly ConfirmStep[] = [
+  {
+    code: 'HIGH_USAGE',
+    legacy: /หน่วย/,
+    flag: 'confirmHighUsage',
+    label: 'ตรวจแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า'
+  },
+  {
+    code: 'DIGIT_CHANGE',
+    legacy: /หลัก/,
+    flag: 'confirmDigitChange',
+    label: 'เทียบกับหน้าปัดแล้ว จำนวนหลักถูกต้อง — ให้ออกบิลรอบหน้า'
+  },
+  {
+    code: 'LOW_CONFIDENCE',
+    // หลังบ้านส่งรหัสของด่านนี้มาแล้ว จึงไม่ต้องเดาจากข้อความ
+    legacy: null,
+    flag: 'confirmLowConfidence',
+    label: 'เทียบกับรูปแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า'
+  },
+  {
+    code: 'DUPLICATE_LOCATION',
+    legacy: /เป๊ะทุกทศนิยม/,
+    flag: 'confirmDuplicateLocation',
+    label: 'ยืนยันว่าถ่ายใหม่จริง — ให้ออกบิลรอบหน้า'
+  },
+  {
+    code: 'STALE_PHOTO',
+    legacy: /ไม่ใช่เลขของรอบนี้/,
+    flag: 'confirmStalePhoto',
+    label: 'ยืนยันว่าใช้รูปถูกใบ — ให้ออกบิลรอบหน้า'
+  }
+];
+
+/** บ้านหนึ่งหลังที่ยกมาให้กดเลือกในแถว พร้อมเหตุผลว่าทำไมกดไม่ได้ (ถ้ากดไม่ได้) */
+interface NearbyChoice {
+  member: any;
+  meters: number;
+  /**
+   * แถวอื่นในกองเลือกบ้านหลังนี้ไปแล้ว — 1 บ้านมีบิลได้รอบละใบเดียว (ดู isDuplicate)
+   * เก็บลำดับรูปไว้ด้วย เพื่อให้คนไล่ขึ้นไปดูได้ว่ารูปไหนไปทับ ถ้าเห็นว่ารูปนั้นเลือกผิด
+   */
+  takenBySeq: number | null;
 }
 
 interface ScanRow {
@@ -73,26 +138,37 @@ interface ScanRow {
   matchReason: string | null;
   candidates: Candidate[];
   /** บ้านที่มิเตอร์อยู่ใกล้จุดถ่ายรูปใบนี้ เรียงจากใกล้ไปไกล (ดู refreshNearby) */
-  nearby: { member: any; meters: number }[];
+  nearby: NearbyChoice[];
   warnings: string[];
 
   unit: number | null;
+  /** ความมั่นใจของ AI เป็นเปอร์เซ็นต์ (0–100) ไว้แสดงบนจอเท่านั้น — ที่ส่งขึ้นไปคือค่าดิบ */
   confidence: number | null;
   confirmHighUsage: boolean;
   /** ยืนยันแล้วว่าจำนวนหลักที่เปลี่ยนไปถูกต้อง (เช่นเปลี่ยนมิเตอร์รุ่นคนละหลัก) */
   confirmDigitChange: boolean;
+  /** ยืนยันแล้วว่าเลขที่ AI อ่านมาไม่ชัดนั้นตรงกับหน้าปัดจริง */
+  confirmLowConfidence: boolean;
+  /** ยืนยันแล้วว่าเป็นรูปที่ถ่ายใหม่ ไม่ใช่รูปเดิมที่ส่งซ้ำ */
+  confirmDuplicateLocation: boolean;
+  /** ยืนยันแล้วว่าใช้รูปถูกใบ ทั้งที่วันถ่ายเก่ากว่ารอบที่ออก */
+  confirmStalePhoto: boolean;
   /** เลขของแถวนี้มาจากการครอปแล้วอ่านใหม่ ไม่ใช่การอ่านรูปเต็มใบตอนแรก */
   croppedRead: boolean;
 
   /**
-   * เลข + จำนวนหลักที่ AI อ่านมา เก็บแยกจาก unit ที่คนแก้เองได้
-   * ด่านจำนวนหลักของหลังบ้านต้องตรวจกับเลขที่ AI เห็นจริง ไม่ใช่เลขที่คนพิมพ์ทับ
+   * เลข + จำนวนหลัก + ความมั่นใจที่ AI อ่านมา เก็บแยกจาก unit ที่คนแก้เองได้
+   * ด่านจำนวนหลัก/ความชัดของหลังบ้านต้องตรวจกับเลขที่ AI เห็นจริง ไม่ใช่เลขที่คนพิมพ์ทับ
    */
   ocrUnit: number | null;
   meterDigits: number | null;
+  /** ค่าดิบ 0–1 ตามที่หลังบ้านใช้ (ตัดที่ 0.85) — เก็บก่อนปัดเป็นเปอร์เซ็นต์ */
+  ocrConfidence: number | null;
 
   status: RowStatus;
   error: string | null;
+  /** รหัสด่านที่หลังบ้านตีกลับมา ใช้เลือกปุ่มยืนยัน (ดู CONFIRM_STEPS) */
+  errorCode: string | null;
   billId: number | null;
 }
 
@@ -113,7 +189,7 @@ interface ScanRow {
 @Component({
   selector: 'app-batch-scan',
   standalone: true,
-  imports: [CommonModule, FormsModule, ImageCropperComponent],
+  imports: [CommonModule, FormsModule, ImageCropperComponent, DeviceLocationComponent],
   templateUrl: './batch-scan.html',
   styleUrls: ['./batch-scan.css']
 })
@@ -406,11 +482,16 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       confidence: null,
       confirmHighUsage: false,
       confirmDigitChange: false,
+      confirmLowConfidence: false,
+      confirmDuplicateLocation: false,
+      confirmStalePhoto: false,
       croppedRead: false,
       ocrUnit: null,
       meterDigits: null,
+      ocrConfidence: null,
       status: 'pending',
       error: null,
+      errorCode: null,
       billId: null
     };
   }
@@ -446,13 +527,33 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (row.matchedBy === 'manual' || row.memberId || row.status === 'saved') return;
     if (row.latitude === null || row.longitude === null) return;
 
+    const photo = { lat: row.latitude, lng: row.longitude };
+    // ใช้เพดานเดียวกับที่ใช้ตัดสินว่าพิกัด "ค้าน" บ้านที่เลือก และช่วงห่างเดียวกับที่ใช้
+    // ตัดสินว่ามีหลังอื่นใกล้พอ ๆ กัน — สองที่นี้ต้องขยับพร้อมกันเสมอ ไม่งั้นป้ายบนจอ
+    // กับด่านออกบิลจะตอบคนละอย่างสำหรับรูปใบเดียวกัน
     const match = pickNearest(
-      { lat: row.latitude, lng: row.longitude },
+      photo,
       this.matchableMembers,
       (member) => toCoords(member?.latitude, member?.longitude),
-      { maxMeters: 50, minMargin: 15 }
+      { maxMeters: this.conflictMeters, minMargin: this.rivalMarginMeters }
     );
-    if (!match) return;
+
+    // มีบ้านใกล้ ๆ อยู่หลายหลังจนชี้ขาดไม่ได้ — บอกให้รู้ว่าลังเลระหว่างหลังไหน
+    // ห้ามหยิบ match.item มาเติมให้เด็ดขาด ตัวมันคือ "หลังที่ใกล้กว่าอีกไม่กี่เมตร"
+    // ซึ่งเป็นระยะที่ GPS เพี้ยนได้อยู่แล้ว การเติมให้เท่ากับเดาแล้วให้คนเซ็นรับรอง
+    if (match.kind === 'ambiguous') {
+      row.matchConfidence = 'ambiguous';
+      row.matchReason =
+        `พิกัดในรูปอยู่ระหว่างบ้าน ${match.item.house_no} (ห่าง ${Math.round(match.meters)} ม.) ` +
+        `กับ ${match.rival.house_no} (ห่าง ${Math.round(match.rivalMeters)} ม.) ` +
+        `ต่างกันแค่ ${Math.round(match.rivalMeters - match.meters)} ม. ` +
+        'ซึ่งน้อยกว่าที่ GPS มือถือเพี้ยนได้ — ดูรูปแล้วเลือกเองครับ';
+
+      this.reportAmbiguous(row, photo, match.item, match.meters, match.rival, match.rivalMeters);
+      return;
+    }
+
+    if (match.kind === 'none') return;
 
     row.memberId = match.item.id;
     row.matchedBy = 'system';
@@ -461,6 +562,33 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     row.matchReason =
       `จับคู่จากพิกัดในรูป — ห่างจากมิเตอร์ของบ้านเลขที่ ${match.item.house_no} ` +
       `ประมาณ ${Math.round(match.meters)} เมตร กรุณาเทียบกับรูปอีกครั้งครับ`;
+  }
+
+  /**
+   * รูปที่ระบบชี้ขาดไม่ได้ ปล่อยลง terminal ใบละครั้ง
+   *
+   * matchByCoords ถูกไล่ซ้ำทั้งกองหลายรอบ (รายชื่อบ้านมาถึง · เลือกรูปเพิ่ม · หลังบ้านตอบ)
+   * ถ้าไม่กันไว้ กองละ 30 รูปจะได้ log เป็นร้อยบรรทัดจนอ่านไม่ออกว่าจุดไหนซ้ำจริง
+   */
+  private readonly loggedAmbiguous = new Set<string>();
+
+  private reportAmbiguous(
+    row: ScanRow,
+    photo: LatLng,
+    nearest: any,
+    meters: number,
+    rival: any,
+    rivalMeters: number
+  ): void {
+    if (this.loggedAmbiguous.has(row.fileKey)) return;
+    this.loggedAmbiguous.add(row.fileKey);
+
+    logAmbiguousMatch({
+      source: 'batch-scan',
+      photo,
+      nearest: { houseNo: nearest?.house_no, meters },
+      rival: { houseNo: rival?.house_no, meters: rivalMeters }
+    });
   }
 
   // ==========================================
@@ -477,6 +605,23 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       .filter((p): p is LatLng => p !== null);
 
     return points.length >= 3 ? medianCoords(points) : null;
+  }
+
+  /**
+   * ใจกลางของกองรูปที่กำลังอ่าน — มีไว้ให้แถบเทียบตำแหน่งเครื่องวาดอย่างเดียว
+   *
+   * ต่างจาก villageCenter ตรงที่คิดจากพิกัดในรูป ไม่ใช่พิกัดในทะเบียน จึงตอบได้ว่า
+   * "กองนี้ถ่ายมาจากแถวไหน" ไม่ใช่ "หมู่บ้านอยู่ตรงไหน" — คนละคำถามกัน
+   *
+   * ⚠️ ห้ามเอาไปใช้ในด่านของ autoSavable() ทุกกรณี ค่านี้ขยับตามรูปที่เลือกมาในกอง
+   *    ใบที่ผ่านด่านวันนี้กับพรุ่งนี้จะไม่เหมือนกันทั้งที่รูปใบเดิม
+   */
+  get batchCenter(): LatLng | null {
+    const points = this.rows
+      .map((row) => toCoords(row.latitude, row.longitude))
+      .filter((p): p is LatLng => p !== null);
+
+    return medianCoords(points);
   }
 
   /** พิกัดที่บ้านหลังนี้เก็บไว้ใช้ไม่ได้ — ไม่มี หรืออยู่ไกลจากหมู่บ้านคนละเรื่อง */
@@ -555,6 +700,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   onMemberChanged(row: ScanRow): void {
     row.matchedBy = row.memberId ? 'manual' : 'none';
+    // บ้านที่แถวนี้เพิ่งเลือก/เพิ่งปล่อย ไปเปลี่ยนตัวเลือกที่เหลือของแถวอื่นทั้งกอง
+    this.refreshAllNearby();
     this.persist();
   }
 
@@ -640,8 +787,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       row.unit = this.toUnit(result?.reading?.meter_unit);
       row.confidence = this.toPercent(result?.reading?.confidence);
 
-      // เก็บเลข/จำนวนหลักที่ AI อ่านมาไว้ก่อนที่ช่องกรอกจะถูกคนแก้ (ดู digitsToSend)
+      // เก็บเลข/จำนวนหลัก/ความมั่นใจที่ AI อ่านมาไว้ก่อนที่ช่องกรอกจะถูกคนแก้
+      // (ดู digitsToSend / confidenceToSend)
       row.ocrUnit = row.unit;
+      row.ocrConfidence = this.toRawConfidence(result?.reading?.confidence);
       const digits = Number(result?.reading?.meter_digits);
       row.meterDigits = Number.isInteger(digits) && digits > 0 ? digits : null;
       row.matchConfidence = result?.confidence ?? 'none';
@@ -698,6 +847,19 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     // หลังบ้านส่งมาได้ทั้ง 0–1 และ 0–100
     return Math.max(0, Math.min(100, Math.round(value <= 1 ? value * 100 : value)));
+  }
+
+  /**
+   * ความมั่นใจแบบ 0–1 ตามที่หลังบ้านใช้จริง (ตัดที่ 0.85 แล้วเก็บเป็นทศนิยม 3 ตำแหน่ง)
+   *
+   * ห้ามส่ง toPercent() ขึ้นไปแทน — 92% จะกลายเป็น 92 ซึ่งผ่านด่านทุกใบ
+   * ส่วนการปัดเศษของ toPercent ก็ทำให้ 0.849 กับ 0.854 กลายเป็นเลขเดียวกันคนละฝั่งเส้น
+   */
+  private toRawConfidence(raw: unknown): number | null {
+    const value = typeof raw === 'string' ? parseFloat(raw) : raw;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+
+    return Math.min(1, value > 1 ? value / 100 : value);
   }
 
   // ==========================================
@@ -784,12 +946,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // ส่งไปใบเดียว ผลจึงต้องเป็นของแถวนี้เสมอ ไม่ต้องเชื่อ index ที่หลังบ้านคืนมา
         this.applyResults([row], [{ ...results[0], index: 0 }]);
         row.croppedRead = true;
-        // เลขเปลี่ยนแล้ว คำยืนยันที่คนกดให้เลขตัวเก่า (หน่วยสูงผิดปกติ / จำนวนหลักเปลี่ยน)
-        // ใช้ต่อไม่ได้ ต้องปล่อยให้ด่านของหลังบ้านตรวจเลขใหม่อีกรอบ ไม่ใช่ข้ามไปเลย
-        if (row.unit !== before) {
-          row.confirmHighUsage = false;
-          row.confirmDigitChange = false;
-        }
+        // เลขเปลี่ยนแล้ว คำยืนยันที่คนกดให้เลขตัวเก่า (หน่วยสูงผิดปกติ / จำนวนหลักเปลี่ยน /
+        // อ่านไม่ชัด ฯลฯ) ใช้ต่อไม่ได้ ต้องปล่อยให้ด่านของหลังบ้านตรวจเลขใหม่อีกรอบ ไม่ใช่ข้ามไปเลย
+        if (row.unit !== before) this.clearConfirms(row);
         this.cropRow = null;
         this.cropBlob = null;
         this.persist();
@@ -985,11 +1144,41 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     row.nearby = this.matchableMembers
       .map((member) => {
         const coords = toCoords(member?.latitude, member?.longitude);
-        return coords ? { member, meters: distanceMeters(photo, coords) } : null;
+        return coords
+          ? { member, meters: distanceMeters(photo, coords), takenBySeq: this.takenBySeq(row, member?.id) }
+          : null;
       })
-      .filter((near): near is { member: any; meters: number } => near !== null && near.meters <= this.nearbyMeters)
+      .filter((near): near is NearbyChoice => near !== null && near.meters <= this.nearbyMeters)
       .sort((a, b) => a.meters - b.meters)
       .slice(0, this.maxNearby);
+  }
+
+  /**
+   * รูปใบอื่นในกองที่เลือกบ้านหลังนี้ไปแล้ว — คืนลำดับรูปนั้น ไม่มีก็ null
+   *
+   * มีไว้ตัดตัวเลือกที่กดไปก็ติด "ซ้ำในกอง" อยู่ดีออกจากสายตา ในแถวที่ GPS ชี้ขาดไม่ได้
+   * ตัวเลือกมักเหลือหลังเดียวที่ยังว่าง คนจึงกดจบในครั้งเดียวแทนที่จะต้องไล่เทียบเอง
+   *
+   * ⚠️ เป็นแค่การช่วยจัดตัวเลือกบนจอ ห้ามเอาไปเติมบ้านให้แถวนี้เอง — เหตุผลที่ "เหลือ
+   *    หลังเดียว" มาจากการที่แถวอื่นเลือกไว้แบบนั้น ถ้าแถวนั้นเลือกผิด แถวนี้จะผิดตาม
+   *    เป็นลูกโซ่โดยไม่มีใครทักท้วง คนต้องเป็นคนกดยืนยันเสมอ
+   */
+  private takenBySeq(row: ScanRow, memberId: unknown): number | null {
+    if (memberId === null || memberId === undefined) return null;
+
+    const owner = this.rows.find(
+      (other) => other !== row && other.status !== 'saved' && Number(other.memberId) === Number(memberId)
+    );
+    return owner ? owner.seq : null;
+  }
+
+  /**
+   * นับตัวเลือกที่ยังกดได้จริงในแถวนี้ — ใช้เลือกข้อความอธิบายเหนือปุ่ม
+   * คืนเป็นตัวเลขไม่ใช่ array เพราะถูกเรียกจาก template ทุกรอบ change detection
+   * (array ก้อนใหม่ทุกรอบจะทำให้ @for วาดปุ่มใหม่ทั้งแถบโดยไม่จำเป็น)
+   */
+  freeNearbyCount(row: ScanRow): number {
+    return row.nearby.reduce((total, near) => total + (near.takenBySeq === null ? 1 : 0), 0);
   }
 
   /** เรียกใหม่ทั้งกอง — ใช้ตอนรายชื่อบ้านมาถึงช้า หรือเปลี่ยนหมู่บ้านที่จับคู่ */
@@ -1108,29 +1297,41 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return Math.min(100, (this.progress.done / this.progress.total) * 100);
   }
 
-  needsHighUsageConfirm(row: ScanRow): boolean {
-    return row.status === 'save_failed' && !row.confirmHighUsage && !!row.error?.includes('หน่วย');
+  /**
+   * ด่านที่แถวนี้ติดอยู่และคนกดยืนยันเองได้ — null เมื่อไม่มีปุ่มให้กด
+   *
+   * ตัดสินจากรหัสที่หลังบ้านแนบมาเป็นหลัก ใบที่มีรหัสแล้วแต่ไม่อยู่ในตาราง (รูปถูกใช้ไปแล้ว ·
+   * บิลจ่ายเงินแล้ว) ต้องไม่มีปุ่มโผล่มาเลย จึงไม่ถอยไปเดาจากข้อความต่อ
+   */
+  pendingConfirm(row: ScanRow): ConfirmStep | null {
+    if (row.status !== 'save_failed') return null;
+
+    const step = row.errorCode
+      ? CONFIRM_STEPS.find((s) => s.code === row.errorCode)
+      : CONFIRM_STEPS.find((s) => s.legacy !== null && s.legacy.test(row.error ?? ''));
+
+    // กดยืนยันไปแล้วแต่ยังไม่ผ่าน = ติดด่านอื่นซ้อนอยู่ ปุ่มเดิมจึงต้องไม่ค้างให้กดวนอีก
+    return step && !row[step.flag] ? step : null;
   }
 
-  /** ข้อความของด่านจำนวนหลักพูดถึง "หลัก" ส่วนด่านหน่วยน้ำไม่มีคำนี้ จึงแยกกันได้ */
-  needsDigitConfirm(row: ScanRow): boolean {
-    return row.status === 'save_failed' && !row.confirmDigitChange && !!row.error?.includes('หลัก');
-  }
-
-  confirmHighUsage(row: ScanRow): void {
+  /** กดยืนยันแล้วเข้าคิวใหม่ — ธงจะถูกส่งไปกับใบนี้ตอนกดออกบิลรอบหน้า */
+  confirmStep(row: ScanRow, step: ConfirmStep): void {
     if (this.isBusy) return;
-    row.confirmHighUsage = true;
+
+    row[step.flag] = true;
     row.error = null;
+    row.errorCode = null;
     row.status = 'ready';
     this.persist();
   }
 
-  confirmDigitChange(row: ScanRow): void {
-    if (this.isBusy) return;
-    row.confirmDigitChange = true;
-    row.error = null;
-    row.status = 'ready';
-    this.persist();
+  /** ล้างคำยืนยันทั้งหมดของแถว — ใช้ตอนเลขเปลี่ยน คำยืนยันของเลขตัวเก่าใช้ต่อไม่ได้ */
+  private clearConfirms(row: ScanRow): void {
+    row.confirmHighUsage = false;
+    row.confirmDigitChange = false;
+    row.confirmLowConfidence = false;
+    row.confirmDuplicateLocation = false;
+    row.confirmStalePhoto = false;
   }
 
   /**
@@ -1140,6 +1341,15 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private digitsToSend(row: ScanRow): number | undefined {
     if (row.meterDigits === null || row.ocrUnit === null) return undefined;
     return row.unit === row.ocrUnit ? row.meterDigits : undefined;
+  }
+
+  /**
+   * ความมั่นใจที่ส่งไปให้ด่านตรวจ — เงื่อนไขเดียวกับ digitsToSend
+   * คนแก้เลขเองแล้วยังส่งไป จะกลายเป็นบล็อกเลขที่เทียบกับหน้าปัดมาแล้วด้วยคะแนนของเลขตัวเก่า
+   */
+  private confidenceToSend(row: ScanRow): number | undefined {
+    if (row.ocrConfidence === null || row.ocrUnit === null) return undefined;
+    return row.unit === row.ocrUnit ? row.ocrConfidence : undefined;
   }
 
   // ==========================================
@@ -1226,6 +1436,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     row.status = 'saving';
     row.error = null;
+    // รหัสด่านของรอบก่อนต้องไม่ค้างมาถึงรอบนี้ ไม่งั้นปุ่มยืนยันของด่านเก่าจะโผล่คู่กับ
+    // ข้อความของด่านใหม่ที่ยังไม่มีรหัส
+    row.errorCode = null;
     this.cdr.detectChanges();
 
     const billing = this.selectedBilling;
@@ -1300,6 +1513,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // ด่านกันอ่านหลักหาย/หลักเกิน — ส่งเฉพาะแถวที่เลขยังเป็นค่าที่ AI อ่านมา
         meter_digits: this.digitsToSend(row),
         confirm_digit_change: row.confirmDigitChange,
+        // ด่านกันเลขที่ AI อ่านมาไม่ชัด (เช่น 1250 → 1258 ที่ลอดด่านอื่นไปได้หมด)
+        read_confidence: this.confidenceToSend(row),
+        confirm_low_confidence: row.confirmLowConfidence,
+        // ด่านกันรูปเดิมถูกส่งซ้ำ / รูปที่ถ่ายไว้ก่อนรอบนี้
+        confirm_duplicate_location: row.confirmDuplicateLocation,
+        confirm_stale_photo: row.confirmStalePhoto,
         billing_month: billing.month,
         billing_year: billing.year,
         // ส่งพิกัด/เวลาที่ถ่ายไปเก็บด้วย หลังบ้านเอาไปเรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้
@@ -1313,6 +1532,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (bill: any) => {
           row.status = 'saved';
+          row.errorCode = null;
           row.billId = bill?.id ?? null;
           this.dropReplacedBill(oldBillId, row.billId);
           // บิลออกแล้ว = ยืนยันแล้วว่ารูปใบนี้เป็นของบ้านหลังนี้จริง
@@ -1327,6 +1547,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           console.error('ออกบิลไม่สำเร็จ:', err);
           row.status = 'save_failed';
           row.error = extractErrorMessage(err, 'ออกบิลไม่สำเร็จ');
+          row.errorCode = extractErrorCode(err);
           this.progress.done = index + 1;
           this.persist();
           // ใบนี้ไม่ผ่านก็ข้ามไปทำใบอื่นต่อ แล้วค่อยกลับมาแก้ทีหลัง
@@ -1412,13 +1633,20 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       confidence: row.confidence,
       confirmHighUsage: row.confirmHighUsage,
       confirmDigitChange: false,
+      confirmLowConfidence: false,
+      confirmDuplicateLocation: false,
+      confirmStalePhoto: false,
       croppedRead: false,
-      // ตัวรูปไม่ได้ถูกเก็บไว้ ผลที่ AI เคยอ่านจึงยืนยันอะไรไม่ได้แล้ว ต้องข้ามด่านจำนวนหลักไป
+      // ตัวรูปไม่ได้ถูกเก็บไว้ ผลที่ AI เคยอ่านจึงยืนยันอะไรไม่ได้แล้ว
+      // ต้องข้ามทั้งด่านจำนวนหลักและด่านความชัดไป (ดู digitsToSend / confidenceToSend)
       ocrUnit: null,
       meterDigits: null,
+      ocrConfidence: null,
       // ค้างตอนกำลังยิง = ไม่รู้ผล ส่วนค้างตอนกำลังอ่าน = รูปไม่อยู่แล้ว ต้องกรอกเอง
       status: row.status === 'saving' ? 'unknown' : row.status === 'reading' ? 'read_failed' : (row.status as RowStatus),
       error: row.status === 'reading' ? 'รูปไม่ได้ถูกเก็บไว้ กรุณากรอกเลขเองครับ' : row.error,
+      // รหัสด่านไม่ได้ถูกเก็บลงเครื่อง — กดออกบิลซ้ำแล้วหลังบ้านจะตีกลับมาใหม่พร้อมรหัสเอง
+      errorCode: null,
       billId: row.billId
     };
   }

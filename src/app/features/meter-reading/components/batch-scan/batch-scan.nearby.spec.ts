@@ -43,11 +43,16 @@ const row = (over: any = {}) => ({
   confidence: 95,
   confirmHighUsage: false,
   confirmDigitChange: false,
+  confirmLowConfidence: false,
+  confirmDuplicateLocation: false,
+  confirmStalePhoto: false,
   croppedRead: false,
   ocrUnit: 1250,
   meterDigits: 4,
+  ocrConfidence: 0.95,
   status: 'ready',
   error: null,
+  errorCode: null,
   billId: null,
   ...over
 });
@@ -141,5 +146,45 @@ describe('BatchScanComponent — มิเตอร์ที่อยู่ใ�
 
     expect(target.memberId).toBe(2);
     expect(target.matchedBy).toBe('manual');
+  });
+
+  /**
+   * บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว ตัวเลือกที่รูปใบอื่นจองไปแล้วจึงกดไปก็ติด "ซ้ำในกอง"
+   * อยู่ดี — ตัดออกจากตัวเลือกที่กดได้ แต่ห้ามเติมหลังที่เหลือให้เอง เพราะถ้ารูปที่ไปจอง
+   * ไว้เลือกผิด แถวนี้จะผิดตามเป็นลูกโซ่โดยไม่มีใครทัก
+   */
+  describe('บ้านที่รูปใบอื่นในกองจองไปแล้ว', () => {
+    /** สองแถวที่ถ่ายจากจุดเดียวกัน มีบ้านให้เลือกคู่เดียวกัน */
+    const twoRows = (over: any = {}) => {
+      component.members = [house(1, '99/1', 13.75001), house(2, '99/2', 13.75009)];
+      component.rows = [row({ seq: 1, fileKey: 'a', ...over }), row({ seq: 2, fileKey: 'b', memberId: 2, matchedBy: 'manual' })] as any;
+      component.refreshAllNearby();
+      return component.rows[0];
+    };
+
+    it('ตัวเลือกที่ถูกจองแล้วต้องบอกว่ารูปใบไหนจอง และเหลือหลังว่างหลังเดียว', () => {
+      const target = twoRows();
+
+      expect(target.nearby.map((n: any) => n.takenBySeq)).toEqual([null, 2]);
+      expect(component.freeNearbyCount(target)).toBe(1);
+    });
+
+    it('เหลือทางเดียวก็ยังไม่เติมบ้านให้เอง และยังไม่ออกบิลให้เอง', () => {
+      const target = twoRows();
+
+      expect(target.memberId).toBeNull();
+      expect(component.autoSavable(target)).toBe(false);
+      expect(component.showNearbyChoices(target)).toBe(true);
+    });
+
+    it('แถวอื่นปล่อยบ้านที่จองไว้ → ตัวเลือกกลับมากดได้เอง ไม่ต้องเลือกรูปใหม่', () => {
+      const target = twoRows();
+
+      component.rows[1].memberId = null;
+      component.onMemberChanged(component.rows[1] as any);
+
+      expect(target.nearby.every((n: any) => n.takenBySeq === null)).toBe(true);
+      expect(component.freeNearbyCount(target)).toBe(2);
+    });
   });
 });

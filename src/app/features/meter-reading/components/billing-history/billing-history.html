@@ -282,6 +282,55 @@
         </dl>
       </div>
 
+      <!-- รูปหน้าปัดตอนจด — หลักฐานว่าเลขที่คิดเงินมาจากมิเตอร์ใบไหน ตอนไหน ที่ไหน -->
+      @if (detail) {
+        <div class="detail-block">
+          <div class="detail-heading">รูปมิเตอร์ตอนจด</div>
+
+          @if (detail.photo && !photoBroken) {
+            <button type="button" class="photo-open" (click)="openPhoto()">
+              <img class="meter-photo" [src]="detail.photo" alt="รูปหน้าปัดมิเตอร์ตอนจด" (error)="onPhotoError()" />
+              <span class="photo-hint">แตะที่รูปเพื่อดูใหญ่</span>
+            </button>
+          } @else if (photoBroken) {
+            <p class="photo-missing">เปิดรูปไม่ขึ้นครับ ไฟล์รูปของบิลใบนี้อาจถูกย้ายหรือลบไปแล้ว</p>
+          } @else {
+            <p class="photo-missing">บิลใบนี้ไม่มีรูปมิเตอร์เก็บไว้ครับ</p>
+          }
+
+          <dl class="detail-list">
+            @if (detail.captured) {
+              <div class="detail-row">
+                <dt>วันเวลาที่ถ่ายรูป</dt>
+                <dd>{{ detail.captured }}</dd>
+              </div>
+            }
+            @if (detail.confidence !== null) {
+              <div class="detail-row">
+                <dt>AI อ่านเลขได้ชัด</dt>
+                <dd>
+                  <span
+                    class="chip"
+                    [class.chip-success]="detail.confidence >= 85"
+                    [class.chip-warning]="detail.confidence < 85"
+                  >{{ detail.confidence }}%</span>
+                </dd>
+              </div>
+            }
+            @if (detail.coords) {
+              <div class="detail-row">
+                <dt>จุดที่ถ่ายรูป</dt>
+                <dd>
+                  <a class="detail-phone" [href]="detail.mapsUrl" target="_blank" rel="noopener">
+                    {{ detail.coords }}
+                  </a>
+                </dd>
+              </div>
+            }
+          </dl>
+        </div>
+      }
+
       <!-- ข้อมูลเอกสาร -->
       <div class="detail-block">
         <div class="detail-heading">ข้อมูลเอกสาร</div>
@@ -312,6 +361,14 @@
         </button>
       </div>
     </div>
+  </div>
+}
+
+<!-- รูปเต็มจอ — ซ้อนทับหน้ารายละเอียดไว้ ปิดแล้วกลับมาที่เดิมโดยไม่เสียตำแหน่ง -->
+@if (photoZoomed && detail?.photo; as zoomPhoto) {
+  <div class="photo-zoom" (click)="closePhoto()">
+    <img [src]="zoomPhoto" alt="รูปหน้าปัดมิเตอร์ ขนาดเต็ม" (click)="$event.stopPropagation()" />
+    <button type="button" class="photo-zoom-close" (click)="closePhoto()" aria-label="ปิดรูป">✕</button>
   </div>
 }
 

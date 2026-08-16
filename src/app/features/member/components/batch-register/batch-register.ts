@@ -8,9 +8,10 @@ import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { Village, VillageService } from '../../../village/services/village.service';
 import { parseCaptureDate, readPhotoMetadata } from '../../../meter-reading/services/exif';
-import { distanceMeters, toCoords } from '../../../meter-reading/services/geo';
+import { LatLng, distanceMeters, medianCoords, toCoords } from '../../../meter-reading/services/geo';
 import { photoDataUrl } from '../../../meter-reading/services/photo-file';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
+import { DeviceLocationComponent } from '../../../meter-reading/components/device-location/device-location';
 
 /** บ้านหนึ่งหลัง = รูปหน้าปัดหนึ่งใบ + ข้อมูลที่ต้องพิมพ์เพิ่มเอง */
 interface RegisterRow {
@@ -53,7 +54,7 @@ interface RegisterRow {
 @Component({
   selector: 'app-batch-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, DeviceLocationComponent],
   templateUrl: './batch-register.html',
   styleUrls: ['./batch-register.css']
 })
@@ -294,6 +295,21 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
   get needsAttention(): number {
     return this.rows.filter((row) => row.status !== 'saved' && this.blockingIssue(row) !== null).length;
+  }
+
+  /**
+   * ใจกลางของกองรูปที่เลือกมา — ส่งให้แถบเทียบตำแหน่งเครื่องแสดงอย่างเดียว
+   *
+   * ใช้ค่ากลาง ไม่ใช่ค่าเฉลี่ย เพราะรูปหลุดมาใบเดียวจากคนละอำเภอลากค่าเฉลี่ยออกไปได้ทั้งกอง
+   * (เหตุผลเดียวกับ villageCenter ในหน้าจดมิเตอร์ — ดู medianCoords)
+   * ค่านี้ไม่ถูกบันทึกและไม่มีผลกับพิกัดของแต่ละแถว ซึ่งยังมาจาก EXIF ของไฟล์ตัวเอง
+   */
+  get batchCenter(): LatLng | null {
+    const points = this.rows
+      .map((row) => toCoords(row.latitude, row.longitude))
+      .filter((point): point is LatLng => point !== null);
+
+    return medianCoords(points);
   }
 
   get progressPercent(): number {

@@ -138,6 +138,11 @@
         </div>
       </div>
 
+      <!-- ของประกอบสายตาล้วน: กองรูปนี้อยู่ห่างจากที่ยืนอยู่ตอนนี้แค่ไหน
+           หยิบรูปผิดกอง (คนละวัน/คนละหมู่บ้าน) จะเห็นเป็นหลักกิโลตั้งแต่ก่อนกดอ่านเลข
+           ค่าจากเครื่องไม่เข้าด่านของ autoSavable() และไม่ถูกส่งไปกับบิลใบไหนทั้งนั้น -->
+      <app-device-location [photo]="batchCenter" subject="ใจกลางกองรูป" />
+
       @if (isSaving) {
         <div class="progress">
           <div class="progress-bar">
@@ -284,6 +289,11 @@
                     <span class="row-cap">
                       @if (row.memberId) {
                         มิเตอร์แถวนี้อยู่ใกล้กันหลายหลัง เทียบกับรูปแล้วเลือกหลังที่ถ่ายจริงครับ
+                      } @else if (freeNearbyCount(row) === 1) {
+                        <!-- หลังอื่นถูกรูปใบอื่นในกองใช้ไปแล้ว (บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว)
+                             เหลือทางเดียวก็จริง แต่ยังต้องให้คนกดเอง เผื่อรูปใบที่ไปจองไว้เลือกผิด -->
+                        บ้านใกล้ ๆ หลังอื่นถูกใช้กับรูปใบอื่นไปแล้ว เหลือหลังเดียวที่ยังว่าง
+                        ถ้าตรงกับรูปนี้กดได้เลยครับ
                       } @else {
                         จุดที่ถ่ายรูปอยู่ใกล้บ้านพวกนี้ครับ
                       }
@@ -294,12 +304,17 @@
                           type="button"
                           class="nearby-btn"
                           [class.is-on]="near.member.id === row.memberId"
+                          [class.is-taken]="near.takenBySeq !== null"
                           (click)="pickNearby(row, near.member)"
-                          [disabled]="isBusy"
+                          [disabled]="isBusy || near.takenBySeq !== null"
                         >
                           <span class="nearby-house">{{ near.member.house_no }}</span>
                           <span class="nearby-name">{{ near.member.fname }} {{ near.member.lname }}</span>
-                          <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม.</span>
+                          @if (near.takenBySeq !== null) {
+                            <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม. · รูป #{{ near.takenBySeq }} ใช้แล้ว</span>
+                          } @else {
+                            <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม.</span>
+                          }
                         </button>
                       }
                     </div>
@@ -362,19 +377,12 @@
                   <p class="row-issue">🛑 {{ row.error }}</p>
                 }
 
-                <!-- ติดด่านหน่วยน้ำสูงผิดปกติ — ต้องยืนยันได้ในหน้านี้ ไม่งั้นบ้านที่ใช้น้ำเยอะจริง
-                     จะออกบิลจากโหมดกองไม่ได้เลย -->
-                @if (needsHighUsageConfirm(row)) {
-                  <button type="button" class="btn btn-secondary btn-sm row-confirm" (click)="confirmHighUsage(row)" [disabled]="isBusy">
-                    ตรวจแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า
-                  </button>
-                }
-
-                <!-- จำนวนหลักไม่ตรงกับที่บ้านนี้เคยอ่านได้ = สัญญาณว่า AI อ่านหลักหาย/เกิน
-                     ซึ่งทำให้ยอดคลาดสิบเท่า ต้องเทียบกับรูปก่อนยืนยัน -->
-                @if (needsDigitConfirm(row)) {
-                  <button type="button" class="btn btn-secondary btn-sm row-confirm" (click)="confirmDigitChange(row)" [disabled]="isBusy">
-                    เทียบกับหน้าปัดแล้ว จำนวนหลักถูกต้อง — ให้ออกบิลรอบหน้า
+                <!-- ติดด่านที่คนดูแล้วยืนยันเองได้ (หน่วยพุ่ง · จำนวนหลักเปลี่ยน · อ่านไม่ชัด ·
+                     รูปซ้ำ · รูปเก่า) ต้องยืนยันได้ในหน้านี้ ไม่งั้นบ้านที่ติดด่านเหล่านี้จะออกบิล
+                     จากโหมดกองไม่ได้เลย — ส่วนด่านที่ห้ามข้ามจะไม่มีปุ่มมาถึงตรงนี้ (ดู CONFIRM_STEPS) -->
+                @if (pendingConfirm(row); as step) {
+                  <button type="button" class="btn btn-secondary btn-sm row-confirm" (click)="confirmStep(row, step)" [disabled]="isBusy">
+                    {{ step.label }}
                   </button>
                 }
 

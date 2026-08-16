@@ -1,0 +1,56 @@
+<!--
+  ตอน prerender และบนเครื่องที่ไม่รองรับ จะไม่มีอะไรขึ้นเลย
+  แถบนี้เป็นของประกอบ ขาดไปแล้วงานยังเดินได้ครบเหมือนเดิม
+-->
+@if (isSupported) {
+  <div class="device-loc">
+    @if (status() === 'idle') {
+      <button type="button" class="btn btn-ghost btn-sm device-loc-ask" (click)="request()">
+        📍 เทียบกับตำแหน่งที่ยืนอยู่ตอนนี้
+      </button>
+      <span class="device-loc-note">ใช้ดูเทียบอย่างเดียว ไม่ถูกบันทึกลงทะเบียนครับ</span>
+    } @else if (status() === 'asking') {
+      <span class="device-loc-note">กำลังหาตำแหน่งของเครื่อง...</span>
+    } @else if (status() === 'ready' && coords(); as here) {
+      <div class="device-loc-head">
+        <span class="device-loc-title">
+          ตำแหน่งเครื่องนี้
+          @if (subject()) {
+            <span class="device-loc-subject">เทียบกับ{{ subject() }}</span>
+          }
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="hide()">ซ่อน</button>
+      </div>
+
+      <div class="device-loc-point">
+        {{ here.lat | number: '1.5-5' }}, {{ here.lng | number: '1.5-5' }}
+        @if (accuracyMeters(); as meters) {
+          <span class="device-loc-accuracy">±{{ gapLabel(meters) }}</span>
+        }
+      </div>
+
+      <!-- ต้องติดป้ายเสมอเมื่อค่าหยาบ ไม่งั้นคนเห็นตัวเลขแล้วนึกว่าแม่นเท่ารูป -->
+      @if (isCoarse()) {
+        <p class="device-loc-warn">
+          ค่านี้เครื่องเดาจากเน็ต ไม่ได้จับจากดาวเทียม อาจห่างจากที่ยืนอยู่จริงหลายกิโลครับ
+          — ให้ยึดพิกัดที่ติดมากับรูปเป็นหลัก
+        </p>
+      }
+
+      @if (gapText(); as gap) {
+        <p class="device-loc-gap" [class.warn]="gapIsFar()">
+          รูปนี้ถ่ายห่างจากที่ยืนอยู่ตอนนี้ประมาณ <strong>{{ gap }}</strong>
+        </p>
+      } @else {
+        <p class="device-loc-note">ยังไม่มีพิกัดจากรูปให้เทียบครับ</p>
+      }
+
+      <p class="device-loc-note">
+        ตัวเลขนี้ไม่ถูกบันทึกและไม่มีผลกับการออกบิล พิกัดที่ระบบใช้มาจากรูปเท่านั้นครับ
+      </p>
+    } @else {
+      <p class="device-loc-warn">{{ errorMessage() }}</p>
+      <button type="button" class="btn btn-ghost btn-sm" (click)="request()">ลองใหม่</button>
+    }
+  </div>
+}

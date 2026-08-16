@@ -130,6 +130,10 @@
                   </td>
                   <td>
                     <div class="cell-actions">
+                      <button type="button" class="btn btn-sm btn-secondary" (click)="openBills(member)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                        พิมพ์บิล
+                      </button>
                       <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                         แก้ไข
@@ -189,6 +193,11 @@
               />
             }
 
+            <button type="button" class="btn btn-secondary btn-block bills-btn" (click)="openBills(member)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+              พิมพ์บิลย้อนหลัง
+            </button>
+
             <div class="member-actions">
               <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -232,6 +241,10 @@
       @if (locationError) {
         <p class="field-error">{{ locationError }}</p>
       }
+
+      <!-- ของประกอบสายตาล้วน: ที่ยืนอยู่ตอนนี้ห่างจากจุดที่ถ่ายรูปแค่ไหน
+           ช่วยจับตอนหยิบรูปเก่าผิดใบมาแนบ ค่าจากเครื่องไม่ถูกบันทึกและไม่แตะพิกัดของรูป -->
+      <app-device-location [photo]="newMemberCoords" subject="รูปที่แนบ" />
 
       @if (villages.length > 1) {
         <div class="field">
@@ -477,6 +490,9 @@
         </label>
         <input id="edit-coords-photo" type="file" accept="image/*" (change)="onEditPhotoPicked($event)" hidden />
 
+        <!-- เทียบพิกัดที่บันทึกไว้กับที่ยืนอยู่ตอนนี้ — ดูอย่างเดียว การแก้ยังต้องแนบรูปเท่านั้น -->
+        <app-device-location [photo]="editingMemberCoords" subject="พิกัดที่บันทึกไว้" />
+
         @if (editLocationError) {
           <p class="field-error">{{ editLocationError }}</p>
         } @else {
@@ -498,6 +514,67 @@
             บันทึกการแก้ไข
           }
         </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= บิลย้อนหลังของบ้านหลังเดียว =================
+     เอกสารที่ออกคือใบ A4 ตัวเดียวกับหน้าประวัติบิล (BillPrintService.printSingle) -->
+@if (billsMember) {
+  <div class="modal-overlay" (click)="closeBills()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">บิลของบ้านเลขที่ {{ billsMember.house_no }}</h2>
+          <p class="text-muted">{{ ownerName(billsMember) }}</p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeBills()" aria-label="ปิด">✕</button>
+      </div>
+
+      @if (isLoadingBills) {
+        <p class="loading-note">
+          <span class="loading-dot"></span> กำลังดึงบิลของบ้านหลังนี้ รอสักครู่นะครับ...
+        </p>
+      } @else if (billsLoadFailed) {
+        <div class="alert alert-danger">
+          <span>❌</span>
+          <span>ดึงบิลไม่สำเร็จครับ กดปุ่มลองใหม่ด้านล่างได้เลย</span>
+        </div>
+      } @else if (memberBills.length === 0) {
+        <div class="alert alert-info">
+          <span>🧾</span>
+          <span>บ้านหลังนี้ยังไม่มีบิลในระบบครับ ต้องไปจดมิเตอร์ที่หน้าสแกนก่อน</span>
+        </div>
+      } @else {
+        <ul class="bill-picks">
+          @for (bill of memberBills; track bill.id) {
+            <li class="bill-pick">
+              <div class="bill-pick-info">
+                <span class="bill-pick-month">{{ monthLabel(bill.billing_month, bill.billing_year) }}</span>
+                <span class="bill-pick-meta">
+                  {{ bill.usage_unit }} ลบ.ม. · {{ bill.total_amount | number:'1.2-2' }} บาท
+                </span>
+              </div>
+              <span
+                class="chip"
+                [class.chip-success]="bill.payment_status === 'Paid'"
+                [class.chip-warning]="bill.payment_status !== 'Paid'"
+              >{{ statusLabel(bill.payment_status) }}</span>
+              <button type="button" class="btn btn-sm btn-primary" (click)="printBill(bill)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                พิมพ์
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeBills()">ปิด</button>
+        @if (billsLoadFailed) {
+          <button type="button" class="btn btn-primary" (click)="openBills(billsMember)">ลองใหม่</button>
+        }
       </div>
     </div>
   </div>

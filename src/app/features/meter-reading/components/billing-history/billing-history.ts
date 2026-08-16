@@ -6,6 +6,7 @@ import { toast } from 'ngx-sonner';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
+import { API_BASE_URL } from '../../../../core/api.config';
 
 @Component({
   selector: 'app-billing-history',
@@ -29,10 +30,120 @@ export class BillingHistoryComponent implements OnInit {
 
   openDetail(bill: any) {
     this.selectedBill = bill;
+    this.photoBroken = false;
+    this.photoZoomed = false;
+    this.detail = this.buildDetail(bill);
   }
 
   closeDetail() {
     this.selectedBill = null;
+    this.photoZoomed = false;
+    this.detail = null;
+  }
+
+  // ==========================================
+  // รูปหน้าปัดที่จดไว้ + ข้อมูลตอนถ่าย
+  // ==========================================
+
+  /** รูปเปิดไม่ขึ้น (ไฟล์หาย/หลังบ้านย้ายที่เก็บ) — บอกให้เห็นดีกว่าปล่อยกรอบว่าง */
+  photoBroken = false;
+
+  /** กดรูปแล้วขยายเต็มจอ — บนมือถือรูปในการ์ดเล็กเกินกว่าจะอ่านเลขบนหน้าปัดซ้ำได้ */
+  photoZoomed = false;
+
+  /**
+   * ข้อมูลการจดของใบที่เปิดดูอยู่ คิดครั้งเดียวตอนกดเปิด
+   *
+   * ไม่คิดสดใน template เพราะ confidence เป็น 0 ได้ (AI อ่านไม่ออกเลย) ซึ่งเป็นเคส
+   * ที่ต้องเห็นที่สุด แต่ `@if (...; as x)` มองว่า falsy แล้วซ่อนทิ้ง
+   */
+  detail: {
+    photo: string | null;
+    captured: string;
+    confidence: number | null;
+    coords: string;
+    mapsUrl: string;
+  } | null = null;
+
+  private buildDetail(bill: any) {
+    const reading = bill?.meter_reading;
+    const coords = this.photoCoords(reading);
+
+    return {
+      photo: this.photoUrl(reading),
+      captured: this.capturedLabel(reading),
+      confidence: this.confidencePercent(reading),
+      coords: coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '',
+      mapsUrl: coords ? `https://www.google.com/maps?q=${coords.lat},${coords.lng}` : ''
+    };
+  }
+
+  /**
+   * ที่อยู่รูปหน้าปัดของบิลใบนี้
+   *
+   * หลังบ้านเก็บรูปเป็นไฟล์แล้วคืน path มา (เช่น 'uploads/xxx.jpg') จึงต้องต่อกับ
+   * API_BASE_URL เอง — ต่อจาก hostname ปัจจุบันเหมือน request อื่น ไม่งั้นเปิดจากมือถือ
+   * ในวงแลนแล้วรูปจะวิ่งไป localhost ของเครื่องตัวเอง
+   * (เผื่อบิลเก่าที่เก็บเป็น data URL หรือ URL เต็มไว้ ให้ใช้ค่านั้นตรง ๆ)
+   */
+  private photoUrl(reading: any): string | null {
+    const raw = String(reading?.meter_photo ?? '').trim();
+    if (!raw) return null;
+    if (/^(data:|https?:\/\/)/i.test(raw)) return raw;
+    return `${API_BASE_URL}/${raw.replace(/^\/+/, '')}`;
+  }
+
+  /**
+   * วันเวลาที่กดชัตเตอร์ (จาก EXIF ของรูป) — ต้องมีเวลาด้วย ไม่ใช่แค่วันที่
+   * เพราะใช้ยันกับลูกบ้านว่าไปจดตอนไหน ส่วน dateLabel() ให้มาแค่วันที่
+   */
+  private capturedLabel(reading: any): string {
+    const raw = reading?.captured_at;
+    if (!raw) return '';
+
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return '';
+
+    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return `${this.dateLabel(d)} เวลา ${time} น.`;
+  }
+
+  /** ความมั่นใจตอน AI อ่านเลข — หลังบ้านเก็บเป็น 0–1 และเป็น NULL เมื่อคนพิมพ์เลขเอง */
+  private confidencePercent(reading: any): number | null {
+    const value = this.toNumber(reading?.read_confidence);
+    return value === null ? null : Math.round(value * 100);
+  }
+
+  /** ตัวเลขที่หลังบ้านคืนมาเป็น string ได้ ('14.98') — ค่าว่างต้องเป็น null ไม่ใช่ 0 */
+  private toNumber(raw: any): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  /** พิกัดจาก EXIF ของรูปใบนี้ — คนละค่ากับพิกัดที่ลงทะเบียนไว้ในทะเบียนบ้าน */
+  private photoCoords(reading: any): { lat: number; lng: number } | null {
+    // Number(null) = 0 — ถ้าไม่กันก่อน ด้านที่ว่างจะกลายเป็นพิกัด 0 องศาแล้วชี้ผิดทวีป
+    const lat = this.toNumber(reading?.latitude);
+    const lng = this.toNumber(reading?.longitude);
+    if (lat === null || lng === null) return null;
+    // 0,0 คือค่าที่หลุดมาตอนอ่าน EXIF ไม่ได้ ไม่ใช่พิกัดกลางมหาสมุทรจริง ๆ
+    if (lat === 0 && lng === 0) return null;
+    return { lat, lng };
+  }
+
+  onPhotoError() {
+    this.photoBroken = true;
+    this.cdr.detectChanges();
+  }
+
+  openPhoto() {
+    if (this.photoBroken) return;
+    this.photoZoomed = true;
+  }
+
+  closePhoto() {
+    this.photoZoomed = false;
   }
 
 

@@ -17,3 +17,20 @@ export function extractErrorMessage(err: unknown, fallback: string): string {
 
   return fallback;
 }
+
+/**
+ * รหัสด่านที่หลังบ้านแนบมาใน body ({ statusCode, message, code })
+ *
+ * ต้องแยกด่านด้วยรหัส ไม่ใช่การหาคำในข้อความ — ข้อความเป็นภาษาไทยที่แก้เมื่อไหร่ก็ได้
+ * และคำอย่าง "หลัก" หรือ "เลข" โผล่ในข้อความของหลายด่านพร้อมกัน พอแยกผิดจะเอาปุ่ม
+ * "ยืนยันว่าถูกต้อง" ไปแปะให้ด่านที่ห้ามข้าม (เช่นรูปซ้ำ/บิลจ่ายแล้ว)
+ *
+ * ⚠️ status ไม่คงที่ — ด่านมิเตอร์เดินถอยหลังเป็น 400 ส่วนที่เหลือเป็น 409
+ *    ตัดสินจากรหัสอย่างเดียว อย่าผูกกับ status
+ */
+export function extractErrorCode(err: unknown): string | null {
+  if (!(err instanceof HttpErrorResponse)) return null;
+
+  const code = err.error?.code;
+  return typeof code === 'string' && code.trim() ? code : null;
+}

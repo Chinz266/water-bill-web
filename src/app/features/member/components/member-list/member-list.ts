@@ -13,6 +13,7 @@ import { LatLng, toCoords } from '../../../meter-reading/services/geo';
 import { anchorDayOf, memberReadingDates } from '../../../meter-reading/services/billing-cycle';
 import { photoDataUrl } from '../../../meter-reading/services/photo-file';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
+import { DeviceLocationComponent } from '../../../meter-reading/components/device-location/device-location';
 
 /**
  * ทะเบียนลูกบ้าน — เขียนใหม่ทั้งหน้า ตัดขั้นตอนที่คนใช้ต้องกดเองออกให้มากที่สุด
@@ -37,7 +38,7 @@ import { BillPrintService } from '../../../meter-reading/services/bill-print.ser
 @Component({
   selector: 'app-member-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, DeviceLocationComponent],
   templateUrl: './member-list.html',
   styleUrls: ['./member-list.css']
 })
@@ -174,6 +175,9 @@ export class MemberListComponent implements OnInit {
    *
    * ส่วนรูปหน้าปัดถูกกดชัตเตอร์ตอนยืนอยู่หน้ามิเตอร์จริง พิกัดที่กล้องฝังมาในไฟล์
    * จึงเป็นตำแหน่งมิเตอร์เสมอ ไม่ว่าจะมานั่งกรอกที่ไหนทีหลังก็ตาม
+   *
+   * (แถบ app-device-location ในหน้าต่างเพิ่ม/แก้ไข เรียก navigator.geolocation อยู่ก็จริง
+   * แต่ค่าที่ได้ขึ้นจอเฉย ๆ ไม่มีทางไหลกลับมาถึงตรงนี้ — ดู device-location.ts)
    */
   private async coordsFromPhoto(file: Blob): Promise<LatLng | null> {
     const meta = await readPhotoMetadata(file);
@@ -349,6 +353,20 @@ export class MemberListComponent implements OnInit {
 
   get hasCoords(): boolean {
     return toCoords(this.newMember.latitude, this.newMember.longitude) !== null;
+  }
+
+  /**
+   * พิกัดของรูปที่แนบอยู่ ส่งให้แถบเทียบตำแหน่งเครื่อง (app-device-location) วาดอย่างเดียว
+   *
+   * ทางเดินของค่ายังเป็นทางเดียวเหมือนเดิม: รูป → EXIF → newMember → หลังบ้าน
+   * แถบนั้นอ่านค่านี้ไปแสดง ไม่มีทางเขียนกลับ — ตำแหน่งจากเครื่องจึงไม่แตะข้อมูลที่บันทึก
+   */
+  get newMemberCoords(): LatLng | null {
+    return toCoords(this.newMember.latitude, this.newMember.longitude);
+  }
+
+  get editingMemberCoords(): LatLng | null {
+    return toCoords(this.editingMember?.latitude, this.editingMember?.longitude);
   }
 
   /** วันที่จะถูกบันทึกเป็นวันจดเลขตั้งต้นจริง ๆ — ไม่มีวันถ่ายติดรูปก็ถอยมาใช้วันนี้ */
@@ -573,6 +591,79 @@ export class MemberListComponent implements OnInit {
           toast.error(extractErrorMessage(err, 'แก้ไขข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-update-error' });
         }
       });
+  }
+
+  // ==========================================
+  // พิมพ์บิลย้อนหลังของบ้านหลังเดียว
+  //
+  // ลูกบ้านมาขอใบเสร็จย้อนหลังทีละหลัง แต่ของเดิมต้องเข้าหน้าประวัติบิล เลือกเดือน
+  // แล้วค้นบ้านเลขที่อีกที ทั้งที่ยืนดูทะเบียนบ้านหลังนั้นอยู่แล้ว
+  //
+  // เอกสารที่ออกคือ printSingle() ตัวเดียวกับหน้าประวัติบิล (A4 เต็มหน้า) —
+  // อย่าเขียน template ใบเสร็จของหน้านี้เอง ไม่งั้นบิลใบเดียวกันพิมพ์จากคนละหน้า
+  // แล้วได้คนละหน้าตา ลูกบ้านที่ถือสองใบมาเทียบจะไม่เชื่อทั้งสองใบ
+  // ==========================================
+
+  /** บ้านที่กำลังเปิดดูบิลอยู่ (null = ยังไม่ได้กด) */
+  billsMember: any = null;
+  memberBills: any[] = [];
+  isLoadingBills = false;
+  billsLoadFailed = false;
+
+  openBills(member: any): void {
+    this.billsMember = member;
+    this.memberBills = [];
+    this.billsLoadFailed = false;
+    this.isLoadingBills = true;
+    this.cdr.detectChanges();
+
+    // โหลดใหม่ทุกครั้งที่เปิด ไม่เก็บกองไว้ — บิลออกเพิ่มระหว่างเปิดหน้านี้ค้างไว้ได้
+    this.meterReadingService.getBills().subscribe({
+      next: (bills: any) => {
+        const all = bills ?? [];
+        // ช่วงวันของรอบต้องรู้วันจดของใบก่อนหน้า จึงต้องทำดัชนีจากบิล "ทั้งกอง"
+        // ไม่ใช่เฉพาะของบ้านหลังนี้ (ดู BillPrintService.indexCycles)
+        this.print.indexCycles(all);
+
+        this.memberBills = all
+          // id จากหลังบ้านมาเป็น string ได้ในบางเส้นทาง เทียบเป็นตัวเลขไว้ก่อน
+          .filter((b: any) => Number(b?.member?.id ?? b?.members_id) === Number(member.id))
+          .sort((a: any, b: any) => this.billOrder(b) - this.billOrder(a));
+
+        this.isLoadingBills = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Load member bills error:', err);
+        this.isLoadingBills = false;
+        this.billsLoadFailed = true;
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'ดึงบิลของบ้านหลังนี้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-bills-error' });
+      }
+    });
+  }
+
+  closeBills(): void {
+    this.billsMember = null;
+    this.memberBills = [];
+  }
+
+  /** เรียงใหม่สุดขึ้นก่อน — 2569-08 ต้องมาก่อน 2569-07 ไม่ใช่เรียงตามวันที่กดออกบิล */
+  private billOrder(bill: any): number {
+    return Number(bill?.billing_year ?? 0) * 12 + Number(bill?.billing_month ?? 0);
+  }
+
+  printBill(bill: any): void {
+    this.print.printSingle(bill);
+  }
+
+  // ข้อความบนจอใช้ตัวเดียวกับที่พิมพ์ลงกระดาษ ให้ตรงกันทั้งสองที่
+  monthLabel(month: string | number, year: string | number): string {
+    return this.print.monthLabel(month, year);
+  }
+
+  statusLabel(status: string): string {
+    return this.print.statusLabel(status);
   }
 
   // ==========================================

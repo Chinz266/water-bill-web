@@ -64,24 +64,33 @@ export function isFarFrom(center: LatLng | null, point: LatLng | null, maxMeters
   return distanceMeters(center, point) > maxMeters;
 }
 
-export interface NearestMatch<T> {
-  item: T;
-  meters: number;
-}
+/**
+ * ผลการเลือกตัวที่ใกล้ที่สุด — แยก "ไม่เจอ" ออกจาก "เจอแต่ชี้ขาดไม่ได้"
+ *
+ * เดิมคืน null ทั้งสองกรณี ฝั่งที่เรียกจึงบอกคนใช้งานได้แค่ "เดาไม่ได้" ทั้งที่สองอย่างนี้
+ * ต้องทำคนละอย่าง: ไม่เจอ = ไปหาเองใน dropdown · ก้ำกึ่ง = ดูรูปแล้วกดเลือกจากสองหลังนี้
+ */
+export type NearestOutcome<T> =
+  | { kind: 'match'; item: T; meters: number }
+  | { kind: 'ambiguous'; item: T; meters: number; rival: T; rivalMeters: number }
+  | { kind: 'none' };
 
 /**
- * เลือกตัวที่ใกล้ที่สุด "แบบมั่นใจพอ" — เดาไม่ได้ให้คืน null ดีกว่าเดาผิด
+ * เลือกตัวที่ใกล้ที่สุด "แบบมั่นใจพอ" — เดาไม่ได้ให้บอกว่าเดาไม่ได้ ดีกว่าเดาผิด
  *
  * นอกจากต้องอยู่ในรัศมี maxMeters แล้ว ยังต้องทิ้งห่างอันดับสองอย่างน้อย minMargin
  * เพราะถ้าสองหลังห่างจากจุดถ่ายพอ ๆ กัน การที่หลังหนึ่งใกล้กว่าอีกหลัง 2 เมตร
  * ไม่ได้แปลว่าถูก — ความคลาดเคลื่อนของ GPS มากกว่านั้นเยอะ เดาไปก็เท่ากับโยนหัวก้อย
+ *
+ * ⚠️ ตัวที่คืนมาพร้อม kind 'ambiguous' ยัง **ห้ามเอาไปใช้เป็นคำตอบ** มีไว้บอกคนว่า
+ *    ระบบลังเลอยู่ระหว่างหลังไหนกับหลังไหน ห่างกันเท่าไร เท่านั้น
  */
 export function pickNearest<T>(
   from: LatLng,
   items: T[],
   coordsOf: (item: T) => LatLng | null,
   options: { maxMeters: number; minMargin: number }
-): NearestMatch<T> | null {
+): NearestOutcome<T> {
   const ranked = items
     .map((item) => ({ item, coords: coordsOf(item) }))
     .filter((row): row is { item: T; coords: LatLng } => row.coords !== null)
@@ -89,12 +98,20 @@ export function pickNearest<T>(
     .sort((a, b) => a.meters - b.meters);
 
   const nearest = ranked[0];
-  if (!nearest || nearest.meters > options.maxMeters) return null;
+  if (!nearest || nearest.meters > options.maxMeters) return { kind: 'none' };
 
   const runnerUp = ranked[1];
-  if (runnerUp && runnerUp.meters - nearest.meters < options.minMargin) return null;
+  if (runnerUp && runnerUp.meters - nearest.meters < options.minMargin) {
+    return {
+      kind: 'ambiguous',
+      item: nearest.item,
+      meters: nearest.meters,
+      rival: runnerUp.item,
+      rivalMeters: runnerUp.meters
+    };
+  }
 
-  return nearest;
+  return { kind: 'match', item: nearest.item, meters: nearest.meters };
 }
 
 /**

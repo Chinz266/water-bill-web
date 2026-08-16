@@ -40,9 +40,17 @@ const row = (over: any = {}) => ({
   unit: null,
   confidence: null,
   confirmHighUsage: false,
+  confirmDigitChange: false,
+  confirmLowConfidence: false,
+  confirmDuplicateLocation: false,
+  confirmStalePhoto: false,
   croppedRead: false,
+  ocrUnit: null,
+  meterDigits: null,
+  ocrConfidence: null,
   status: 'pending',
   error: null,
+  errorCode: null,
   billId: null,
   ...over
 });

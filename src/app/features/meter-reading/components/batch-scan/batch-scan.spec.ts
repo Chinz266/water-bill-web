@@ -39,8 +39,16 @@ const row = (over: any = {}) => ({
   unit: null,
   confidence: null,
   confirmHighUsage: false,
+  confirmDigitChange: false,
+  confirmLowConfidence: false,
+  confirmDuplicateLocation: false,
+  confirmStalePhoto: false,
+  ocrUnit: null,
+  meterDigits: null,
+  ocrConfidence: null,
   status: 'pending',
   error: null,
+  errorCode: null,
   billId: null,
   ...over
 });
@@ -212,6 +220,40 @@ describe('BatchScanComponent', () => {
     });
 
     /**
+     * "ไม่มีบ้านอยู่ใกล้เลย" กับ "มีสองหลังใกล้พอ ๆ กัน" ต้องขึ้นคนละข้อความ
+     * เพราะคนต้องทำคนละอย่าง — อย่างแรกไปหาเองใน dropdown อย่างหลังดูรูปแล้วเลือกจากสองหลังนี้
+     */
+    it('สองหลังก้ำกึ่ง → บอกด้วยว่าลังเลระหว่างบ้านหลังไหน ห่างกันเท่าไร', () => {
+      component.members = [houseAt(1, '99/1', 13.75, 100.5), houseAt(2, '99/2', 13.7501, 100.5)];
+      component.rows = [row({ seq: 1, latitude: 13.75, longitude: 100.5 })] as any;
+      component.analyze();
+
+      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({
+        results: [result({ suggestion: null, confidence: 'high', photo_taken: null })]
+      });
+
+      expect(component.rows[0].matchConfidence).toBe('ambiguous');
+      expect(component.rows[0].matchReason).toContain('99/1');
+      expect(component.rows[0].matchReason).toContain('99/2');
+      expect(component.rows[0].matchReason).toContain('ต่างกันแค่');
+    });
+
+    it('ไม่มีบ้านหลังไหนอยู่ใกล้เลย → ไม่ต้องขึ้นว่าก้ำกึ่ง', () => {
+      // ห่างไปราว 1.1 กม. เกินเพดานที่ยอมให้จับคู่
+      component.members = [houseAt(1, '99/1', 13.76, 100.5)];
+      component.rows = [row({ seq: 1, latitude: 13.75, longitude: 100.5 })] as any;
+      component.analyze();
+
+      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({
+        results: [result({ suggestion: null, confidence: 'none', reason: null, photo_taken: null })]
+      });
+
+      expect(component.rows[0].memberId).toBeNull();
+      expect(component.rows[0].matchConfidence).toBe('none');
+      expect(component.rows[0].matchReason).toBeNull();
+    });
+
+    /**
      * เปิดหน้าแล้วกดเลือกรูปทันทีเป็นเรื่องปกติ ตอนนั้น /member/all ยังไม่กลับมา
      * matchByCoords เลยไม่มีบ้านให้เทียบ — ถ้าไม่ไล่ซ้ำตอนรายชื่อมาถึง ทั้งกอง
      * จะค้างที่ "ยังไม่รู้ว่าบ้านไหน" ทั้งที่พิกัดครบ และไม่มีอะไรมาเรียกให้อีกแล้ว
@@ -359,12 +401,13 @@ describe('BatchScanComponent', () => {
       http.expectOne(r => r.url.endsWith('/water-rates/active')).flush({ id: 5 });
       answerPrevious();
       http.expectOne(r => r.url.endsWith('/bills/scan')).flush(
-        { message: 'เดือนนี้ใช้น้ำ 800 หน่วย สูงผิดปกติ' },
+        { message: 'เดือนนี้ใช้น้ำ 800 หน่วย สูงผิดปกติ', code: 'HIGH_USAGE' },
         { status: 409, statusText: 'Conflict' }
       );
 
-      expect(component.needsHighUsageConfirm(component.rows[0])).toBe(true);
-      component.confirmHighUsage(component.rows[0]);
+      const step = component.pendingConfirm(component.rows[0] as any)!;
+      expect(step.flag).toBe('confirmHighUsage');
+      component.confirmStep(component.rows[0] as any, step);
 
       component.saveAll();
       http.expectOne(r => r.url.endsWith('/water-rates/active')).flush({ id: 5 });

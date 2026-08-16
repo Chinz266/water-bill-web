@@ -804,6 +804,15 @@ button.chip:hover {
   cursor: not-allowed;
 }
 
+/* บ้านที่รูปใบอื่นในกองจองไปแล้ว — คงไว้ให้เห็น (จะได้รู้ว่าระบบเทียบกับหลังไหนบ้าง)
+   แต่จางลงกว่าปุ่มที่กดได้ ให้ตาไปหยุดที่หลังที่ยังว่างก่อน */
+.nearby-btn.is-taken {
+  background: var(--bg);
+  border-style: dashed;
+  text-decoration: line-through;
+  text-decoration-color: var(--text-muted);
+}
+
 .nearby-house {
   font-size: 17px;
   font-weight: 700;
@@ -823,6 +832,131 @@ button.chip:hover {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ---------- แถบเทียบตำแหน่งเครื่อง (app-device-location) ----------
+   วางที่ global เพราะใช้ 3 หน้าที่อยู่คนละ feature และหน้าที่ใหญ่สุดชน budget แล้ว
+   ดีไซน์ตั้งใจให้ "จาง" กว่าของอื่นในหน้า — เป็นของประกอบสายตา ไม่ใช่ข้อมูลที่ระบบใช้ */
+.device-loc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.device-loc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-1);
+}
+
+.device-loc-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.device-loc-subject {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* พิกัดเป็นตัวเลขล้วน อ่านทีละหลักง่ายกว่าถ้าความกว้างตัวอักษรเท่ากัน */
+.device-loc-point {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.device-loc-accuracy {
+  margin-left: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.device-loc-gap {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* ห่างจนน่าสงสัยว่าหยิบรูปผิดใบ — เตือนด้วยพื้นหลัง ไม่ใช่สีตัวอักษร
+   เพราะ --warning เป็นสีเหลืองอำพัน ตัวหนังสือสีนี้บนพื้นจาง ๆ อ่านไม่ออกกลางแดด */
+.device-loc-gap.warn,
+.device-loc-warn {
+  padding: 6px 10px;
+  font-weight: 600;
+  background: var(--warning-soft);
+  border-radius: var(--radius-sm);
+}
+
+.device-loc-warn {
+  margin: 0;
+  font-size: 14px;
+}
+
+.device-loc-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.device-loc-ask {
+  align-self: flex-start;
+}
+
+/* ---------- ทะเบียนลูกบ้าน: เลือกบิลย้อนหลังไปพิมพ์ ----------
+   วางที่ global เพราะ member-list.css ชนเพดาน budget 4kB ต่อ component แล้ว */
+.bills-btn {
+  margin-bottom: var(--sp-1);
+}
+
+.bill-picks {
+  margin: 0 0 var(--sp-2);
+  padding: 0;
+  list-style: none;
+}
+
+.bill-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.bill-pick:last-child {
+  border-bottom: 0;
+}
+
+.bill-pick-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bill-pick-month {
+  display: block;
+  font-weight: 600;
+}
+
+.bill-pick-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 480px) {
+  /* จอแคบ: ป้ายสถานะกับปุ่มพิมพ์ลงมาอยู่ใต้ชื่อเดือน ไม่บีบจนอ่านเลขเดือนไม่ออก */
+  .bill-pick {
+    flex-wrap: wrap;
+  }
+
+  .bill-pick-info {
+    flex: 1 0 100%;
+  }
 }
 
 /* ---------- ตัวช่วยเล็ก ๆ ---------- */
