@@ -17,6 +17,14 @@ export interface AppUser {
   phone?: string | null;
   photo?: string | null;
   role: UserRole;
+  /**
+   * ระดับสิทธิ์ในฝั่งเจ้าหน้าที่ — 'owner' (ผู้ดูแล) แก้ข้อมูลย้อนหลังได้ ส่วน 'staff' (คนจดมิเตอร์)
+   * แก้ได้เฉพาะของวันนี้/บิลที่ยังไม่ชำระ
+   *
+   * บัญชีที่ออกก่อนมีคอลัมน์นี้จะไม่มีค่าติดมา จึงถือเป็น 'staff' (สิทธิ์น้อยกว่า) เสมอ —
+   * เดาเป็น owner ให้เมื่อไหร่ = เปิดปุ่มแก้ย้อนหลังให้คนที่หลังบ้านจะปฏิเสธอยู่ดี
+   */
+  admin_role?: 'owner' | 'staff';
 }
 
 export interface LoginPayload {
@@ -70,6 +78,14 @@ export class AuthService {
   readonly role = computed<UserRole>(() => this.currentAdmin()?.role ?? 'admin');
   readonly isAdmin = computed(() => this.isLoggedIn() && this.role() === 'admin');
   readonly isMember = computed(() => this.isLoggedIn() && this.role() === 'member');
+
+  /**
+   * ผู้ดูแลระบบ — คนเดียวที่แก้ข้อมูลย้อนหลังได้
+   *
+   * ใช้ซ่อน/แสดงปุ่มเท่านั้น **ไม่ใช่ด่าน** ด่านจริงอยู่ที่หลังบ้านซึ่งอ่าน role จาก token
+   * ปุ่มที่ซ่อนไว้ใครยิง API ตรงก็ผ่าน ถ้าหลังบ้านไม่ตรวจซ้ำ
+   */
+  readonly isOwner = computed(() => this.isAdmin() && this.currentAdmin()?.admin_role === 'owner');
 
   readonly displayName = computed(() => {
     const user = this.currentAdmin();

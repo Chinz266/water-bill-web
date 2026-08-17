@@ -27,6 +27,33 @@ export class BillPrintService {
     return status === 'Paid' ? 'ชำระแล้ว' : 'รอชำระเงิน';
   }
 
+  /**
+   * ยอดที่ต้องเก็บจริงของบิลใบหนึ่ง = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา
+   *
+   * `total_amount` เป็นค่าน้ำของเดือนนั้นล้วน ๆ เสมอ — หลังบ้านตั้งใจไม่เอายอดค้าง
+   * ไปปน เพราะรายงานรายได้และเกณฑ์ "หน่วยพุ่ง" อ่านคอลัมน์นั้น เอาไปปนเมื่อไหร่
+   * ยอดค้างจะถูกนับซ้ำทุกเดือนที่ทบต่อกันไป
+   *
+   * ตัวเลขที่ลูกบ้านต้องจ่ายจริงคือ `grand_total` — บิลเก่าก่อนมีระบบทบยอดไม่มีค่านี้
+   * จึงถอยไปใช้ total_amount ซึ่งถูกต้องสำหรับใบเหล่านั้นพอดี (ตอนนั้นไม่มีการทบ)
+   */
+  payable(bill: any): number {
+    const grand = Number(bill?.grand_total);
+    return Number.isFinite(grand) && bill?.grand_total !== null && bill?.grand_total !== ''
+      ? grand
+      : Number(bill?.total_amount) || 0;
+  }
+
+  /** ยอดค้างเก่าที่ถูกทบเข้าใบนี้ — 0 = ตอนออกใบนี้ไม่มีบิลค้าง */
+  arrears(bill: any): number {
+    const value = Number(bill?.arrears_amount);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  hasArrears(bill: any): boolean {
+    return this.arrears(bill) > 0;
+  }
+
   ownerName(bill: any): string {
     const member = bill?.member;
     if (!member) return 'ไม่พบข้อมูลลูกบ้าน';

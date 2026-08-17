@@ -27,7 +27,9 @@ const row = (over: any = {}) => ({
   capturedAt: null,
   latitude: null,
   longitude: null,
-  photoData: null,
+  // แถวจริงมีรูปย่อเสมอ (preparePhotos ทำให้ทุกไฟล์ที่เลือก) — ต้องมีในฟิกซ์เจอร์ด้วย
+  // ไม่งั้นแถวที่คนแก้เลขเองจะติดด่าน "กรอกเองต้องมีรูป" ตั้งแต่ยังไม่ได้ทดสอบอะไร
+  photoData: 'data:image/jpeg;base64,xxx',
   memberId: null,
   matchedBy: 'none',
   matchedByCoords: false,
@@ -346,8 +348,10 @@ describe('BatchScanComponent', () => {
       req.flush({ id: 901 });
     });
 
-    it('ย่อรูปยังไม่เสร็จ → ออกบิลไปโดยไม่มีรูป ดีกว่าค้างคิวไว้', () => {
-      component.rows = [row({ seq: 1, memberId: 1, unit: 1250, photoData: null })] as any;
+    it('ย่อรูปยังไม่เสร็จ แต่เลขมาจาก AI → ออกบิลไปโดยไม่มีรูป ดีกว่าค้างคิวไว้', () => {
+      // ocrUnit เท่ากับ unit = เลขยังเป็นค่าที่ AI อ่านมาเป๊ะ ๆ ซึ่งตรวจย้อนหลังได้จาก
+      // ค่า confidence/จำนวนหลักที่บันทึกไว้ รูปจึงไม่ใช่หลักฐานชิ้นเดียวที่เหลือ
+      component.rows = [row({ seq: 1, memberId: 1, unit: 1250, ocrUnit: 1250, photoData: null })] as any;
 
       component.saveAll();
       http.expectOne(r => r.url.endsWith('/water-rates/active')).flush({ id: 5 });
@@ -358,6 +362,18 @@ describe('BatchScanComponent', () => {
       req.flush({ id: 901 });
 
       expect(component.savedCount).toBe(1);
+    });
+
+    it('กรอกเลขเองแล้วไม่มีรูป → บล็อกไว้ ไม่ยิงไปให้หลังบ้านตีกลับ', () => {
+      // เลขที่คนพิมพ์เองโดยไม่มีรูปหน้าปัด = ไม่เหลืออะไรให้ตรวจย้อนหลังเลย
+      // หลังบ้านบล็อกตาย (ไม่มีปุ่มยืนยัน) จึงต้องกันตั้งแต่ก่อนเข้าคิว
+      const manual = row({ seq: 1, memberId: 1, unit: 1250, ocrUnit: null, photoData: null }) as any;
+      component.rows = [manual];
+
+      expect(component.blockingIssue(manual)).toContain('ต้องมีรูปหน้าปัด');
+
+      component.saveAll();
+      http.expectNone(r => r.url.endsWith('/bills/scan'));
     });
 
     it('เลขน้อยกว่าเลขตั้งต้น → ไม่ยิงออกบิลเลย (มักแปลว่าเลือกบ้านผิด)', () => {
@@ -392,6 +408,33 @@ describe('BatchScanComponent', () => {
 
       expect(component.rows[0].status).toBe('save_failed');
       expect(component.savedCount).toBe(1);
+    });
+
+    /**
+     * กอง 30 ใบที่เขียวไปครึ่งกอง ใบที่ต้องแก้จะจมอยู่กลางกอง คนเลื่อนหาไม่เจอแล้วปิดหน้าไป
+     * ทั้งที่ยังมีใบค้าง — เลข #seq ยังเป็นลำดับรูปเดิม ย้อนดูได้ว่ารูปไหนอยู่ตรงไหน
+     */
+    it('ใบที่ออกบิลแล้วจมลงล่าง ใบที่ยังค้างลอยขึ้นบน', () => {
+      component.rows = [
+        row({ seq: 1, memberId: 1, unit: 120 }),
+        row({ seq: 2, memberId: 2, unit: 130 })
+      ] as any;
+
+      component.saveAll();
+      http.expectOne(r => r.url.endsWith('/water-rates/active')).flush({ id: 5 });
+
+      answerPrevious();
+      http.expectOne(r => r.url.endsWith('/bills/scan')).flush({ id: 901 });
+
+      answerPrevious();
+      http.expectOne(r => r.url.endsWith('/bills/scan')).flush(
+        { message: 'บ้านหลังนี้มีบิลของเดือนนี้แล้ว' },
+        { status: 409, statusText: 'Conflict' }
+      );
+
+      expect(component.rows.map(r => r.seq)).toEqual([2, 1]);
+      expect(component.rows[0].status).toBe('save_failed');
+      expect(component.rows[1].status).toBe('saved');
     });
 
     it('ติดด่านหน่วยผิดปกติ → ยืนยันในหน้านี้ได้ แล้วรอบถัดไปส่งธงยืนยันไปด้วย', () => {

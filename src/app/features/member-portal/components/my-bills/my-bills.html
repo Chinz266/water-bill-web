@@ -213,9 +213,17 @@
       <div class="detail-total card-soft">
         <span class="due-label">ยอดที่ต้องชำระ</span>
         <p class="detail-amount">
-          <span class="big-value">{{ selectedBill.total_amount | number:'1.2-2' }}</span>
+          <span class="big-value">{{ payable(selectedBill) | number:'1.2-2' }}</span>
           <span class="value-unit">บาท</span>
         </p>
+        @if (hasArrears(selectedBill)) {
+          <!-- ลูกบ้านที่เห็นยอดไม่ตรงกับค่าน้ำเดือนนั้นจะโทรมาถามทันที บอกที่มาไปเลย -->
+          <p class="field-hint">
+            รวมค่าน้ำรอบนี้ {{ selectedBill.total_amount | number:'1.2-2' }} บาท
+            + ยอดค้างจากรอบก่อน {{ arrears(selectedBill) | number:'1.2-2' }} บาท
+            — จ่ายใบนี้ใบเดียวถือว่าเคลียร์ยอดค้างครบแล้วครับ
+          </p>
+        }
         <span
           class="chip"
           [class.chip-success]="selectedBill.payment_status === 'Paid'"

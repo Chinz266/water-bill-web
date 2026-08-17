@@ -14,6 +14,7 @@ import { anchorDayOf, memberReadingDates } from '../../../meter-reading/services
 import { photoDataUrl } from '../../../meter-reading/services/photo-file';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
 import { DeviceLocationComponent } from '../../../meter-reading/components/device-location/device-location';
+import { NO_PHOTO_COORDS_MESSAGE, PHOTO_COORDS_HINT } from '../../../meter-reading/services/photo-coords-help';
 
 /**
  * ทะเบียนลูกบ้าน — เขียนใหม่ทั้งหน้า ตัดขั้นตอนที่คนใช้ต้องกดเองออกให้มากที่สุด
@@ -184,10 +185,9 @@ export class MemberListComponent implements OnInit {
     return toCoords(meta.latitude, meta.longitude);
   }
 
-  /** ข้อความเดียวกันทุกที่ที่รูปไม่มีพิกัดติดมา — บอกวิธีแก้ ไม่ใช่แค่บอกว่าไม่ได้ */
-  private readonly noPhotoCoordsMessage =
-    'รูปนี้ไม่มีพิกัดติดมาครับ ต้องเป็นรูปที่ถ่ายตอนเปิดตำแหน่ง (GPS) ไว้ที่กล้อง ' +
-    '— ถ้าเป็นไฟล์ .HEIC จากไอโฟน ให้ตั้งกล้องเป็นแบบ "ประสิทธิภาพสูงสุด (JPEG)" แล้วถ่ายใหม่';
+  /** ข้อความเดียวกันทุกที่ที่รูปไม่มีพิกัดติดมา — ใช้ร่วมกับ batch-register จะได้ไม่เพี้ยนคนละแบบ */
+  private readonly noPhotoCoordsMessage = NO_PHOTO_COORDS_MESSAGE;
+  readonly photoCoordsHint = PHOTO_COORDS_HINT;
 
   // ==========================================
   // ตรวจข้อมูลก่อนส่ง (ใช้ร่วมกันทั้งเพิ่มและแก้ไข)
@@ -594,14 +594,19 @@ export class MemberListComponent implements OnInit {
   }
 
   // ==========================================
-  // พิมพ์บิลย้อนหลังของบ้านหลังเดียว
+  // บิลย้อนหลังของบ้านหลังเดียว — ดูและรับชำระเงินได้
   //
-  // ลูกบ้านมาขอใบเสร็จย้อนหลังทีละหลัง แต่ของเดิมต้องเข้าหน้าประวัติบิล เลือกเดือน
-  // แล้วค้นบ้านเลขที่อีกที ทั้งที่ยืนดูทะเบียนบ้านหลังนั้นอยู่แล้ว
+  // ยืนดูทะเบียนบ้านหลังไหนอยู่ ก็เห็นรอบที่ออกไปแล้วกับยอดของหลังนั้นได้เลย
+  // ไม่ต้องเข้าหน้าประวัติบิลไปเลือกเดือนแล้วค้นบ้านเลขที่ซ้ำ
   //
-  // เอกสารที่ออกคือ printSingle() ตัวเดียวกับหน้าประวัติบิล (A4 เต็มหน้า) —
-  // อย่าเขียน template ใบเสร็จของหน้านี้เอง ไม่งั้นบิลใบเดียวกันพิมพ์จากคนละหน้า
-  // แล้วได้คนละหน้าตา ลูกบ้านที่ถือสองใบมาเทียบจะไม่เชื่อทั้งสองใบ
+  // ลูกบ้านมักมาจ่ายเงินพร้อมกับให้ตรวจข้อมูลบ้านตัวเอง จึงกดรับชำระได้จากหน้านี้ด้วย
+  // ใช้ปลายทางเดียวกับหน้าประวัติบิล (PATCH /bills/:id/status) และถามยืนยันก่อนเสมอ
+  // ด้วยเหตุผลเดียวกัน: เป็น "ชำระแล้ว" จะจดมิเตอร์ทับใบนั้นไม่ได้อีก ส่วนการกดกลับ
+  // เป็น "รอชำระเงิน" ทำให้ยอดค้างของเดือนนั้นเพี้ยนทันที
+  //
+  // ปุ่มพิมพ์ถูกถอดออกตามที่เจ้าของโปรเจกต์สั่ง — งานพิมพ์อยู่ที่หน้าประวัติบิลที่เดียว
+  // ถ้าจะเอากลับมา ให้เรียก BillPrintService.printSingle() เหมือนหน้านั้น อย่าเขียน
+  // template ใบเสร็จของหน้านี้เอง ไม่งั้นบิลใบเดียวกันพิมพ์จากคนละหน้าแล้วได้คนละหน้าตา
   // ==========================================
 
   /** บ้านที่กำลังเปิดดูบิลอยู่ (null = ยังไม่ได้กด) */
@@ -644,17 +649,97 @@ export class MemberListComponent implements OnInit {
   }
 
   closeBills(): void {
+    // ปิดหน้าต่างบิลทั้งที่ยังถามยืนยันรับเงินค้างอยู่ = คำถามลอยอยู่โดยไม่มีรายการให้ดู
+    if (this.isTogglingStatus) return;
+    this.billToToggle = null;
     this.billsMember = null;
     this.memberBills = [];
+  }
+
+  /** บิลที่กำลังจะเปลี่ยนสถานะ (null = ยังไม่ได้กด) — ต้องยืนยันก่อนเสมอ กดพลาดมีผลจริงทั้งสองทาง */
+  billToToggle: any = null;
+  isTogglingStatus = false;
+
+  /** สถานะที่บิลจะกลายเป็นถ้ายืนยัน — ใช้ทั้งตอนถามและตอนส่งขึ้นหลังบ้าน */
+  get toggleTargetStatus(): string {
+    return this.billToToggle?.payment_status === 'Paid' ? 'Pending' : 'Paid';
+  }
+
+  askToggleStatus(bill: any): void {
+    this.billToToggle = bill;
+  }
+
+  cancelToggleStatus(): void {
+    // กำลังยิงอยู่ห้ามปิด ไม่งั้นจะไม่รู้ว่าตกลงเปลี่ยนสำเร็จไหม
+    if (this.isTogglingStatus) return;
+    this.billToToggle = null;
+  }
+
+  /** ยอดที่ต้องเก็บจริง = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา (สูตรเดียวกับใบเสร็จ) */
+  payable(bill: any): number {
+    return this.print.payable(bill);
+  }
+
+  arrears(bill: any): number {
+    return this.print.arrears(bill);
+  }
+
+  hasArrears(bill: any): boolean {
+    return this.print.hasArrears(bill);
+  }
+
+  confirmToggleStatus(): void {
+    const bill = this.billToToggle;
+    if (!bill || this.isTogglingStatus) return;
+
+    const newStatus = this.toggleTargetStatus;
+    this.isTogglingStatus = true;
+    this.cdr.detectChanges();
+
+    // รับเงินต้องยิง /pay เพราะยอดที่ลูกบ้านจ่ายคือ grand_total ซึ่งรวมยอดค้างของ
+    // บิลเก่าไว้แล้ว หลังบ้านจะปิดใบเก่าที่ถูกทบให้ทั้งชุด — ถ้าใช้ /status ใบเก่า
+    // จะค้างอยู่ แล้วเดือนหน้าทบซ้ำ = เก็บเงินซ้ำ
+    // ส่วนการกดกลับเป็น Pending คือแก้ที่กดผิด ไม่ใช่ธุรกรรม ใช้ /status ตามเดิม
+    const request$ =
+      newStatus === 'Paid'
+        ? this.meterReadingService.payBill(bill.id)
+        : this.meterReadingService.updatePaymentStatus(bill.id, newStatus);
+
+    request$.subscribe({
+      next: (res: any) => {
+        bill.payment_status = newStatus;
+        this.isTogglingStatus = false;
+        this.billToToggle = null;
+
+        // ใบเก่าที่หลังบ้านปิดให้พร้อมกัน ต้องอัปเดตในรายการที่เปิดค้างอยู่ด้วย
+        const settled: number[] = Array.isArray(res?.settled_bill_ids) ? res.settled_bill_ids : [];
+        for (const other of this.memberBills) {
+          if (settled.includes(other.id)) other.payment_status = 'Paid';
+        }
+
+        this.cdr.detectChanges();
+        toast.success(
+          newStatus === 'Paid'
+            ? settled.length
+              ? `รับชำระเงินเรียบร้อย — ปิดบิลค้างเก่าให้อีก ${settled.length} ใบ`
+              : 'รับชำระเงินเรียบร้อย'
+            : 'เปลี่ยนเป็น "รอชำระเงิน" เรียบร้อย',
+          { id: 'status-updated' }
+        );
+      },
+      error: (err) => {
+        console.error('Update status error:', err);
+        this.isTogglingStatus = false;
+        // ไม่ปิดหน้าต่าง เพื่อให้กดลองใหม่ได้ทันทีโดยไม่ต้องหาบิลใบเดิมอีกรอบ
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'เปลี่ยนสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'status-error' });
+      }
+    });
   }
 
   /** เรียงใหม่สุดขึ้นก่อน — 2569-08 ต้องมาก่อน 2569-07 ไม่ใช่เรียงตามวันที่กดออกบิล */
   private billOrder(bill: any): number {
     return Number(bill?.billing_year ?? 0) * 12 + Number(bill?.billing_month ?? 0);
-  }
-
-  printBill(bill: any): void {
-    this.print.printSingle(bill);
   }
 
   // ข้อความบนจอใช้ตัวเดียวกับที่พิมพ์ลงกระดาษ ให้ตรงกันทั้งสองที่

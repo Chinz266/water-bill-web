@@ -94,9 +94,17 @@
             </tr>
           </tbody>
           <tfoot>
+            @if (print.hasArrears(bill)) {
+              <!-- ยอดค้างต้องเป็นบรรทัดของตัวเอง ไม่ยุบรวมกับค่าน้ำเดือนนี้
+                   ลูกบ้านที่เห็นแต่ยอดรวมจะทักว่าคิดค่าน้ำเกิน แล้วเถียงกันไม่จบ -->
+              <tr>
+                <td colspan="3" class="rc-right">ยอดค้างชำระยกมา</td>
+                <td class="rc-right">{{ print.arrears(bill) | number:'1.2-2' }}</td>
+              </tr>
+            }
             <tr>
               <td colspan="3" class="rc-right rc-strong">รวมเงินทั้งสิ้น</td>
-              <td class="rc-right rc-strong">{{ bill.total_amount | number:'1.2-2' }}</td>
+              <td class="rc-right rc-strong">{{ print.payable(bill) | number:'1.2-2' }}</td>
             </tr>
           </tfoot>
         </table>
@@ -105,8 +113,8 @@
       <!-- ยอดที่ต้องชำระ: ตัวใหญ่สุดของเอกสาร -->
       <div class="rc-grand">
         <div class="rc-grand-label">ยอดที่ต้องชำระ</div>
-        <div class="rc-grand-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</div>
-        <div class="rc-grand-words">({{ print.bahtText(bill.total_amount) }})</div>
+        <div class="rc-grand-amount">{{ print.payable(bill) | number:'1.2-2' }} บาท</div>
+        <div class="rc-grand-words">({{ print.bahtText(print.payable(bill)) }})</div>
       </div>
 
       <div class="rc-pay">
@@ -197,9 +205,15 @@
         <!-- ยอดที่ต้องชำระ -->
         <div class="slip-total">
           <span class="slip-total-label">ยอดที่ต้องชำระ</span>
-          <span class="slip-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</span>
+          <span class="slip-amount">{{ print.payable(bill) | number:'1.2-2' }} บาท</span>
         </div>
-        <div class="slip-words">({{ print.bahtText(bill.total_amount) }})</div>
+        <div class="slip-words">({{ print.bahtText(print.payable(bill)) }})</div>
+        @if (print.hasArrears(bill)) {
+          <div class="slip-words">
+            (ค่าน้ำเดือนนี้ {{ bill.total_amount | number:'1.2-2' }} + ค้างยกมา
+            {{ print.arrears(bill) | number:'1.2-2' }} บาท)
+          </div>
+        }
 
         <div class="slip-foot">
           <span>ชำระภายใน {{ print.dateLabel(print.dueDate(bill)) }} · {{ print.statusLabel(bill.payment_status) }}</span>

@@ -6,10 +6,13 @@ import { MemberListComponent } from './member-list';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
 
 /**
- * พิมพ์บิลย้อนหลังจากทะเบียนลูกบ้าน
+ * บิลย้อนหลังจากทะเบียนลูกบ้าน — ดูบิล + กดรับชำระเงิน (ปุ่มพิมพ์ถูกถอดออกแล้ว)
  *
- * เอกสารต้องเป็นใบเดียวกับที่ออกจากหน้าประวัติบิล (BillPrintService.printSingle)
- * และรอบบิลบนใบนั้นต้องถูก ซึ่งคิดได้ต่อเมื่อทำดัชนีจากบิล "ทั้งกอง" ไม่ใช่เฉพาะบ้านหลังนี้
+ * ต้องได้เฉพาะบิลของบ้านหลังที่กด เรียงตามรอบ และรอบบิลต้องคิดถูก
+ * ซึ่งคิดได้ต่อเมื่อทำดัชนีจากบิล "ทั้งกอง" ไม่ใช่เฉพาะของบ้านหลังนี้
+ *
+ * การรับชำระต้องยิงปลายทางเดียวกับหน้าประวัติบิล (PATCH /bills/:id/status)
+ * และต้องผ่านการยืนยันก่อนเสมอ — กดปุ่มเฉย ๆ ห้ามเปลี่ยนสถานะจริง
  */
 
 const bill = (id: number, memberId: number, month: string, year = '2026') => ({
@@ -23,7 +26,7 @@ const bill = (id: number, memberId: number, month: string, year = '2026') => ({
   meter_reading: { reading_date: `${year}-${month}-05` }
 });
 
-describe('MemberListComponent — พิมพ์บิลย้อนหลังของบ้านหลังเดียว', () => {
+describe('MemberListComponent — บิลย้อนหลังของบ้านหลังเดียว', () => {
   let component: MemberListComponent;
   let http: HttpTestingController;
   let print: BillPrintService;
@@ -76,13 +79,6 @@ describe('MemberListComponent — พิมพ์บิลย้อนหลั�
     expect(print.cycleOf(component.memberBills[0])).not.toBeNull();
   });
 
-  it('พิมพ์แล้วต้องเป็นใบ A4 ตัวเดียวกับหน้าประวัติบิล', () => {
-    openFor(1, [bill(1, 1, '08')]);
-    component.printBill(component.memberBills[0]);
-
-    expect(print.billToPrint()?.id).toBe(1);
-  });
-
   it('ดึงบิลไม่สำเร็จ → บอกให้ลองใหม่ ไม่ใช่ขึ้นว่าไม่มีบิล', () => {
     component.openBills({ id: 1, house_no: '99/1' });
     http.expectOne(r => r.url.endsWith('/bills')).flush(
@@ -100,5 +96,59 @@ describe('MemberListComponent — พิมพ์บิลย้อนหลั�
     openFor(2, [bill(1, 1, '08'), bill(2, 2, '08')]);
 
     expect(component.memberBills.map(b => b.id)).toEqual([2]);
+  });
+
+  it('กดปุ่มรับชำระเฉย ๆ ยังไม่ยิงอะไร — แค่ถามยืนยัน', () => {
+    openFor(1, [bill(1, 1, '08')]);
+    component.askToggleStatus(component.memberBills[0]);
+
+    expect(component.toggleTargetStatus).toBe('Paid');
+    http.expectNone(r => r.url.includes('/status'));
+    expect(component.memberBills[0].payment_status).toBe('Pending');
+  });
+
+  it('ยืนยันรับเงินแล้วยิง POST /bills/:id/pay แล้วสถานะในรายการเปลี่ยนตาม', () => {
+    openFor(1, [bill(1, 1, '08')]);
+    component.askToggleStatus(component.memberBills[0]);
+    component.confirmToggleStatus();
+
+    // รับเงินต้องยิง /pay ไม่ใช่ /status — /pay ปิดบิลค้างเก่าที่ถูกทบยอดให้ทั้งชุด
+    // ถ้าใช้ /status ใบเก่าจะค้างอยู่ แล้วเดือนหน้าทบซ้ำ = เก็บเงินซ้ำ
+    const req = http.expectOne(r => r.url.endsWith('/bills/1/pay'));
+    expect(req.request.method).toBe('POST');
+    req.flush({});
+
+    expect(component.memberBills[0].payment_status).toBe('Paid');
+    expect(component.billToToggle).toBeNull();
+    expect(component.isTogglingStatus).toBe(false);
+  });
+
+  it('บิลที่ชำระแล้วกดกลับเป็นรอชำระได้', () => {
+    openFor(1, [{ ...bill(1, 1, '08'), payment_status: 'Paid' }]);
+    component.askToggleStatus(component.memberBills[0]);
+
+    expect(component.toggleTargetStatus).toBe('Pending');
+
+    component.confirmToggleStatus();
+    const req = http.expectOne(r => r.url.endsWith('/bills/1/status'));
+    expect(req.request.body).toEqual({ payment_status: 'Pending' });
+    req.flush({});
+
+    expect(component.memberBills[0].payment_status).toBe('Pending');
+  });
+
+  it('เปลี่ยนสถานะไม่สำเร็จ → ไม่ปิดหน้าต่าง กดลองใหม่ได้ทันที', () => {
+    openFor(1, [bill(1, 1, '08')]);
+    component.askToggleStatus(component.memberBills[0]);
+    component.confirmToggleStatus();
+
+    http.expectOne(r => r.url.endsWith('/bills/1/pay')).flush(
+      { message: 'ผิดพลาด' },
+      { status: 500, statusText: 'Server Error' }
+    );
+
+    expect(component.billToToggle).not.toBeNull();
+    expect(component.isTogglingStatus).toBe(false);
+    expect(component.memberBills[0].payment_status).toBe('Pending');
   });
 });

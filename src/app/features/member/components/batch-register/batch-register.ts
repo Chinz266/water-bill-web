@@ -12,6 +12,7 @@ import { LatLng, distanceMeters, medianCoords, toCoords } from '../../../meter-r
 import { photoDataUrl } from '../../../meter-reading/services/photo-file';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
 import { DeviceLocationComponent } from '../../../meter-reading/components/device-location/device-location';
+import { NO_PHOTO_COORDS_MESSAGE, PHOTO_COORDS_HINT } from '../../../meter-reading/services/photo-coords-help';
 
 /** บ้านหนึ่งหลัง = รูปหน้าปัดหนึ่งใบ + ข้อมูลที่ต้องพิมพ์เพิ่มเอง */
 interface RegisterRow {
@@ -67,6 +68,8 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
   /** กันเผลอลากมาทั้งอัลบั้ม — เกินนี้หน้าจะอืดและคนตรวจไม่ไหวในรอบเดียว */
   readonly maxFiles = 40;
+
+  readonly photoCoordsHint = PHOTO_COORDS_HINT;
 
   /** ด้านที่ยาวที่สุดของรูปที่ส่งขึ้นไป (px) */
   private readonly maxPhotoEdge = 1280;
@@ -232,7 +235,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
     if (row.status === 'saved') return null;
 
     if (row.latitude === null || row.longitude === null) {
-      return 'รูปนี้ไม่มีพิกัดติดมาครับ ต้องเปิดตำแหน่ง (GPS) ที่กล้องก่อนถ่าย — ถ้าเป็นไฟล์ .HEIC จากไอโฟน ให้ตั้งกล้องเป็นแบบ "ประสิทธิภาพสูงสุด (JPEG)" แล้วถ่ายใหม่';
+      return NO_PHOTO_COORDS_MESSAGE;
     }
     if (!row.houseNo.trim()) return 'ยังไม่ได้กรอกบ้านเลขที่ครับ';
     if (!row.ownerName.trim()) return 'ยังไม่ได้กรอกชื่อเจ้าของบ้านครับ';

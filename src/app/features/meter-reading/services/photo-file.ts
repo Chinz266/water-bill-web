@@ -58,6 +58,30 @@ export async function photoDataUrl(
   return smallest;
 }
 
+/**
+ * รูปเดียวกันแต่เป็นไฟล์ไบนารี สำหรับ endpoint ที่รับเป็น multipart (เช่นแก้ไขบิล)
+ *
+ * ไม่ต้องกดให้เหลือ 80KB เหมือนทาง JSON เพราะไม่ผ่าน body-parser — เพดานคือ 2MB
+ * ที่ multer ตั้งไว้ ซึ่งกว้างพอให้ได้ใบ 1280px คุณภาพเต็มขั้นแรกของบันได
+ * (base64 ที่บวกอีกหนึ่งในสามก็ไม่มีในทางนี้)
+ */
+export async function photoBlob(
+  file: Blob,
+  options: PhotoEncodeOptions = {}
+): Promise<Blob | null> {
+  const dataUrl = await photoDataUrl(file, { maxBytes: 1_500_000, ...options });
+  if (!dataUrl) return null;
+
+  const [, base64] = dataUrl.split(',');
+  if (!base64) return null;
+
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  return new Blob([bytes], { type: 'image/jpeg' });
+}
+
 function loadImage(file: Blob): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || typeof document === 'undefined') {

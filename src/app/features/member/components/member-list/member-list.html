@@ -61,8 +61,8 @@
         <span>📍</span>
         <span>
           ยังมีอีก <strong>{{ missingCoordsCount }}</strong> หลังที่ไม่มีพิกัดมิเตอร์
-          ระบบจะจับคู่รูปให้อัตโนมัติไม่ได้ครับ — กด "ดึงพิกัดจากรูป" ในรายการแล้วเลือกรูปหน้าปัด
-          ที่ถ่ายไว้ตอนเปิด GPS ระบบจะอ่านพิกัดในไฟล์ไปบันทึกให้เอง
+          จับคู่รูปอัตโนมัติไม่ได้ครับ — กด "ดึงพิกัดจากรูป" ในรายการ
+          แล้วเลือกรูปหน้าปัดที่ถ่ายตอนเปิด GPS
         </span>
       </div>
     }
@@ -130,10 +130,10 @@
                   </td>
                   <td>
                     <div class="cell-actions">
-                      <button type="button" class="btn btn-sm btn-secondary" (click)="openBills(member)">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                        พิมพ์บิล
-                      </button>
+                      <a class="btn btn-sm btn-secondary" [routerLink]="['/members', member.id, 'manage']">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/><path d="M8 13h8"/></svg>
+                        มิเตอร์/ผู้อยู่
+                      </a>
                       <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                         แก้ไข
@@ -193,12 +193,11 @@
               />
             }
 
-            <button type="button" class="btn btn-secondary btn-block bills-btn" (click)="openBills(member)">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-              พิมพ์บิลย้อนหลัง
-            </button>
-
             <div class="member-actions">
+              <a class="btn btn-sm btn-secondary" [routerLink]="['/members', member.id, 'manage']">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/><path d="M8 13h8"/></svg>
+                มิเตอร์/ผู้อยู่
+              </a>
               <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 แก้ไข
@@ -290,9 +289,8 @@
         </div>
       </div>
       <p class="field-hint">
-        เลขมิเตอร์คือตัวตั้งต้นของบ้านหลังนี้ ถ้ากรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
-        ระบบจะบันทึกว่าจดไว้เมื่อ <strong>{{ registrationDateLabel }}</strong>
-        ซึ่งเป็นวันเริ่มรอบบิลใบแรกของบ้านหลังนี้
+        เลขมิเตอร์ตั้งต้นกรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
+        · บันทึกว่าจดเมื่อ <strong>{{ registrationDateLabel }}</strong> = วันเริ่มรอบบิลใบแรก
       </p>
 
       <!-- ชื่อช่องเดียว คำแรกเป็นชื่อ ที่เหลือเป็นนามสกุล -->
@@ -357,7 +355,7 @@
               @if (coordsSource === 'photo') {
                 <span>ใช้พิกัดที่ติดมากับรูปเป็นตำแหน่งมิเตอร์ของบ้านหลังนี้</span>
               } @else {
-                <span>รูปนี้ไม่มีพิกัดติดมา ต้องเปิดตำแหน่ง (GPS) ที่กล้องแล้วถ่ายใหม่ครับ</span>
+                <span>รูปนี้ไม่มีพิกัดติดมา — {{ photoCoordsHint }}</span>
               }
             </li>
           </ul>
@@ -368,8 +366,9 @@
           </label>
           <input id="add-photo" type="file" accept="image/*" capture="environment" (change)="onPhotoPicked($event)" hidden />
           <p class="field-hint">
-            รูปเป็นหลักฐานของเลขตั้งต้น และเป็นที่มาของทั้งวันจดกับพิกัดมิเตอร์ครับ
-            — ต้องเปิดตำแหน่ง (GPS) ที่กล้องไว้ตอนถ่าย ไม่งั้นไฟล์จะไม่มีพิกัดติดมา
+            รูปเป็นหลักฐานของเลขตั้งต้น และเป็นที่มาของวันจดกับพิกัดมิเตอร์ครับ
+            — ตอนถ่ายต้องเปิดตำแหน่ง (GPS) ที่กล้อง
+            <br />{{ photoCoordsHint }}
           </p>
         }
       </div>
@@ -497,8 +496,9 @@
           <p class="field-error">{{ editLocationError }}</p>
         } @else {
           <p class="field-hint">
-            รูปที่ถ่ายด้วยมือถือที่เปิด GPS ไว้จะมีพิกัดติดมาในไฟล์ ระบบดึงออกมาให้ได้เลยครับ
-            — ต้องเป็นไฟล์ต้นฉบับในเครื่อง รูปที่อัปโหลดเข้าระบบไปแล้วถูกย่อจนพิกัดในไฟล์หายไป
+            รูปจากมือถือที่เปิด GPS จะมีพิกัดในไฟล์ ระบบดึงให้เลยครับ
+            — ต้องเป็นไฟล์ต้นฉบับในเครื่อง รูปที่อัปโหลดไปแล้วถูกย่อจนพิกัดหาย
+            <br />{{ photoCoordsHint }}
           </p>
         }
       </div>
@@ -520,7 +520,11 @@
 }
 
 <!-- ================= บิลย้อนหลังของบ้านหลังเดียว =================
-     เอกสารที่ออกคือใบ A4 ตัวเดียวกับหน้าประวัติบิล (BillPrintService.printSingle) -->
+     ดูบิล + กดรับชำระเงินได้ — พิมพ์บิลยังทำที่หน้าประวัติบิลที่เดียว
+
+     ตอนนี้ "ไม่มีปุ่มไหนในหน้านี้เปิดหน้าต่างนี้แล้ว" (เจ้าของโปรเจกต์สั่งถอดปุ่มออก)
+     โค้ดยังอยู่เพราะเป็นทางเดียวที่รับชำระเงินรายบ้านจากทะเบียนได้ ถ้าจะเอากลับมา
+     แค่ใส่ปุ่มที่เรียก openBills(member) — อย่าเขียนหน้าต่างใหม่ซ้อนอีกชุด -->
 @if (billsMember) {
   <div class="modal-overlay" (click)="closeBills()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
@@ -553,7 +557,10 @@
               <div class="bill-pick-info">
                 <span class="bill-pick-month">{{ monthLabel(bill.billing_month, bill.billing_year) }}</span>
                 <span class="bill-pick-meta">
-                  {{ bill.usage_unit }} ลบ.ม. · {{ bill.total_amount | number:'1.2-2' }} บาท
+                  {{ bill.usage_unit }} ลบ.ม. · {{ payable(bill) | number:'1.2-2' }} บาท
+                  @if (hasArrears(bill)) {
+                    <span class="chip chip-warning">รวมค้างเก่า {{ arrears(bill) | number:'1.2-2' }}</span>
+                  }
                 </span>
               </div>
               <span
@@ -561,10 +568,17 @@
                 [class.chip-success]="bill.payment_status === 'Paid'"
                 [class.chip-warning]="bill.payment_status !== 'Paid'"
               >{{ statusLabel(bill.payment_status) }}</span>
-              <button type="button" class="btn btn-sm btn-primary" (click)="printBill(bill)">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                พิมพ์
-              </button>
+              @if (bill.payment_status === 'Paid') {
+                <button type="button" class="btn btn-sm btn-secondary" (click)="askToggleStatus(bill)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+                  กลับเป็นรอชำระ
+                </button>
+              } @else {
+                <button type="button" class="btn btn-sm btn-primary" (click)="askToggleStatus(bill)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+                  รับชำระเงิน
+                </button>
+              }
             </li>
           }
         </ul>
@@ -575,6 +589,86 @@
         @if (billsLoadFailed) {
           <button type="button" class="btn btn-primary" (click)="openBills(billsMember)">ลองใหม่</button>
         }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- หน้าต่างยืนยันก่อนเปลี่ยนสถานะการชำระ — ข้อความชุดเดียวกับหน้าประวัติบิล
+     ซ้อนอยู่บนหน้าต่างบิล จึงต้องประกาศทีหลังเพื่อให้อยู่ชั้นบน -->
+@if (billToToggle) {
+  <div class="modal-overlay" (click)="cancelToggleStatus()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          @if (toggleTargetStatus === 'Paid') {
+            รับเงินบิลนี้แล้วใช่ไหมครับ?
+          } @else {
+            เปลี่ยนกลับเป็นรอชำระเงินใช่ไหมครับ?
+          }
+        </h2>
+        <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด" [disabled]="isTogglingStatus">✕</button>
+      </div>
+
+      <div class="alert alert-info">
+        <span>🧾</span>
+        <span>
+          บิลของบ้านเลขที่ <strong>{{ billsMember?.house_no || '—' }}</strong>
+          ({{ ownerName(billsMember) }})
+          ประจำเดือน{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+          ยอด <strong>{{ payable(billToToggle) | number: '1.2-2' }}</strong> บาท
+          @if (hasArrears(billToToggle)) {
+            <!-- ต้องเห็นก่อนกด ไม่งั้นคนเก็บเงินจะเก็บขาดไปเท่ากับยอดค้างเก่า -->
+            (ค่าน้ำเดือนนี้ {{ billToToggle.total_amount | number: '1.2-2' }}
+            + ค้างยกมา {{ arrears(billToToggle) | number: '1.2-2' }} บาท)
+          }
+        </span>
+      </div>
+
+      @if (toggleTargetStatus === 'Paid') {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
+            ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะก่อนนะครับ
+          </span>
+        </div>
+      } @else {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+            และลูกบ้านจะเห็นว่ายังไม่ได้จ่ายครับ
+          </span>
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="cancelToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          ยังไม่เปลี่ยน
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="confirmToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          @if (isTogglingStatus) {
+            <span class="btn-spinner"></span>
+            กำลังเปลี่ยน...
+          } @else if (toggleTargetStatus === 'Paid') {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            ยืนยัน รับเงินแล้ว
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+            ยืนยัน กลับเป็นรอชำระ
+          }
+        </button>
       </div>
     </div>
   </div>

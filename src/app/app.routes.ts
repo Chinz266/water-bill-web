@@ -54,6 +54,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/member/components/batch-register/batch-register').then(m => m.BatchRegisterComponent),
   },
   {
+    // มิเตอร์ + ผู้อยู่อาศัยของบ้านหลังเดียว — สองเรื่องที่เกิดกลางรอบบิล
+    // และถ้าไม่บันทึกตอนเกิด ข้อมูลจะหายถาวร (เลขปิดมิเตอร์เก่า / เลข ณ วันย้ายออก)
+    path: 'members/:membersId/manage',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/member/components/member-manage/member-manage').then(m => m.MemberManageComponent),
+  },
+  {
     path: 'village-settings',
     canActivate: [authGuard],
     loadComponent: () => import('./features/village/components/village-settings/village-settings').then(m => m.VillageSettingsComponent),
@@ -62,6 +70,22 @@ export const routes: Routes = [
     path: 'account',
     canActivate: [authGuard],
     loadComponent: () => import('./features/account/components/account-settings/account-settings').then(m => m.AccountSettingsComponent),
+  },
+  {
+    // คิวรูปที่คนเดินจดตัดสินหน้างานไม่ได้ — ต้องมีคนนั่งดูทีหลังแล้วจับคู่กับบ้าน
+    path: 'unassigned',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/meter-reading/components/unassigned-queue/unassigned-queue').then(
+        m => m.UnassignedQueueComponent
+      ),
+  },
+  {
+    // ธงที่ระบบติดไว้ตอนมีคนกดข้ามด่านตรวจ + งานเก็บกวาดข้อมูลที่หมดอายุ
+    path: 'audit',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/audit/components/audit-board/audit-board').then(m => m.AuditBoardComponent),
   },
   {
     path: 'reports',

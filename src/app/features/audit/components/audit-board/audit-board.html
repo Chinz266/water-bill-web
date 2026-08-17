@@ -1,0 +1,172 @@
+<div class="page-head">
+  <h1 class="page-title">สอบทานและเก็บกวาดระบบ</h1>
+  <p class="page-subtitle">ดูว่ามีการกดข้ามด่านตรวจตรงไหนบ้าง และเคลียร์ข้อมูลที่หมดอายุ</p>
+</div>
+
+<!-- 📊 สรุป 30 วัน — ตัวเลขที่บอกว่าด่านไหนเริ่มไร้ความหมาย -->
+@if (summary(); as sum) {
+  <div class="card">
+    <h2 class="section-heading">ธงในรอบ {{ sum.days }} วันที่ผ่านมา</h2>
+
+    @if (sum.flags.length) {
+      <div class="summary-grid">
+        @for (item of sum.flags; track item.flag_type) {
+          <div class="summary-item">
+            <span class="summary-label">{{ flagLabel(item.flag_type) }}</span>
+            <p class="summary-value">
+              <span class="big-value">{{ item.total }}</span>
+              <span class="value-unit">ครั้ง</span>
+            </p>
+            @if (item.confirmed_by_person > 0) {
+              <span class="chip chip-warning">คนกดข้ามด่าน {{ item.confirmed_by_person }} ครั้ง</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="alert alert-info">
+        <span>💡</span>
+        <span>
+          ธงใบเดียวแทบไม่ได้แปลว่ามีอะไรผิด — สิ่งที่บอกอะไรจริงคือ<strong>ความถี่</strong>
+          ถ้าธงชนิดไหนขึ้นเกือบทุกใบ แปลว่าเกณฑ์ตั้งแน่นเกินของจริง
+          ให้ไปปรับที่<a routerLink="/village-settings">หน้าตั้งค่าหมู่บ้าน</a>
+          ไม่ใช่ปล่อยให้กดผ่านต่อไป เพราะนิสัยกดผ่านจะลามไปถึงใบที่ผิดจริงครับ
+        </span>
+      </div>
+    } @else {
+      <p class="text-muted">ยังไม่มีธงในช่วงนี้ครับ</p>
+    }
+  </div>
+}
+
+<!-- 🧹 งานเก็บกวาด -->
+@if (housekeeping(); as hk) {
+  <div class="card">
+    <h2 class="section-heading">งานเก็บกวาด</h2>
+
+    <dl class="detail-list">
+      <div class="detail-row">
+        <dt>บิลที่จ่ายแล้วและเก่าเกิน {{ hk.photo_retention_days }} วัน</dt>
+        <dd class="cell-strong">{{ hk.purgeable_paid_bills }} ใบ</dd>
+      </div>
+      <div class="detail-row">
+        <dt>รูปที่รอจับคู่กับบ้าน</dt>
+        <dd class="cell-strong">
+          <a routerLink="/unassigned">{{ hk.pending_unassigned }} รูป</a>
+        </dd>
+      </div>
+      <div class="detail-row">
+        <dt>รูปที่ค้างคิวนานจนจะถูกตีทิ้งอัตโนมัติ</dt>
+        <dd class="cell-strong">{{ hk.stale_unassigned }} รูป</dd>
+      </div>
+    </dl>
+
+    <p class="field-hint">
+      งานพวกนี้รันเองทุกคืนอยู่แล้ว ปุ่มนี้มีไว้สั่งเดี๋ยวนี้เวลาพื้นที่ใกล้เต็ม
+    </p>
+
+    <button type="button" class="btn btn-danger-soft" (click)="askCleanup.set(true)">
+      สั่งเก็บกวาดเดี๋ยวนี้
+    </button>
+  </div>
+}
+
+<!-- 🚩 รายการธง -->
+<div class="card">
+  <div class="flags-head">
+    <h2 class="section-heading">รายการธง</h2>
+
+    <div class="field">
+      <label class="field-label" for="flag-filter">กรองตามชนิด</label>
+      <select
+        id="flag-filter"
+        class="field-input"
+        [(ngModel)]="selectedType"
+        (ngModelChange)="onFilterChange()"
+      >
+        <option value="">ทุกชนิด</option>
+        <option value="high_usage">หน่วยน้ำสูงผิดปกติ (กดยืนยันผ่าน)</option>
+        <option value="usage_warning">หน่วยน้ำขยับจากปกติ</option>
+        <option value="duplicate_location">พิกัดซ้ำ</option>
+        <option value="burst_photo">ถ่ายรัวจากจุดเดิม</option>
+        <option value="manual_entry">กรอกเลขเอง</option>
+        <option value="low_confidence">AI อ่านไม่ชัด</option>
+        <option value="digit_change">จำนวนหลักเปลี่ยน</option>
+        <option value="meter_reset">เปลี่ยนมิเตอร์</option>
+        <option value="stale_photo">รูปเก่า</option>
+        <option value="offline_sync">ซิงก์จากออฟไลน์</option>
+      </select>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <p class="text-muted">กำลังโหลด...</p>
+  } @else if (!flags().length) {
+    <p class="text-muted">ไม่มีธงที่ตรงกับเงื่อนไขครับ</p>
+  } @else {
+    <ul class="flag-list">
+      @for (flag of flags(); track flag.id) {
+        <li class="flag-item">
+          <div class="flag-top">
+            <span class="chip" [class.chip-warning]="wasConfirmedByPerson(flag)">
+              {{ flagLabel(flag.flag_type) }}
+            </span>
+            @if (wasConfirmedByPerson(flag)) {
+              <span class="flag-by">คนกดยืนยันข้ามด่าน</span>
+            } @else {
+              <span class="flag-by text-muted">ระบบติดไว้เอง</span>
+            }
+          </div>
+
+          <p class="flag-house">
+            @if (flag.member) {
+              บ้านเลขที่ <strong>{{ flag.member.house_no }}</strong> ({{ flag.member.name }})
+            } @else {
+              ไม่พบข้อมูลบ้าน
+            }
+          </p>
+
+          @if (flag.detail) {
+            <p class="flag-detail text-muted">{{ flag.detail }}</p>
+          }
+
+          <p class="flag-date text-muted">{{ flag.create_date | date:'d MMM y HH:mm' }}</p>
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+<!-- ⚠️ ยืนยันก่อนเก็บกวาด — ลบไฟล์รูปแล้วกู้คืนไม่ได้ -->
+@if (askCleanup()) {
+  <div class="modal-overlay" (click)="askCleanup.set(false)">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">สั่งเก็บกวาดเดี๋ยวนี้ใช่ไหมครับ?</h2>
+        <button type="button" class="modal-close" (click)="askCleanup.set(false)" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>
+          จะ<strong>ลบไฟล์รูปมิเตอร์</strong>ของบิลที่ชำระแล้วและเก่าเกิน 1 ปีทิ้ง
+          <strong>กู้คืนไม่ได้</strong> — ข้อมูลการจด (เลขมิเตอร์ วันที่ พิกัด) ยังอยู่ครบ
+          หายไปเฉพาะตัวรูปครับ
+        </span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="askCleanup.set(false)" [disabled]="isCleaning()">
+          ยังไม่ทำ
+        </button>
+        <button type="button" class="btn btn-danger" (click)="confirmCleanup()" [disabled]="isCleaning()">
+          @if (isCleaning()) {
+            <span class="btn-spinner"></span> กำลังเก็บกวาด...
+          } @else {
+            เก็บกวาดเลย
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

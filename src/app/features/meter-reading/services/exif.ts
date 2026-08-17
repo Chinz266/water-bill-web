@@ -188,16 +188,27 @@ function uintOf(view: DataView, entry: IfdEntry | undefined, little: boolean): n
   return undefined;
 }
 
-/** RATIONAL = เศษ 4 ไบต์ / ส่วน 4 ไบต์ — พิกัดมาเป็นชุดละ 3 ค่า (องศา ลิปดา พิลิปดา) */
+/**
+ * RATIONAL = เศษ 4 ไบต์ / ส่วน 4 ไบต์ — พิกัดมาเป็นชุดละ 3 ค่า (องศา ลิปดา พิลิปดา)
+ *
+ * มาตรฐาน EXIF บอกให้พิกัดเป็น RATIONAL (ชนิด 5) แต่กล้องมือถือหลายรุ่นเขียนเป็น
+ * SRATIONAL (ชนิด 10) มา ซึ่งหน้าตาเหมือนกันเป๊ะ ต่างแค่ตีความเป็นเลขมีเครื่องหมาย
+ * ของเดิมรับแต่ชนิด 5 รูปจากเครื่องพวกนั้นจึงถูกทิ้งทั้งที่พิกัดใช้ได้ แล้วขึ้นหน้าเว็บ
+ * ว่า "รูปนี้ไม่มีพิกัดติดมา" ซึ่งชี้ให้คนไปแก้ผิดจุด (ไปนั่งเปิด GPS ที่เปิดอยู่แล้ว)
+ */
 function rationals(view: DataView, entry: IfdEntry | undefined, little: boolean): number[] | undefined {
-  if (!entry || entry.type !== 5 || entry.count < 3) return undefined;
+  if (!entry || (entry.type !== 5 && entry.type !== 10) || entry.count < 3) return undefined;
   if (entry.at + 24 > view.byteLength) return undefined;
+
+  const signed = entry.type === 10;
+  const at = (position: number) =>
+    signed ? view.getInt32(position, little) : view.getUint32(position, little);
 
   const values: number[] = [];
   for (let i = 0; i < 3; i++) {
-    const denominator = view.getUint32(entry.at + i * 8 + 4, little);
+    const denominator = at(entry.at + i * 8 + 4);
     if (denominator === 0) return undefined; // กล้องบางรุ่นใส่ 0 มา หารต่อจะได้ Infinity
-    values.push(view.getUint32(entry.at + i * 8, little) / denominator);
+    values.push(at(entry.at + i * 8) / denominator);
   }
   return values;
 }
@@ -208,6 +219,10 @@ function degrees(dms: number[] | undefined, ref: string | undefined): number | u
   const value = dms[0] + dms[1] / 60 + dms[2] / 3600;
   if (!Number.isFinite(value)) return undefined;
 
+  // ตัวเลขชุดนี้เป็นขนาดล้วน ทิศมาจาก ref เท่านั้น — ค่าที่อ่านมาแบบ SRATIONAL
+  // อาจติดลบมาแล้ว ถ้าไม่ตัดเครื่องหมายทิ้งก่อนจะกลายเป็นลบสองครั้งแล้วข้ามซีกโลก
+  const magnitude = Math.abs(value);
+
   // ซีกใต้/ตะวันตกเป็นค่าติดลบ ไทยอยู่ N/E ทั้งประเทศ แต่กันไว้เผื่อรูปหลุดมาจากที่อื่น
-  return ref === 'S' || ref === 'W' ? -value : value;
+  return ref === 'S' || ref === 'W' ? -magnitude : magnitude;
 }

@@ -1,0 +1,77 @@
+/* สรุปธงรายชนิด — การ์ดเล็กเรียงกันเพื่อให้กวาดตาเห็นชนิดที่โดดออกมาได้ทันที */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summary-item {
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface-soft, transparent);
+}
+
+.summary-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.summary-value {
+  margin: 4px 0 6px;
+}
+
+.flags-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.flag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flag-item {
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+}
+
+.flag-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.flag-by {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.flag-house {
+  margin: 8px 0 0;
+}
+
+.flag-detail,
+.flag-date {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+/* จอมือถือ: ตัวกรองเต็มความกว้าง ไม่งั้น select โดนบีบจนอ่านตัวเลือกไม่ออก */
+@media (max-width: 640px) {
+  .flags-head .field {
+    width: 100%;
+  }
+}

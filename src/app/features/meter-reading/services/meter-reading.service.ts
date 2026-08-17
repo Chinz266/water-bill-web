@@ -151,8 +151,61 @@ export class MeterReadingService {
     confirm_duplicate_location?: boolean;
     /** ยืนยันว่าใช้รูปถูกใบ ทั้งที่วันถ่ายเก่ากว่ารอบที่กำลังออก */
     confirm_stale_photo?: boolean;
+    /**
+     * เลขนี้มาจากไหน — 'ocr' (AI อ่านล้วน ๆ) / 'manual' (คนพิมพ์เอง) /
+     * 'manual_after_ocr_fail' (AI อ่านไม่ออก คนพิมพ์แทน)
+     *
+     * ⚠️ ค่าที่ขึ้นต้นด้วย manual **หลังบ้านบังคับให้มี meter_photo เสมอ และบล็อกตาย**
+     *    ไม่มีปุ่มยืนยันให้ข้าม — เลขที่พิมพ์เองแล้วไม่มีรูปคือข้อมูลที่ตรวจย้อนหลังไม่ได้เลย
+     *    หน้าเว็บจึงควรกันตั้งแต่ก่อนกดส่ง ไม่ปล่อยให้ไปตกที่หลังบ้าน
+     */
+    entry_method?: 'ocr' | 'manual' | 'manual_after_ocr_fail';
+    /**
+     * ความคลาดเคลื่อนของพิกัดเป็นเมตร (coords.accuracy ของ Geolocation API)
+     * EXIF ไม่มีค่านี้ติดมา ส่งได้เฉพาะตอนพิกัดมาจากเซนเซอร์ของเครื่องจริง ๆ
+     */
+    gps_accuracy_m?: number;
+    /**
+     * รหัสประจำการจดครั้งนี้ สร้างตอน **กดบันทึกครั้งแรก** (crypto.randomUUID)
+     *
+     * กันบิลซ้ำเวลายิงซ้ำ — "ยิงแล้วเน็ตหลุดก่อนได้คำตอบ" แยกไม่ออกจาก "ยิงไม่สำเร็จ"
+     * ยิงซ้ำด้วย uuid เดิมจะได้บิลใบเดิมกลับมา (200) ไม่ใช่ error
+     *
+     * ⚠️ ห้ามสร้างใหม่ตอนกำลังจะยิง — สร้างใหม่ทุกครั้งที่ retry = กันอะไรไม่ได้เลย
+     */
+    client_uuid?: string;
   }): Observable<any> {
     return this.http.post(`${this.apiUrl}/bills/scan`, payload);
+  }
+
+  /**
+   * แก้เลขมิเตอร์ของบิลที่ออกไปแล้ว — หลังบ้านคิดหน่วยน้ำกับยอดเงินใหม่ให้เองทั้งหมด
+   *
+   * ไม่ส่ง usage_unit / total_amount ไปด้วยโดยตั้งใจ เหมือน saveBillFromScan() —
+   * ยอดที่หน้าเว็บคิดเองกับที่หลังบ้านคิดเพี้ยนกันเมื่อไหร่ คนจะเชื่อตัวเลขบนจอที่ผิด
+   * และเรทที่ใช้คิดต้องเป็นเรทของบิลใบนั้นตอนออก ไม่ใช่เรท Active วันนี้ ซึ่งหน้าเว็บไม่รู้
+   *
+   * ส่งเป็น multipart เพราะมีไฟล์รูปติดไปด้วยได้ (ทาง JSON ติดเพดาน body-parser 100kb)
+   * ⚠️ รูปที่แนบตอนแก้ไขผ่านการครอปมาแล้ว = ไม่มี EXIF — ห้ามเอาไปอัปเดตพิกัดของบ้าน
+   */
+  editReading(billId: number, payload: {
+    current_unit: number;
+    /** เหตุผลที่แก้ — หลังบ้านเก็บลง meter_reading_logs ไว้ตอบว่าทำไมยอดถึงเปลี่ยน */
+    reason: string;
+    photo?: Blob | null;
+    /** ยืนยันว่าหน่วยที่พุ่งสูงผิดปกติหลังแก้นั้นถูกต้อง */
+    confirm_high_usage?: boolean;
+    /** ยืนยันว่าเลขที่ต่ำลงเกิดจากเปลี่ยนมิเตอร์ ไม่ใช่แก้ผิด */
+    confirm_meter_reset?: boolean;
+  }): Observable<any> {
+    const form = new FormData();
+    form.append('current_unit', String(payload.current_unit));
+    form.append('reason', payload.reason);
+    if (payload.photo) form.append('photo', payload.photo, 'meter.jpg');
+    if (payload.confirm_high_usage) form.append('confirm_high_usage', 'true');
+    if (payload.confirm_meter_reset) form.append('confirm_meter_reset', 'true');
+
+    return this.http.patch(`${this.apiUrl}/bills/${billId}/reading`, form);
   }
 
   // 🌟 6. ฟังก์ชันสำหรับดึงประวัติบิลทั้งหมดจากฐานข้อมูล
@@ -160,7 +213,28 @@ export class MeterReadingService {
     return this.http.get(`${this.apiUrl}/bills`);
   }
 
-  // 🌟 ฟังก์ชันส่งคำสั่งเปลี่ยนสถานะ PENDING <-> PAID
+  /**
+   * 💰 รับชำระเงิน — ใช้ตัวนี้เท่านั้นเวลาลูกบ้านจ่ายเงิน
+   *
+   * ═══ ทำไมใช้ updatePaymentStatus('Paid') แทนไม่ได้ ═══
+   *
+   * ลูกบ้านจ่ายตามยอด `grand_total` ซึ่งรวม **ยอดค้างของบิลเก่า** ที่ถูกทบเข้ามาแล้ว
+   * ตัวนี้จึงปิดบิลเก่าที่ถูกทบให้เป็น Paid ทั้งชุดในทรานแซกชันเดียว
+   *
+   * ถ้าไปกดเปลี่ยนสถานะทีละใบแทน ใบเก่าจะยังค้างอยู่ แล้วบิลเดือนถัดไปจะทบยอดเดิม
+   * เข้าไปอีกรอบ = เก็บเงินซ้ำจากก้อนที่ลูกบ้านจ่ายไปแล้ว โดยไม่มีใครสังเกต
+   *
+   * คืน `{ paid_amount, settled_bill_ids }` — settled_bill_ids คือใบเก่าที่ถูกปิดไปด้วย
+   */
+  payBill(id: number, paidBy?: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bills/${id}/pay`, { paid_by: paidBy });
+  }
+
+  /**
+   * 🌟 เปลี่ยนสถานะการชำระด้วยมือ — ใช้เฉพาะตอน **แก้ที่กดผิด** (Paid → Pending)
+   *
+   * ⚠️ อย่าใช้ตัวนี้รับเงิน ให้ใช้ payBill() แทน (เหตุผลอยู่ข้างบน)
+   */
   updatePaymentStatus(id: number, status: string): Observable<any> {
     const payload = { payment_status: status };
     return this.http.patch(`${this.apiUrl}/bills/${id}/status`, payload);

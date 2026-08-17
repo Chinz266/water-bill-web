@@ -757,6 +757,36 @@ button.chip:hover {
   margin-bottom: var(--sp-2);
 }
 
+/* กล่องถามก่อนยิงทั้งกอง — ด่านสุดท้ายที่เหลือของฝั่งหน้าเว็บ ปุ่มจึงต้องใหญ่และอ่านง่าย
+   วางที่ global ด้วยเหตุผลเดียวกับก้อนบน (batch-scan.css เต็ม budget แล้ว) */
+.force-confirm {
+  align-items: flex-start;
+}
+
+.force-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.force-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.force-text.warn {
+  font-size: 15px;
+  color: var(--danger);
+}
+
+.force-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 /* บรรทัดที่บอกว่าพิกัดยืนยันบ้านได้ — เงื่อนไขเดียวที่ปล่อยให้ออกบิลเอง */
 .row-note.ok {
   font-weight: 600;

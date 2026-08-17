@@ -28,7 +28,9 @@ const row = (over: any = {}) => ({
   capturedAt: null,
   latitude: null,
   longitude: null,
-  photoData: null,
+  // แถวจริงมีรูปย่อเสมอ (preparePhotos ทำให้ทุกไฟล์ที่เลือก) — ต้องมีในฟิกซ์เจอร์ด้วย
+  // ไม่งั้นแถวที่คนแก้เลขเองจะติดด่าน "กรอกเองต้องมีรูป" ตั้งแต่ยังไม่ได้ทดสอบอะไร
+  photoData: 'data:image/jpeg;base64,xxx',
   memberId: 1,
   matchedBy: 'system',
   matchedByCoords: false,

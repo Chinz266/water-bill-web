@@ -8,9 +8,9 @@
       <button type="button" class="btn btn-ghost btn-sm device-loc-ask" (click)="request()">
         📍 เทียบกับตำแหน่งที่ยืนอยู่ตอนนี้
       </button>
-      <span class="device-loc-note">ใช้ดูเทียบอย่างเดียว ไม่ถูกบันทึกลงทะเบียนครับ</span>
+      <span class="device-loc-note">ดูเทียบอย่างเดียว ไม่บันทึกครับ</span>
     } @else if (status() === 'asking') {
-      <span class="device-loc-note">กำลังหาตำแหน่งของเครื่อง...</span>
+      <span class="device-loc-note">กำลังหาตำแหน่งเครื่อง...</span>
     } @else if (status() === 'ready' && coords(); as here) {
       <div class="device-loc-head">
         <span class="device-loc-title">
@@ -32,22 +32,19 @@
       <!-- ต้องติดป้ายเสมอเมื่อค่าหยาบ ไม่งั้นคนเห็นตัวเลขแล้วนึกว่าแม่นเท่ารูป -->
       @if (isCoarse()) {
         <p class="device-loc-warn">
-          ค่านี้เครื่องเดาจากเน็ต ไม่ได้จับจากดาวเทียม อาจห่างจากที่ยืนอยู่จริงหลายกิโลครับ
-          — ให้ยึดพิกัดที่ติดมากับรูปเป็นหลัก
+          ค่านี้เครื่องเดาจากเน็ต ไม่ได้จับจากดาวเทียม อาจคลาดหลายกิโล — ยึดพิกัดในรูปเป็นหลักครับ
         </p>
       }
 
       @if (gapText(); as gap) {
         <p class="device-loc-gap" [class.warn]="gapIsFar()">
-          รูปนี้ถ่ายห่างจากที่ยืนอยู่ตอนนี้ประมาณ <strong>{{ gap }}</strong>
+          รูปนี้ถ่ายห่างจากที่ยืนตอนนี้ราว <strong>{{ gap }}</strong>
         </p>
       } @else {
         <p class="device-loc-note">ยังไม่มีพิกัดจากรูปให้เทียบครับ</p>
       }
 
-      <p class="device-loc-note">
-        ตัวเลขนี้ไม่ถูกบันทึกและไม่มีผลกับการออกบิล พิกัดที่ระบบใช้มาจากรูปเท่านั้นครับ
-      </p>
+      <p class="device-loc-note">ไม่บันทึกและไม่มีผลกับบิล ระบบใช้พิกัดจากรูปเท่านั้นครับ</p>
     } @else {
       <p class="device-loc-warn">{{ errorMessage() }}</p>
       <button type="button" class="btn btn-ghost btn-sm" (click)="request()">ลองใหม่</button>

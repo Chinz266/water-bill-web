@@ -16,6 +16,7 @@ import { photoDataUrl } from '../../services/photo-file';
 import { Village, VillageService } from '../../../village/services/village.service';
 import { StoredQueue, StoredRow, clearQueue, loadQueue, saveQueue } from '../../services/batch-queue.store';
 import { DeviceLocationComponent } from '../device-location/device-location';
+import { PHOTO_COORDS_HINT } from '../../services/photo-coords-help';
 
 /**
  * สถานะของแต่ละแถว — แยก "อ่านไม่ผ่าน" กับ "ออกบิลไม่ผ่าน" ออกจากกัน
@@ -108,8 +109,31 @@ interface NearbyChoice {
   takenBySeq: number | null;
 }
 
+/**
+ * รหัสประจำการจดหนึ่งครั้ง — ใช้กันบิลซ้ำเวลายิงซ้ำ
+ *
+ * `crypto.randomUUID` ไม่มีในทุกที่ (เบราว์เซอร์เก่า / หน้าที่เปิดผ่าน http ที่ไม่ใช่
+ * localhost ซึ่งไม่ใช่ secure context) จึงต้องมีทางถอย — รหัสที่สุ่มเองก็ทำหน้าที่
+ * เดียวกันได้ครบ เพราะมันแค่ต้องไม่ซ้ำกับของแถวอื่น ไม่ได้ต้องปลอดภัยเชิงรหัสลับ
+ */
+function newClientUuid(): string {
+  const uuid = (globalThis.crypto as Crypto | undefined)?.randomUUID;
+  if (typeof uuid === 'function') return uuid.call(globalThis.crypto);
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+}
+
 interface ScanRow {
   seq: number;
+  /**
+   * รหัสประจำการจดของแถวนี้ สร้าง**ตอนแถวเกิด** ไม่ใช่ตอนจะยิง
+   *
+   * หลังบ้านใช้กันบิลซ้ำ: ยิงซ้ำด้วยรหัสเดิมจะได้บิลใบเดิมกลับมา (200) ไม่ใช่บิลใบที่สอง
+   * ซึ่งเป็นสิ่งที่ต้องมีเมื่อเน็ตหลุดตอนกำลังยิง — สถานะ 'unknown' ของแถวที่ค้าง
+   * แปลว่า "ไม่รู้ว่าออกไปแล้วหรือยัง" และคนจะกดออกบิลซ้ำเสมอ
+   *
+   * ⚠️ ต้องติดไปกับแถวข้ามการกู้คิวด้วย ถ้าสร้างใหม่ตอนกู้ = กันอะไรไม่ได้เลย
+   */
+  clientUuid: string;
   /** null = แถวที่กู้มาจากคิวเก่า ตัวรูปไม่ได้ถูกเก็บไว้ */
   file: File | null;
   fileKey: string;
@@ -180,11 +204,19 @@ interface ScanRow {
  * ไม่ใช่ GPS ซึ่งแยกบ้านที่ห่างกัน 8–20 ม. ไม่ได้จริง
  *
  * หน้านี้ทำแค่ 3 อย่าง: ส่งรูปไปให้วิเคราะห์ · ให้คนตรวจ/แก้ · ยิงออกบิลทีละใบ
- * สองอย่างแรกเดินเองตั้งแต่เลือกรูป (ดู scheduleAutoAnalyze / saveAutoMatched)
+ * สองอย่างแรกเดินเองตั้งแต่เลือกรูป (ดู scheduleAutoAnalyze / runAfterAnalyze)
  *
- * ⚠️ "ออกบิลเอง" ไม่ใช่ "ออกบิลทุกใบ" — ปล่อยผ่านได้เฉพาะใบที่ยืนยันบ้านได้จริง
- *    และไม่มีอะไรน่าสงสัยเลยสักอย่าง (ดู autoSavable) เดิมพันคือเงินที่ลูกบ้านต้องจ่าย
- *    ใบที่เหลือตกมาให้คนตรวจเหมือนเดิม — เพิ่มด่านเข้าไปได้ อย่าถอดออก
+ * อ่านเลขเสร็จแล้วเดินสองจังหวะ: ใบที่**พิกัดในรูปยืนยันบ้านได้แบบตรงแปะ** (instantRows)
+ * ยิงออกบิลเลยไม่ต้องถาม — จบคิวนั้นแล้วค่อยขึ้นกล่องถามเรื่องใบที่เหลือ
+ *
+ * ⚠️ ตามที่เจ้าของโปรเจกต์สั่ง กล่องนั้นเสนอออกบิล **ทุกใบที่เลือกบ้านแล้ว**
+ *    ไม่ใช่เฉพาะใบที่ยืนยันบ้านได้ — ด่านฝั่งหน้าเว็บ (พิกัดยืนยัน · AI ≥ 85% · วันถ่าย ·
+ *    หน่วยพุ่ง · คำเตือนจากหลังบ้าน) กลายเป็นแค่ "ป้ายเตือน" ไม่ได้กันคิวอีกต่อไป
+ *    สิ่งเดียวที่ยังกันอยู่คือกล่องถามยืนยันก่อนคิวเริ่มเดิน (forceConfirm) กับด่านที่
+ *    blockingIssue() จับได้ (ไม่มีบ้าน · ไม่มีเลข · ซ้ำในกอง · มีบิลรอบนี้แล้ว) ซึ่งยิงไปก็ไม่ผ่าน
+ *
+ *    ด่านฝั่งหลังบ้านยังทำงานครบทุกใบเหมือนเดิม ธง confirm_* ไม่เคยถูกส่งเป็น true เอง
+ *    ใบที่ติดด่านของหลังบ้านยังตกมาให้คนกดยืนยันอยู่ — ตรงนั้นห้ามถอด
  */
 @Component({
   selector: 'app-batch-scan',
@@ -218,6 +250,18 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   isSaving = false;
   progress = { done: 0, total: 0 };
   replaceExisting = false;
+
+  /**
+   * กล่องถามก่อนยิงทั้งกอง — null = ไม่มีอะไรค้างถาม
+   *
+   * เป็นจุดเดียวที่เหลือให้คนเบรกก่อนบิลออก เพราะคิวชุดนี้ไม่ได้กรองด้วย autoSavable() แล้ว
+   * เก็บเป็นตัวเลข ณ ตอนอ่านเลขเสร็จไว้โชว์เฉย ๆ ส่วนคิวจริงคิดใหม่ตอนกดยืนยัน (คนแก้แถวได้
+   * ระหว่างที่กล่องค้างอยู่ ถ้าใช้ตัวเลขเก่าจะยิงคนละชุดกับที่เห็นบนจอ)
+   */
+  forceConfirm: { total: number; skipped: number } | null = null;
+
+  /** คิวที่กำลังเดินคือชุด "พิกัดตรงแปะ" — จบแล้วต้องถามต่อเรื่องใบที่เหลือ */
+  private askAfterQueue = false;
 
   /** ระยะที่ถือว่าพิกัดในรูป "ยืนยัน" บ้านหลังนั้นได้ — สั้นกว่าระยะที่ใช้เดาบ้านครึ่งหนึ่ง */
   private readonly confirmMeters = 25;
@@ -461,6 +505,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     return {
       seq: ++this.seq,
+      clientUuid: newClientUuid(),
       file,
       fileKey: this.keyOf(file),
       fileName: file.name,
@@ -497,7 +542,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /** ห่อไว้เป็นเมธอดเพื่อให้เทสต์แทนได้ — jsdom เปิดรูปจริงไม่ได้ */
-  private photoDataUrl(file: File): Promise<string | null> {
+  private photoDataUrl(file: Blob): Promise<string | null> {
     return this.isBrowser ? photoDataUrl(file) : Promise.resolve(null);
   }
 
@@ -622,6 +667,18 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       .filter((p): p is LatLng => p !== null);
 
     return medianCoords(points);
+  }
+
+  readonly photoCoordsHint = PHOTO_COORDS_HINT;
+
+  /**
+   * รูปในกองที่ไม่มีพิกัดติดมา — ขึ้นคำอธิบายรวมครั้งเดียว ไม่ใช่ต่อท้ายทุกแถว
+   *
+   * ทั้งกองมักพลาดด้วยเหตุเดียวกัน (เลือกผ่านคลังภาพของ Android ซึ่งตัดพิกัดออกให้เอง)
+   * เขียนซ้ำ 30 แถวก็ไม่ได้ช่วยให้แก้ถูกขึ้น มีแต่ดันแถวที่ต้องตรวจจริงตกจอ
+   */
+  get rowsMissingCoords(): number {
+    return this.rows.filter((row) => row.latitude === null || row.longitude === null).length;
   }
 
   /** พิกัดที่บ้านหลังนี้เก็บไว้ใช้ไม่ได้ — ไม่มี หรืออยู่ไกลจากหมู่บ้านคนละเรื่อง */
@@ -761,8 +818,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           { id: 'batch-read-done' }
         );
 
-        // ติ๊กออกบิลอัตโนมัติไว้ → ยิงต่อทันทีเฉพาะใบที่พิกัดยืนยันบ้านได้
-        this.saveAutoMatched();
+        // อ่านเลขเสร็จ → ยิงใบที่พิกัดตรงแปะเลย ที่เหลือค่อยขึ้นกล่องถาม
+        this.runAfterAnalyze();
       },
       error: (err) => {
         this.isAnalyzing = false;
@@ -929,8 +986,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.isRereading = true;
     this.cdr.detectChanges();
 
+    const cropped = this.cropBlob;
+
     this.meterReadingService.scanBatch(form).subscribe({
-      next: (res: any) => {
+      next: async (res: any) => {
         this.isRereading = false;
 
         const results = Array.isArray(res?.results) ? res.results : [];
@@ -955,6 +1014,18 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
 
         toast.success(`อ่านใหม่ได้ ${row.unit} ครับ`, { id: 'batch-reread' });
+
+        // เก็บกรอบที่ครอปเป็นรูปของแถวนี้แทนรูปเต็มใบ — เลขบนหน้าปัดชัดกว่ามากในงบไบต์เท่ากัน
+        // และเป็นรูปเดียวกับที่ AI อ่านเลขนี้ออกมาจริง ๆ คนที่ย้อนมาตรวจจึงเห็นสิ่งที่ระบบเห็น
+        //
+        // พิกัดกับวันถ่ายอ่านจากไฟล์ต้นฉบับไปตั้งแต่ตอนเลือกรูปแล้ว (canvas ทิ้ง EXIF ทั้งก้อน)
+        // การทับตรงนี้จึงไม่กระทบด่านไหนเลย
+        const encoded = await this.photoDataUrl(cropped);
+        if (encoded) {
+          row.photoData = encoded;
+          this.persist();
+          this.cdr.detectChanges();
+        }
       },
       error: (err) => {
         this.isRereading = false;
@@ -1038,6 +1109,22 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (row.unit === null) return 'ยังไม่มีเลขมิเตอร์ กรุณากรอกเองครับ';
     if (row.unit < 0) return 'เลขมิเตอร์ติดลบไม่ได้ครับ';
     if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
+    // กรอกเลขเองแล้วไม่มีรูป = ไม่เหลืออะไรให้ตรวจย้อนหลังเลยแม้แต่ชิ้นเดียว
+    // หลังบ้านบล็อกตายอยู่แล้ว (ไม่มีปุ่มยืนยันให้กด) กันตั้งแต่ตรงนี้ดีกว่าปล่อยให้
+    // ยิงไปทั้งคิวแล้วตกกลับมาทีละใบพร้อมข้อความที่คนอ่านตอนนั้นแก้อะไรไม่ได้แล้ว
+    //
+    // ⚠️ ยกเว้นแถวสถานะ 'unknown' (ค้างตอนกำลังยิงรอบก่อน — ไฟดับ/เน็ตหลุด)
+    //    แถวพวกนี้ยังไม่รู้ว่าบิลออกไปแล้วหรือยัง และ client_uuid ทำให้การกดซ้ำ
+    //    ให้คำตอบนั้นพอดี: เคยออกแล้วจะได้บิลใบเดิมกลับมา ไม่เคยออกจะโดนหลังบ้าน
+    //    ตีกลับ ซึ่งคือสิ่งที่คนกดอยากรู้ การบล็อกไว้เฉย ๆ ทำให้ไม่มีทางรู้เลย
+    if (row.status !== 'unknown' && this.entryMethod(row) !== 'ocr' && !row.photoData) {
+      return 'เลขนี้กรอกเอง จึงต้องมีรูปหน้าปัดแนบไปด้วยเสมอ — แถวนี้ไม่มีรูปแล้วครับ กรุณาถ่ายใหม่';
+    }
+    // เวลาถ่ายเป็นอนาคตแปลว่านาฬิกาของเครื่องที่ถ่ายตั้งไม่ตรง หลังบ้านบล็อกตาย
+    // เผื่อ 5 นาทีเท่ากัน เพราะนาฬิกามือถือกับ server คลาดกันเป็นวินาทีเป็นปกติ
+    if (row.capturedAt && row.capturedAt.getTime() > Date.now() + 5 * 60 * 1000) {
+      return 'เวลาถ่ายของรูปนี้เป็นเวลาในอนาคต กรุณาตั้งนาฬิกาของเครื่องที่ถ่ายให้ตรงแล้วถ่ายใหม่ครับ';
+    }
     if (!this.replaceExisting && this.alreadyBilled(row)) {
       return 'บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ถ้าจะออกใหม่ให้ติ๊ก "ลบใบเดิมแล้วออกใหม่" ด้านล่างครับ';
     }
@@ -1272,6 +1359,20 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return this.isConfirmedByCoords(row) || this.isConfirmedByMeterUnit(row);
   }
 
+  /**
+   * ใบที่ยังไม่เสร็จลอยขึ้นบนสุด ใบที่ออกบิลแล้วจมลงล่าง
+   *
+   * กองหนึ่งมีได้ถึง 30 ใบ ถ้าเรียงตามลำดับรูปเฉย ๆ ใบที่ติดด่านจะกระจายแทรกอยู่กลาง
+   * กองใบที่เขียวหมดแล้ว คนต้องเลื่อนไล่ดูทีละใบว่าเหลืออะไรต้องแก้ — ซึ่งจุดนี้แหละที่คนเลิกไล่
+   * แล้วปิดหน้าไปทั้งที่ยังมีใบค้าง
+   *
+   * เลข #seq ยังเป็นลำดับรูปเดิมเสมอ ย้อนกลับไปหาว่ารูปไหนอยู่ตรงไหนในกองได้
+   * และ sort ของ JS เสถียรตามสเปก ใบในกลุ่มเดียวกันจึงไม่สลับที่กันเอง
+   */
+  private floatUnfinished(): void {
+    this.rows.sort((a, b) => Number(a.status === 'saved') - Number(b.status === 'saved'));
+  }
+
   get savableRows(): ScanRow[] {
     return this.rows.filter((row) => row.status !== 'saved' && this.blockingIssue(row) === null);
   }
@@ -1344,6 +1445,21 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * เลขของแถวนี้มาจากไหน — หลังบ้านใช้ตัดสินว่าจะบังคับให้มีรูปไหม
+   *
+   *   'ocr'                   เลขยังเป็นค่าที่ AI อ่านมาเป๊ะ ๆ
+   *   'manual_after_ocr_fail' AI อ่านไม่ออกเลย (ocrUnit ว่าง) คนพิมพ์แทน
+   *   'manual'                AI อ่านได้ แต่คนแก้ทับ
+   *
+   * แยกสองแบบหลังออกจากกันเพราะความหมายต่างกันเวลาไล่ตรวจย้อนหลัง: แบบแรกคือรูป
+   * ที่โมเดลอ่านไม่ได้ (หน้าปัดฝ้า/โคลนบัง) แบบหลังคือคนเห็นว่าโมเดลอ่านผิดแล้วแก้
+   */
+  private entryMethod(row: ScanRow): 'ocr' | 'manual' | 'manual_after_ocr_fail' {
+    if (row.ocrUnit !== null && row.unit === row.ocrUnit) return 'ocr';
+    return row.ocrUnit === null ? 'manual_after_ocr_fail' : 'manual';
+  }
+
+  /**
    * ความมั่นใจที่ส่งไปให้ด่านตรวจ — เงื่อนไขเดียวกับ digitsToSend
    * คนแก้เลขเองแล้วยังส่งไป จะกลายเป็นบล็อกเลขที่เทียบกับหน้าปัดมาแล้วด้วยคะแนนของเลขตัวเก่า
    */
@@ -1369,20 +1485,80 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * ออกบิลเองเฉพาะใบที่ยืนยันบ้านได้และไม่มีอะไรน่าสงสัย (เรียกทันทีที่อ่านเลขเสร็จ)
-   * ใบที่ไม่เข้าเงื่อนไขไม่ถูกแตะเลย ยังรอให้คนตรวจแล้วกดปุ่มออกบิลเหมือนเดิม
+   * ใบที่จะถูกยิงทั้งที่ยังไม่ผ่านด่านฝั่งหน้าเว็บ — ไว้บอกจำนวนในกล่องถามยืนยัน
+   * คนต้องเห็นตัวเลขนี้ก่อนกด ไม่งั้น "ยืนยัน" กลายเป็นการกดผ่านของที่ไม่รู้ว่ามีอยู่
    */
-  private saveAutoMatched(): void {
+  get forcedRows(): ScanRow[] {
+    return this.savableRows.filter((row) => !this.autoSavable(row));
+  }
+
+  /**
+   * ใบที่พิกัดในรูปชี้บ้านได้แบบไม่ต้องถาม — ยิงเองทันทีตั้งแต่อ่านเลขเสร็จ
+   *
+   * "ตรงแปะ" = จุดถ่ายรูปห่างมิเตอร์ของบ้านนั้นไม่เกิน 25 ม. และไม่มีบ้านหลังอื่นใกล้พอ ๆ กัน
+   * (isConfirmedByCoords) บวกกับด่านที่เหลือของ autoSavable ครบทุกข้อ — ชุดนี้คือของเดิม
+   * ที่เคยยิงเองอยู่แล้ว จึงไม่ต้องเสียเวลาให้คนกดซ้ำ
+   *
+   * ใบที่หลังบ้านชี้จากเลขมิเตอร์ (ไม่มีพิกัดมายืนยัน) ตกไปอยู่ในกล่องถาม — ไม่ใช่ "พิกัดตรงแปะ"
+   */
+  get instantRows(): ScanRow[] {
+    return this.rows.filter((row) => this.autoSavable(row) && this.isConfirmedByCoords(row));
+  }
+
+  /**
+   * อ่านเลขเสร็จแล้วเดินต่อเอง: ยิงใบที่พิกัดตรงแปะก่อน จบคิวแล้วค่อยถามเรื่องที่เหลือ
+   *
+   * แยกสองจังหวะเพราะคิวเดินทีละใบ ถ้าขึ้นกล่องถามคาไว้ระหว่างที่บิลกำลังทยอยออก
+   * ตัวเลขในกล่องจะเป็นของก่อนคิวเดิน แล้วคนจะกดยืนยันชุดที่ไม่ตรงกับที่เห็น
+   */
+  private runAfterAnalyze(): void {
     if (this.isBusy) return;
 
-    const queue = this.autoSavableRows;
+    const instant = this.instantRows;
+    if (!instant.length) {
+      this.askForceSave();
+      return;
+    }
+
+    this.askAfterQueue = true;
+    toast.success(`พิกัดตรง ออกบิลให้เลย ${instant.length} ใบครับ`, { id: 'batch-auto-save' });
+    this.runQueue(instant);
+  }
+
+  /**
+   * ขอออกบิลใบที่เหลือทั้งกอง
+   *
+   * ไม่ยิงเองเงียบ ๆ เพราะชุดนี้รวมใบที่ยังไม่ยืนยันบ้าน/AI อ่านไม่ชัด/หน่วยพุ่งไว้ด้วย
+   * กล่องถามคือด่านสุดท้ายที่เหลือของฝั่งหน้าเว็บ
+   */
+  private askForceSave(): void {
+    if (this.isBusy) return;
+
+    const queue = this.savableRows;
     if (!queue.length) return;
 
-    toast.success(
-      `กำลังออกบิลอัตโนมัติ ${queue.length} ใบที่ยืนยันบ้านได้แล้วครับ`,
-      { id: 'batch-auto-save' }
-    );
+    this.forceConfirm = { total: queue.length, skipped: this.forcedRows.length };
+    this.cdr.detectChanges();
+  }
+
+  /** กดยืนยันในกล่อง — คิวคิดใหม่ ณ ตอนกด ไม่ใช้ชุดที่จำไว้ตอนอ่านเลขเสร็จ */
+  confirmForceSave(): void {
+    if (this.isBusy) return;
+
+    this.forceConfirm = null;
+    const queue = this.savableRows;
+    if (!queue.length) {
+      toast.error('ยังไม่มีแถวไหนพร้อมออกบิลครับ', { id: 'batch-save-none' });
+      return;
+    }
+
+    toast.success(`กำลังออกบิล ${queue.length} ใบครับ`, { id: 'batch-auto-save' });
     this.runQueue(queue);
+  }
+
+  /** ไม่ยืนยัน = ไม่ยิงสักใบ ปล่อยให้คนไล่ตรวจแล้วกดปุ่มออกบิลเองตามเดิม */
+  cancelForceSave(): void {
+    this.forceConfirm = null;
   }
 
   private runQueue(queue: ScanRow[]): void {
@@ -1416,6 +1592,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
       const done = queue.slice(0, index);
       const failed = done.filter((row) => row.status === 'save_failed').length;
+      // สั่งหยุดกลางคิว = ไม่ใช่จังหวะที่จะเสนอออกบิลชุดต่อไปให้
+      const askNext = this.askAfterQueue && !this.stopRequested;
+      this.askAfterQueue = false;
 
       if (this.stopRequested) {
         this.stopRequested = false;
@@ -1427,6 +1606,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         failed ? `ออกบิลสำเร็จ ${done.length - failed} ใบ ไม่สำเร็จ ${failed} ใบครับ` : `ออกบิลครบ ${queue.length} ใบแล้วครับ`,
         { id: 'batch-save-done' }
       );
+
+      // ใบที่พิกัดตรงแปะออกไปแล้ว ที่เหลือ (ถ้ายังมี) ต้องผ่านการกดยืนยันของคน
+      if (askNext) this.askForceSave();
       return;
     }
 
@@ -1526,8 +1708,14 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         longitude: row.longitude ?? undefined,
         captured_at: row.capturedAt ? row.capturedAt.toISOString() : undefined,
         // รูปหน้าปัดติดไปกับบิลด้วย ไม่งั้นบิลจากโหมดกองจะไม่มีหลักฐานให้เปิดดูย้อนหลังเลย
-        // (ใบไหนย่อรูปยังไม่เสร็จหรือย่อไม่ได้ ก็ออกบิลไปโดยไม่มีรูป ดีกว่าค้างคิวไว้)
-        meter_photo: row.photoData ?? undefined
+        // (ใบที่เลขมาจาก AI ล้วน ๆ และย่อรูปไม่ทัน ยังออกบิลได้ — แต่ใบที่กรอกเองไม่ได้
+        //  ดู blockingIssue ซึ่งกันไว้ตั้งแต่ก่อนเข้าคิวแล้ว)
+        meter_photo: row.photoData ?? undefined,
+        // เลขมาจาก AI หรือคนพิมพ์ — หลังบ้านบังคับให้ใบที่กรอกเองต้องมีรูปเสมอ
+        entry_method: this.entryMethod(row),
+        // กันบิลซ้ำตอนยิงซ้ำ: ยิงด้วยรหัสเดิมได้บิลใบเดิมกลับมา ไม่ใช่ใบที่สอง
+        // สำคัญกับแถวสถานะ 'unknown' (ค้างตอนกำลังยิง) ที่คนจะกดออกบิลซ้ำเสมอ
+        client_uuid: row.clientUuid
       })
       .subscribe({
         next: (bill: any) => {
@@ -1538,6 +1726,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           // บิลออกแล้ว = ยืนยันแล้วว่ารูปใบนี้เป็นของบ้านหลังนี้จริง
           // ถ้าพิกัดที่บ้านเก็บไว้เสีย นี่คือจังหวะที่รู้ได้ชัดที่สุดว่าต้องตามไปแก้หลังไหน
           this.reportCoordsMismatch(row);
+          // ใบนี้เสร็จแล้ว ดันลงล่างทันทีให้ใบที่ยังค้างเลื่อนขึ้นมาอยู่ในสายตา
+          // (คิวที่กำลังยิงเป็นสำเนาคนละก้อนกับ this.rows การสลับที่ตรงนี้ไม่กระทบลำดับยิง)
+          this.floatUnfinished();
           this.progress.done = index + 1;
           // เก็บทุกใบ — ไฟดับตอนใบที่ 12 ต้องรู้ว่า 11 ใบแรกออกไปแล้ว
           this.persist();
@@ -1611,6 +1802,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private fromStored(row: StoredRow): ScanRow {
     return {
       seq: row.seq,
+      // คิวที่เก็บก่อนมีระบบนี้จะไม่มีรหัส — สร้างใหม่ให้ ยังดีกว่าไม่มีเลย
+      // (แถวพวกนั้นกันซ้ำไม่ได้อยู่แล้วเพราะรหัสเดิมไม่เคยถูกส่งไปหลังบ้าน)
+      clientUuid: row.clientUuid || newClientUuid(),
       file: null,
       fileKey: `restored|${row.seq}`,
       fileName: row.fileName,
@@ -1671,6 +1865,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private toStored(row: ScanRow): StoredRow {
     return {
       seq: row.seq,
+      clientUuid: row.clientUuid,
       fileName: row.fileName,
       capturedAt: row.capturedAt ? row.capturedAt.toISOString() : null,
       latitude: row.latitude,

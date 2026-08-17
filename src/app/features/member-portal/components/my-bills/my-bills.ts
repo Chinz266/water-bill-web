@@ -126,11 +126,37 @@ export class MyBillsComponent implements OnInit {
     return this.visibleBills.find((bill) => bill.payment_status !== 'Paid') ?? null;
   }
 
-  /** ยอดค้างชำระรวมทุกใบของบ้านที่เลือกอยู่ */
+  /**
+   * ยอดค้างชำระรวมทุกใบของบ้านที่เลือกอยู่
+   *
+   * ⚠️ ต้องรวมจาก `total_amount` (ค่าน้ำของเดือนนั้นล้วน ๆ) **ห้ามใช้ grand_total**
+   *    เพราะ grand_total ของใบล่าสุดรวมยอดค้างของใบเก่าไว้อยู่แล้ว การเอามาบวกกับ
+   *    ใบเก่าที่ยังโชว์อยู่ในรายการอีกที = นับซ้ำ ยอดจะพองเป็นเท่าตัว
+   */
   get unpaidTotal(): number {
     return this.visibleBills
       .filter((bill) => bill.payment_status !== 'Paid')
       .reduce((sum, bill) => sum + (Number(bill.total_amount) || 0), 0);
+  }
+
+  /** ใบนี้ทบยอดค้างของเดือนก่อนมาด้วยไหม — ใช้บอกลูกบ้านว่าจ่ายใบเดียวจบ */
+  hasArrears(bill: any): boolean {
+    const value = Number(bill?.arrears_amount);
+    return Number.isFinite(value) && value > 0;
+  }
+
+  /** ยอดค้างเก่าที่ทบมาในใบนี้ */
+  arrears(bill: any): number {
+    const value = Number(bill?.arrears_amount);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  /** ยอดที่ต้องจ่ายจริงของใบนี้ = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา */
+  payable(bill: any): number {
+    const grand = Number(bill?.grand_total);
+    return Number.isFinite(grand) && bill?.grand_total !== null && bill?.grand_total !== ''
+      ? grand
+      : Number(bill?.total_amount) || 0;
   }
 
   get unpaidCount(): number {

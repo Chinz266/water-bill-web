@@ -3,20 +3,26 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { toast } from 'ngx-sonner';
+import { ImageCropperComponent, ImageTransform } from 'ngx-image-cropper';
 import { MeterReadingService } from '../../services/meter-reading.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
+import { photoBlob } from '../../services/photo-file';
+import { AuthService } from '../../../auth/services/auth.service';
+import { AuditService, ReadingLog } from '../../../audit/services/audit.service';
 import { API_BASE_URL } from '../../../../core/api.config';
 
 @Component({
   selector: 'app-billing-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, ImageCropperComponent],
   templateUrl: './billing-history.html',
   styleUrls: ['./billing-history.css']
 })
 export class BillingHistoryComponent implements OnInit {
   private print = inject(BillPrintService);
+  private auth = inject(AuthService);
+  private audit = inject(AuditService);
 
   bills: any[] = [];
   isLoading = true;
@@ -33,12 +39,229 @@ export class BillingHistoryComponent implements OnInit {
     this.photoBroken = false;
     this.photoZoomed = false;
     this.detail = this.buildDetail(bill);
+    this.loadEditLogs(bill.id);
   }
 
   closeDetail() {
     this.selectedBill = null;
     this.photoZoomed = false;
     this.detail = null;
+    this.editLogs = [];
+  }
+
+  // ==========================================
+  // แก้ไขเลขมิเตอร์ของบิลที่ออกไปแล้ว
+  // ==========================================
+
+  /**
+   * บิลที่กำลังแก้อยู่ (null = ยังไม่ได้กด)
+   *
+   * แยกจาก selectedBill เพราะหน้าต่างแก้ไขซ้อนอยู่บนหน้ารายละเอียด ปิดแล้วต้องกลับมา
+   * ที่ใบเดิมโดยไม่เสียตำแหน่ง เหมือนที่รูปเต็มจอทำอยู่
+   */
+  editBill: any = null;
+  editUnit: number | null = null;
+  editReason = '';
+  isSavingEdit = false;
+
+  /** รูปใหม่ที่ครอปแล้ว — null = ไม่ได้เปลี่ยนรูป หลังบ้านจะเก็บรูปเดิมไว้ */
+  editPhoto: Blob | null = null;
+  /** ไฟล์ที่เพิ่งเลือกและกำลังครอปอยู่ (ยังไม่ยืนยัน) */
+  editPhotoFile: File | null = null;
+  editCropTransform: ImageTransform = {};
+  private editCropRotation = 0;
+  private editCropBlob: Blob | null = null;
+
+  /**
+   * ด่านของหลังบ้านที่ตีกลับมา ('high_usage' | 'meter_reset')
+   *
+   * ธง confirm_* ไม่เคยถูกส่งเป็น true เอง — ต้องให้คนอ่านคำเตือนแล้วกดยืนยันก่อนเสมอ
+   * เหมือนหน้าจดมิเตอร์ ปุ่มยืนยันจึงโผล่หลังโดนตีกลับเท่านั้น ไม่ใช่ติ๊กค้างไว้ล่วงหน้า
+   */
+  editBlocker: 'high_usage' | 'meter_reset' | null = null;
+  editBlockerMessage = '';
+
+  /** ประวัติการแก้ของบิลใบที่เปิดดูอยู่ — โชว์ในหน้ารายละเอียดเพื่อให้ยอดที่เปลี่ยนมีที่มา */
+  editLogs: ReadingLog[] = [];
+
+  /**
+   * ปุ่มแก้ไขควรขึ้นไหม
+   *
+   * ⚠️ เป็นแค่การซ่อนปุ่ม ไม่ใช่ด่าน — หลังบ้านต้องตรวจสิทธิ์กับเวลาเองซ้ำทุกครั้ง
+   *    เงื่อนไขตรงนี้เขียนให้ตรงกับของหลังบ้านเพื่อไม่ให้คนกดแล้วเจอ error เปล่า ๆ
+   */
+  canEdit(bill: any): boolean {
+    if (!bill) return false;
+    // จ่ายเงินแล้วห้ามแก้ทุกกรณี — ยอดที่ลูกบ้านจ่ายไปรวมบิลค้างเก่าที่ถูกปิดไปพร้อมกัน
+    // แก้ยอดทีหลังจะได้บัญชีที่ไม่ตรงกับเงินสดในมือ ต้องกดกลับเป็นรอชำระเงินก่อน
+    if (bill.payment_status === 'Paid') return false;
+    if (this.auth.isOwner()) return true;
+
+    // เจ้าหน้าที่จดมิเตอร์: เฉพาะที่จดวันนี้ หรือบิลที่ยังไม่ชำระ
+    const raw = bill.meter_reading?.reading_date ?? bill.create_date;
+    const readAt = raw ? new Date(raw) : null;
+    const isToday = readAt !== null && !isNaN(readAt.getTime())
+      && readAt.toDateString() === new Date().toDateString();
+
+    return isToday || bill.payment_status === 'Pending';
+  }
+
+  openEdit(bill: any): void {
+    if (!this.canEdit(bill)) return;
+
+    this.editBill = bill;
+    this.editUnit = this.toNumber(bill.meter_reading?.meter_unit);
+    this.editReason = '';
+    this.editPhoto = null;
+    this.editPhotoFile = null;
+    this.editCropBlob = null;
+    this.editCropRotation = 0;
+    this.editCropTransform = {};
+    this.editBlocker = null;
+    this.editBlockerMessage = '';
+  }
+
+  closeEdit(): void {
+    // กำลังยิงอยู่ห้ามปิด ไม่งั้นจะไม่รู้ว่าตกลงยอดเปลี่ยนไปแล้วหรือยัง
+    if (this.isSavingEdit) return;
+    this.editBill = null;
+    this.editPhotoFile = null;
+    this.editPhoto = null;
+    this.editCropBlob = null;
+  }
+
+  /** เลือกรูปใหม่ → เข้ากล่องครอปทันที รูปเต็มใบยังไม่ถูกใช้จนกว่าจะกดยืนยันกรอบ */
+  onEditPhotoPicked(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    input.value = ''; // เลือกไฟล์เดิมซ้ำต้องให้ event ยิงอีกรอบ
+
+    if (!file) return;
+    this.editPhotoFile = file;
+    this.editPhoto = null;
+    this.editCropBlob = null;
+    this.editCropRotation = 0;
+    this.editCropTransform = {};
+  }
+
+  onEditCropped(event: any): void {
+    this.editCropBlob = event?.blob ?? null;
+  }
+
+  rotateEditCrop(direction: -1 | 1): void {
+    this.editCropRotation += direction * 90;
+    this.editCropTransform = { ...this.editCropTransform, rotate: this.editCropRotation };
+  }
+
+  /** ยืนยันกรอบที่ครอป แล้วย่อ/บีบอัดให้พร้อมส่ง (คนละบันไดกับทาง JSON — ดู photoBlob) */
+  async useEditCrop(): Promise<void> {
+    if (!this.editCropBlob) return;
+
+    this.editPhoto = (await photoBlob(this.editCropBlob)) ?? this.editCropBlob;
+    this.editPhotoFile = null;
+    this.editCropBlob = null;
+    this.cdr.detectChanges();
+  }
+
+  cancelEditCrop(): void {
+    this.editPhotoFile = null;
+    this.editCropBlob = null;
+  }
+
+  clearEditPhoto(): void {
+    this.editPhoto = null;
+  }
+
+  saveEdit(): void {
+    const bill = this.editBill;
+    if (!bill || this.isSavingEdit) return;
+
+    const unit = this.toNumber(this.editUnit);
+    if (unit === null) {
+      toast.error('กรุณากรอกเลขมิเตอร์ใหม่ครับ', { id: 'edit-reading' });
+      return;
+    }
+
+    // เหตุผลบังคับกรอก — log ที่ไม่มีเหตุผลตอบไม่ได้ว่าทำไมยอดถึงเปลี่ยน
+    // ซึ่งเป็นคำถามเดียวที่ตารางประวัติมีไว้ตอบ
+    const reason = this.editReason.trim();
+    if (reason.length < 3) {
+      toast.error('กรุณาระบุเหตุผลที่แก้ไขครับ', { id: 'edit-reading' });
+      return;
+    }
+
+    this.isSavingEdit = true;
+    this.cdr.detectChanges();
+
+    this.meterReadingService.editReading(bill.id, {
+      current_unit: unit,
+      reason,
+      photo: this.editPhoto,
+      confirm_high_usage: this.editBlocker === 'high_usage',
+      confirm_meter_reset: this.editBlocker === 'meter_reset'
+    }).subscribe({
+      next: (res: any) => {
+        this.isSavingEdit = false;
+        this.editBill = null;
+        this.editPhoto = null;
+
+        // โหลดใหม่ทั้งกอง ไม่แก้ค่าในก้อนเดิมบนจอ — หลังบ้านคิดหน่วยน้ำ ยอดรวม และยอดค้าง
+        // ที่ทบไว้ใหม่หมด การเดาว่าอะไรเปลี่ยนบ้างแล้วแก้เองคือทางที่ตัวเลขบนจอเพี้ยนจากของจริง
+        this.loadBillingHistory();
+        this.loadEditLogs(bill.id);
+        this.cdr.detectChanges();
+
+        const total = this.toNumber(res?.total_amount);
+        toast.success(
+          total === null
+            ? 'แก้ไขเรียบร้อยครับ'
+            : `แก้เป็น ${unit} แล้ว ยอดใหม่ ${total.toFixed(2)} บาทครับ`,
+          { id: 'edit-reading' }
+        );
+      },
+      error: (err) => {
+        this.isSavingEdit = false;
+        console.error('Edit reading error:', err);
+
+        // หลังบ้านตีกลับเพราะติดด่าน → เปิดปุ่มยืนยันให้คนอ่านแล้วตัดสินใจ ไม่ใช่ยิงซ้ำให้เอง
+        const code = err?.error?.code;
+        this.editBlocker = code === 'high_usage' || code === 'meter_reset' ? code : null;
+        this.editBlockerMessage = this.editBlocker
+          ? extractErrorMessage(err, 'ข้อมูลนี้ต้องยืนยันก่อนบันทึก')
+          : '';
+
+        this.cdr.detectChanges();
+        if (!this.editBlocker) {
+          toast.error(extractErrorMessage(err, 'แก้ไขไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'edit-reading' });
+        }
+      }
+    });
+  }
+
+  private loadEditLogs(billId: number): void {
+    if (!this.isBrowser) return;
+
+    this.audit.readingLogs({ bills_id: billId, limit: 20 }).subscribe({
+      next: (logs) => {
+        this.editLogs = Array.isArray(logs) ? logs : [];
+        this.cdr.detectChanges();
+      },
+      // ประวัติการแก้เปิดไม่ขึ้นไม่ควรบังหน้ารายละเอียดที่เหลือ ปล่อยว่างไว้เงียบ ๆ
+      error: () => {
+        this.editLogs = [];
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  editorName(log: ReadingLog): string {
+    const name = `${log.editor?.fname ?? ''} ${log.editor?.lname ?? ''}`.trim();
+    return name || `ผู้ใช้ #${log.edited_by}`;
+  }
+
+  logUnit(value: string | number | null): string {
+    const num = this.toNumber(value);
+    return num === null ? '—' : String(num);
   }
 
   // ==========================================
@@ -63,6 +286,8 @@ export class BillingHistoryComponent implements OnInit {
     confidence: number | null;
     coords: string;
     mapsUrl: string;
+    /** รูปถูกลบตามอายุแล้ว (ไม่ใช่ไม่เคยถ่าย) — ต้องแยกให้ออกตอนย้อนไปตรวจ */
+    photoPurged: boolean;
   } | null = null;
 
   private buildDetail(bill: any) {
@@ -74,7 +299,11 @@ export class BillingHistoryComponent implements OnInit {
       captured: this.capturedLabel(reading),
       confidence: this.confidencePercent(reading),
       coords: coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '',
-      mapsUrl: coords ? `https://www.google.com/maps?q=${coords.lat},${coords.lng}` : ''
+      mapsUrl: coords ? `https://www.google.com/maps?q=${coords.lat},${coords.lng}` : '',
+      // หลังบ้านลบไฟล์รูปของบิลที่จ่ายแล้วและเก่าเกิน 1 ปีทิ้งตามนโยบาย แต่ไม่ล้าง
+      // path ออกจากฐานข้อมูล เพราะ path ที่ยังอยู่คือหลักฐานว่า "เคยมีรูป"
+      // ถ้าไม่เช็คตรงนี้ หน้าเว็บจะพยายามโหลดไฟล์ที่ถูกลบแล้วได้กรอบรูปแตกแทน
+      photoPurged: Boolean(reading?.photo_purged_at)
     };
   }
 
@@ -283,6 +512,23 @@ export class BillingHistoryComponent implements OnInit {
     this.billToToggle = null;
   }
 
+  // ยอดเงินใช้สูตรเดียวกับที่พิมพ์ลงกระดาษ (เหมือน statusLabel/bahtText ข้างบน)
+  // ตัวเลขบนจอกับบนใบเสร็จต้องตรงกันเสมอ ไม่งั้นเถียงกับลูกบ้านไม่จบ
+
+  /** ยอดที่ต้องเก็บจริง = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา */
+  payable(bill: any): number {
+    return this.print.payable(bill);
+  }
+
+  /** ยอดค้างเก่าที่ถูกทบเข้าใบนี้ — 0 = ตอนออกใบนี้ไม่มีบิลค้าง */
+  arrears(bill: any): number {
+    return this.print.arrears(bill);
+  }
+
+  hasArrears(bill: any): boolean {
+    return this.print.hasArrears(bill);
+  }
+
   confirmToggleStatus() {
     const bill = this.billToToggle;
     if (!bill || this.isTogglingStatus) return;
@@ -290,17 +536,44 @@ export class BillingHistoryComponent implements OnInit {
     const newStatus = this.toggleTargetStatus;
     this.isTogglingStatus = true;
 
-    this.meterReadingService.updatePaymentStatus(bill.id, newStatus).subscribe({
-      next: () => {
+    // ═══ รับเงินกับแก้ที่กดผิด เดินคนละทาง ═══
+    //
+    // รับเงิน (→ Paid) ต้องยิง /pay เพราะยอดที่ลูกบ้านจ่ายคือ grand_total ซึ่งรวม
+    // ยอดค้างของบิลเก่าไว้แล้ว หลังบ้านจะปิดใบเก่าที่ถูกทบให้ทั้งชุดในทีเดียว
+    // ถ้าใช้ /status ใบเก่าจะค้างอยู่ แล้วเดือนหน้าทบซ้ำ = เก็บเงินซ้ำ
+    //
+    // ส่วนการกดกลับเป็น Pending คือการแก้ที่กดผิด ไม่ใช่ธุรกรรมการเงิน ใช้ /status ตามเดิม
+    const request$ =
+      newStatus === 'Paid'
+        ? this.meterReadingService.payBill(bill.id)
+        : this.meterReadingService.updatePaymentStatus(bill.id, newStatus);
+
+    request$.subscribe({
+      next: (res: any) => {
         bill.payment_status = newStatus;
         this.isTogglingStatus = false;
         this.billToToggle = null;
+
+        // ใบเก่าที่ถูกปิดไปพร้อมกันต้องอัปเดตบนจอด้วย ไม่งั้นตารางจะโชว์ว่ายังค้าง
+        // ทั้งที่ปิดไปแล้ว แล้วมีคนไปกดรับเงินซ้ำอีกใบ
+        const settled: number[] = Array.isArray(res?.settled_bill_ids) ? res.settled_bill_ids : [];
+        for (const other of this.bills) {
+          if (settled.includes(other.id)) other.payment_status = 'Paid';
+        }
+
         this.buildBillGroups(); // ยอดค้างชำระของเดือนนั้นเปลี่ยน ต้องคำนวณใหม่
         this.cdr.detectChanges();
-        toast.success(
-          newStatus === 'Paid' ? 'เปลี่ยนเป็น "ชำระแล้ว" เรียบร้อย' : 'เปลี่ยนเป็น "รอชำระเงิน" เรียบร้อย',
-          { id: 'status-updated' }
-        );
+
+        if (newStatus === 'Paid') {
+          toast.success(
+            settled.length
+              ? `รับชำระเงินเรียบร้อย — ปิดบิลค้างเก่าให้อีก ${settled.length} ใบ`
+              : 'รับชำระเงินเรียบร้อย',
+            { id: 'status-updated' }
+          );
+        } else {
+          toast.success('เปลี่ยนเป็น "รอชำระเงิน" เรียบร้อย', { id: 'status-updated' });
+        }
       },
       error: (err) => {
         console.error('Update status error:', err);

@@ -21,9 +21,16 @@ interface ExifOptions {
   /** ตัวส่วนของพิกัด — ใส่ 0 เพื่อจำลองกล้องที่เขียนค่าเสียมา */
   denominator?: number;
   withGps?: boolean;
+  /** ชนิดของค่าพิกัด: 5 = RATIONAL ตามมาตรฐาน, 10 = SRATIONAL ที่มือถือหลายรุ่นใช้ */
+  coordType?: number;
 }
 
-function buildTiff({ little = true, denominator = 1, withGps = true }: ExifOptions): Uint8Array {
+function buildTiff({
+  little = true,
+  denominator = 1,
+  withGps = true,
+  coordType = 5
+}: ExifOptions): Uint8Array {
   const buffer = new ArrayBuffer(TIFF_SIZE);
   const view = new DataView(buffer);
 
@@ -57,10 +64,10 @@ function buildTiff({ little = true, denominator = 1, withGps = true }: ExifOptio
     u16(GPS_IFD, 4);
     entry(GPS_IFD + 2, 0x0001, 2, 2, 0); // 'N' ยัดอยู่ในช่องค่าเลย (สั้นกว่า 4 ไบต์)
     view.setUint8(GPS_IFD + 2 + 8, 0x4e);
-    entry(GPS_IFD + 14, 0x0002, 5, 3, LAT_AT);
+    entry(GPS_IFD + 14, 0x0002, coordType, 3, LAT_AT);
     entry(GPS_IFD + 26, 0x0003, 2, 2, 0); // 'E'
     view.setUint8(GPS_IFD + 26 + 8, 0x45);
-    entry(GPS_IFD + 38, 0x0004, 5, 3, LNG_AT);
+    entry(GPS_IFD + 38, 0x0004, coordType, 3, LNG_AT);
 
     // องศา/ลิปดา/พิลิปดา เก็บเป็นเศษส่วน — 13° 45' 32" N = 13.758888…
     const dms = (at: number, values: [number, number, number]) => {
@@ -105,6 +112,17 @@ describe('readPhotoMetadata — อ่าน EXIF จากไฟล์ต้น
 
     expect(meta.captureDate).toBe(DATE);
     expect(meta.latitude).toBeCloseTo(13.7589, 4);
+  });
+
+  /**
+   * เคสจริงจากมือถือของเจ้าของโปรเจกต์ (IMG_20260816_140224) — เขียนพิกัดเป็น SRATIONAL
+   * ของเดิมรับแต่ RATIONAL เลยทิ้งพิกัดที่ใช้ได้ แล้วขึ้นว่า "รูปนี้ไม่มีพิกัดติดมา"
+   */
+  it('กล้องที่เขียนพิกัดเป็น SRATIONAL (ชนิด 10) ต้องอ่านได้เหมือนกัน', async () => {
+    const meta = await readPhotoMetadata(buildJpeg({ coordType: 10 }));
+
+    expect(meta.latitude).toBeCloseTo(13.7589, 4);
+    expect(meta.longitude).toBeCloseTo(100.5, 4);
   });
 
   it('พิกัดที่ตัวส่วนเป็น 0 ต้องทิ้ง ไม่ปล่อยให้เป็น Infinity', async () => {

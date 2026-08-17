@@ -1,0 +1,364 @@
+<div class="page-head">
+  <h1 class="page-title">มิเตอร์และผู้อยู่อาศัย</h1>
+  <p class="page-subtitle">
+    @if (member(); as m) {
+      บ้านเลขที่ {{ m.house_no }} · {{ m.fname }} {{ m.lname }}
+    } @else {
+      กำลังโหลดข้อมูลบ้าน...
+    }
+  </p>
+  <a class="btn btn-ghost btn-sm" routerLink="/members">← กลับหน้ารายชื่อลูกบ้าน</a>
+</div>
+
+<!-- 🔧 ทะเบียนมิเตอร์ -->
+<div class="card">
+  <h2 class="section-heading">ทะเบียนมิเตอร์</h2>
+
+  @if (isLoading()) {
+    <p class="text-muted">กำลังโหลด...</p>
+  } @else {
+    @if (activeMeter; as meter) {
+      <dl class="detail-list">
+        <div class="detail-row">
+          <dt>มิเตอร์ที่ใช้อยู่</dt>
+          <dd class="cell-strong">{{ meter.serial_no || 'ไม่ได้กรอกเลขเครื่อง' }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>ติดตั้งเมื่อ</dt>
+          <dd>{{ meter.installed_at | date:'d MMM y' }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>จำนวนหลักบนหน้าปัด</dt>
+          <dd>
+            @if (meter.digits) {
+              {{ meter.digits }} หลัก
+            } @else {
+              <span class="text-muted">ยังไม่ได้กรอก — กรอกไว้จะช่วยจับ AI อ่านหลักหาย/เกินตั้งแต่บิลใบแรก</span>
+            }
+          </dd>
+        </div>
+      </dl>
+    } @else {
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>
+          บ้านหลังนี้<strong>ยังไม่มีมิเตอร์ในทะเบียน</strong> — ออกบิลได้ตามปกติ
+          แต่เวลาเปลี่ยนมิเตอร์ระบบจะคิดหน่วยที่ใช้ก่อนถอดให้ไม่ได้ครับ
+        </span>
+      </div>
+    }
+
+    <!-- หน่วยค้างที่รอเข้าบิลใบหน้า — ต้องเห็น ไม่งั้นตอนบิลเด้งจะงงว่าหน่วยมาจากไหน -->
+    @if (pendingResidualMeter; as pending) {
+      <div class="alert alert-info">
+        <span>💧</span>
+        <span>
+          มิเตอร์ตัวเก่า (ถอดเมื่อ {{ pending.removed_at | date:'d MMM y' }} เลขปิด
+          {{ pending.final_unit }}) มีน้ำที่ใช้ก่อนถอด<strong>รอคิดเข้าบิลใบถัดไป</strong>
+          ระบบจะบวกให้เองครั้งเดียว แล้วไม่คิดซ้ำอีกครับ
+        </span>
+      </div>
+    }
+
+    <button type="button" class="btn btn-primary" (click)="openMeterForm()">
+      @if (activeMeter) { เปลี่ยนมิเตอร์ใหม่ } @else { ลงทะเบียนมิเตอร์ตัวปัจจุบัน }
+    </button>
+
+    @if (meters().length > 1) {
+      <h3 class="sub-heading">ประวัติมิเตอร์</h3>
+      <ul class="history-list">
+        @for (meter of meters(); track meter.id) {
+          <li>
+            {{ meter.serial_no || 'ไม่ระบุเลขเครื่อง' }} ·
+            {{ meter.installed_at | date:'d MMM y' }} —
+            @if (meter.removed_at) {
+              {{ meter.removed_at | date:'d MMM y' }} (เลขปิด {{ meter.final_unit }})
+            } @else {
+              <span class="chip chip-success">ใช้อยู่</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+</div>
+
+<!-- 🚪 ผู้อยู่อาศัย -->
+<div class="card">
+  <h2 class="section-heading">ผู้อยู่อาศัย</h2>
+
+  @if (currentTenancy; as tenancy) {
+    <dl class="detail-list">
+      <div class="detail-row">
+        <dt>คนที่อยู่ปัจจุบัน</dt>
+        <dd class="cell-strong">{{ tenancy.occupant_name }}</dd>
+      </div>
+      <div class="detail-row">
+        <dt>อยู่ตั้งแต่</dt>
+        <dd>{{ tenancy.start_date | date:'d MMM y' }}</dd>
+      </div>
+      @if (tenancy.phone) {
+        <div class="detail-row">
+          <dt>เบอร์ติดต่อ</dt>
+          <dd>{{ tenancy.phone }}</dd>
+        </div>
+      }
+    </dl>
+  } @else {
+    <p class="text-muted">
+      ยังไม่ได้บันทึกผู้อยู่อาศัย — บ้านที่เจ้าของอยู่เองไม่ต้องบันทึกก็ได้ครับ
+      ส่วนบ้านเช่าควรบันทึกไว้ เพื่อให้ตอนย้ายออกตัดยอดได้ตรงวัน
+    </p>
+  }
+
+  <div class="action-row">
+    <button type="button" class="btn btn-ghost" (click)="showTenancyForm.set(true)">
+      บันทึกผู้อยู่อาศัยรายใหม่
+    </button>
+    <button type="button" class="btn btn-warning" (click)="openMoveOut()">
+      ย้ายออก — จดครั้งสุดท้ายและปิดยอด
+    </button>
+  </div>
+
+  @if (tenancies().length) {
+    <h3 class="sub-heading">ประวัติผู้อยู่อาศัย</h3>
+    <ul class="history-list">
+      @for (tenancy of tenancies(); track tenancy.id) {
+        <li>
+          {{ tenancy.occupant_name }} · {{ tenancy.start_date | date:'d MMM y' }} —
+          @if (tenancy.end_date) {
+            {{ tenancy.end_date | date:'d MMM y' }}
+          } @else {
+            <span class="chip chip-success">อยู่ปัจจุบัน</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+<!-- แบบฟอร์มมิเตอร์ -->
+@if (showMeterForm()) {
+  <div class="modal-overlay" (click)="showMeterForm.set(false)">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          @if (activeMeter) { เปลี่ยนมิเตอร์ใหม่ } @else { ลงทะเบียนมิเตอร์ตัวปัจจุบัน }
+        </h2>
+        <button type="button" class="modal-close" (click)="showMeterForm.set(false)" aria-label="ปิด">✕</button>
+      </div>
+
+      @if (activeMeter) {
+        <div class="alert alert-info">
+          <span>💡</span>
+          <span>
+            <strong>บันทึกตอนเปลี่ยนจริง</strong> ไม่ต้องรอไปกรอกตอนออกบิล — คนที่เปลี่ยนมิเตอร์
+            กับคนที่เดินจดรอบหน้ามักคนละคน คนจดจะไม่มีทางรู้เลขปิดของตัวที่ถอดไปแล้วครับ
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="old-final">เลขบนหน้าปัดของมิเตอร์ตัวเก่า ณ วันถอด</label>
+          <input
+            id="old-final"
+            class="field-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            [(ngModel)]="meterForm.old_final_unit"
+          />
+          <p class="field-hint">
+            ตัวเลขนี้คือสิ่งเดียวที่ทำให้น้ำที่ใช้ไปก่อนเปลี่ยนไม่หายจากระบบ
+          </p>
+        </div>
+      }
+
+      <div class="field">
+        <label class="field-label" for="new-initial">
+          @if (activeMeter) { เลขบนหน้าปัดของตัวใหม่ตอนติดตั้ง } @else { เลขบนหน้าปัดตอนติดตั้ง }
+        </label>
+        <input
+          id="new-initial"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [(ngModel)]="meterForm.new_initial_unit"
+        />
+        <p class="field-hint">มิเตอร์ใหม่ปกติเป็น 0</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="serial">เลขเครื่อง (ไม่บังคับ)</label>
+        <input id="serial" class="field-input" type="text" [(ngModel)]="meterForm.serial_no" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="digits">จำนวนหลักบนหน้าปัด</label>
+        <input
+          id="digits"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="3"
+          max="10"
+          [(ngModel)]="meterForm.digits"
+        />
+        <p class="field-hint">
+          นับเลขศูนย์นำหน้าด้วย (00025 = 5 หลัก) — กรอกไว้แล้วระบบจะจับเคส AI อ่านหลักหาย/เกินได้
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="meter-date">
+          @if (activeMeter) { วันที่เปลี่ยน } @else { วันที่ติดตั้ง }
+        </label>
+        <input id="meter-date" class="field-input" type="date" [(ngModel)]="meterForm.date" />
+        <p class="field-hint">ไม่กรอก = วันนี้</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="meter-note">บันทึกเพิ่มเติม</label>
+        <input
+          id="meter-note"
+          class="field-input"
+          type="text"
+          [(ngModel)]="meterForm.note"
+          placeholder="เช่น หน้าปัดฝ้าอ่านไม่ออก / เข็มค้าง"
+        />
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="showMeterForm.set(false)" [disabled]="isSavingMeter()">
+          ยกเลิก
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveMeter()" [disabled]="isSavingMeter()">
+          @if (isSavingMeter()) { <span class="btn-spinner"></span> กำลังบันทึก... } @else { บันทึก }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- แบบฟอร์มผู้อยู่อาศัยรายใหม่ -->
+@if (showTenancyForm()) {
+  <div class="modal-overlay" (click)="showTenancyForm.set(false)">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">บันทึกผู้อยู่อาศัยรายใหม่</h2>
+        <button type="button" class="modal-close" (click)="showTenancyForm.set(false)" aria-label="ปิด">✕</button>
+      </div>
+
+      <p class="field-hint">
+        รายเดิม (ถ้ามี) จะถูกปิดให้อัตโนมัติด้วยวันก่อนหน้าวันที่คนใหม่เข้าอยู่ —
+        ช่วงเวลาห้ามซ้อนกัน ไม่งั้นบิลใบหนึ่งจะตอบไม่ได้ว่าเก็บจากใคร
+      </p>
+
+      <div class="field">
+        <label class="field-label" for="occupant">ชื่อ-นามสกุล</label>
+        <input id="occupant" class="field-input" type="text" [(ngModel)]="tenancyForm.occupant_name" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="occupant-phone">เบอร์ติดต่อ</label>
+        <input id="occupant-phone" class="field-input" type="tel" [(ngModel)]="tenancyForm.phone" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="tenancy-start">วันที่เริ่มอยู่</label>
+        <input id="tenancy-start" class="field-input" type="date" [(ngModel)]="tenancyForm.start_date" />
+        <p class="field-hint">ไม่กรอก = วันนี้</p>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="showTenancyForm.set(false)" [disabled]="isSavingTenancy()">
+          ยกเลิก
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveTenancy()" [disabled]="isSavingTenancy()">
+          @if (isSavingTenancy()) { <span class="btn-spinner"></span> กำลังบันทึก... } @else { บันทึก }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ย้ายออก -->
+@if (showMoveOut()) {
+  <div class="modal-overlay" (click)="showMoveOut.set(false)">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">ย้ายออก — จดครั้งสุดท้ายและปิดยอด</h2>
+        <button type="button" class="modal-close" (click)="showMoveOut.set(false)" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>💰</span>
+        <span>
+          บิลใบนี้จะ<strong>ทบยอดค้างเก่าทั้งหมด</strong>เข้ามาด้วย และ<strong>ครบกำหนดชำระวันที่ย้ายออกเลย</strong>
+          ไม่ยืดตามรอบปกติ — เพราะเป็นใบสุดท้ายที่ยังเรียกเก็บจากคนนี้ได้ครับ
+        </span>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="move-unit">เลขมิเตอร์ ณ วันย้ายออก</label>
+        <input
+          id="move-unit"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [(ngModel)]="moveOutForm.current_unit"
+        />
+        <p class="field-hint">กรอกเฉพาะเลขสีดำ (ลูกบาศก์เมตร)</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="move-date">วันที่ย้ายออก</label>
+        <input id="move-date" class="field-input" type="date" [(ngModel)]="moveOutForm.moved_at" />
+        <p class="field-hint">ไม่กรอก = วันนี้</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="next-occupant">ชื่อผู้เข้าอยู่ต่อ (ถ้ามีทันที)</label>
+        <input id="next-occupant" class="field-input" type="text" [(ngModel)]="moveOutForm.new_occupant_name" />
+        <p class="field-hint">
+          คนใหม่ไม่ต้องตั้งเลขตั้งต้นเอง — ระบบใช้เลขปิดของบิลใบนี้เป็นตัวตั้งให้อยู่แล้ว
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="next-phone">เบอร์ติดต่อผู้เข้าอยู่ต่อ</label>
+        <input id="next-phone" class="field-input" type="tel" [(ngModel)]="moveOutForm.new_occupant_phone" />
+      </div>
+
+      @if (moveOutBlocked(); as message) {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>{{ message }}</span>
+        </div>
+
+        @if (confirmFlagFor(moveOutCode()); as step) {
+          <button type="button" class="btn btn-warning" (click)="confirmMoveOutAndRetry(step.flag)">
+            {{ step.label }} แล้วลองใหม่
+          </button>
+        } @else {
+          <p class="field-hint">ด่านนี้ข้ามไม่ได้ครับ ต้องแก้ที่ต้นเหตุก่อน</p>
+        }
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="showMoveOut.set(false)" [disabled]="isMovingOut()">
+          ยกเลิก
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="submitMoveOut()"
+          [disabled]="isMovingOut() || moveOutForm.current_unit === null"
+        >
+          @if (isMovingOut()) { <span class="btn-spinner"></span> กำลังออกบิล... } @else { ออกบิลปิดยอด }
+        </button>
+      </div>
+    </div>
+  </div>
+}
