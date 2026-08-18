@@ -10,7 +10,7 @@
 const BACKEND_PORT = 3000;
 
 function resolveApiBaseUrl(): string {
-  // ตอน SSR/prerender ไม่มี window — ใช้ localhost ไปก่อน แล้วฝั่ง browser จะคำนวณใหม่เอง
+  // เผื่อรันในที่ที่ไม่มี window (เช่น unit test ใน node) — ฝั่งเบราว์เซอร์จะคำนวณใหม่เอง
   if (typeof window !== 'undefined' && window.location?.hostname) {
     return `http://${window.location.hostname}:${BACKEND_PORT}`;
   }
