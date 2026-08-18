@@ -304,10 +304,57 @@
                       [(ngModel)]="row.unit"
                       (ngModelChange)="onRowEdited()"
                       [disabled]="isBusy"
+                      [class.is-invalid]="unitCheck(row)?.level === 'error'"
                       placeholder="กรอกเอง"
                     />
                   </label>
                 </div>
+
+                <!-- เลขเดือนที่แล้วตัวใหญ่ ๆ — มิเตอร์ทาวน์โฮมห่างกัน 30 ซม. GPS แยกไม่ออก
+                     เลขสะสมของแต่ละหลังต่างกันมาก จึงเป็นตัวเดียวที่กวาดตาเทียบหน้าปัดแล้วรู้ทันที
+                     ว่ากำลังจดของบ้านหลังไหน -->
+                @if (previousUnit(row) !== null) {
+                  <div class="unit-hint">
+                    <span class="unit-hint-cap">เลขเดือนที่แล้วของบ้านนี้</span>
+                    <span class="unit-hint-value">{{ previousUnit(row) }}</span>
+                    @if (liveUsage(row) !== null) {
+                      <span class="unit-hint-usage">รอบนี้ใช้ {{ liveUsage(row) }} หน่วย</span>
+                    }
+                  </div>
+
+                  @if (unitCheck(row); as check) {
+                    <p class="unit-msg" [class.is-error]="check.level === 'error'">
+                      {{ check.message }}
+                    </p>
+                  }
+                }
+
+                <!-- ทางออกเดียวของแถวที่เลขต่ำกว่าเดือนก่อน: บ้านนี้เพิ่งเปลี่ยนมิเตอร์ใหม่
+                     ต้องกรอกเลขปิดของตัวเก่าด้วย ไม่งั้นหน่วยของรอบนี้จะหายไปทั้งก้อน -->
+                @if (meterResetPending(row)) {
+                  <div class="meter-reset">
+                    <span class="row-cap">ถ้าบ้านหลังนี้เพิ่งเปลี่ยนมิเตอร์ใหม่ ให้กรอกเลขปิดของมิเตอร์ตัวเก่าครับ</span>
+                    <div class="meter-reset-row">
+                      <input
+                        class="field-input"
+                        type="number"
+                        inputmode="decimal"
+                        [(ngModel)]="row.oldMeterFinalUnit"
+                        (ngModelChange)="onRowEdited()"
+                        [disabled]="isBusy"
+                        placeholder="เลขปิดมิเตอร์เก่า"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        (click)="confirmMeterReset(row)"
+                        [disabled]="isBusy || !meterResetReady(row)"
+                      >
+                        ยืนยันว่าเปลี่ยนมิเตอร์ใหม่
+                      </button>
+                    </div>
+                  </div>
+                }
 
                 <!-- มิเตอร์ติดกันเป็นแถว (ตึกแถว/บ้านแฝด) GPS ชี้ขาดไม่ได้ — ยกบ้านที่ใกล้
                      จุดถ่ายรูปที่สุดมาให้กดทีเดียว ดีกว่าให้เลื่อนหาใน dropdown ยาว ๆ เอง -->

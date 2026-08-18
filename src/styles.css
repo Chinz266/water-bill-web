@@ -793,6 +793,73 @@ button.chip:hover {
   color: #166534;
 }
 
+/* ---------- คำใบ้เลขเดือนที่แล้ว + ผลตรวจสด (มิเตอร์ติดกันจน GPS แยกไม่ออก) ----------
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+   ตัวเลขต้องใหญ่พอกวาดตาเทียบกับหน้าปัดจริงได้ในแดด โดยไม่ต้องเพ่ง */
+.unit-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-top: var(--sp-1);
+}
+
+.unit-hint-cap {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.unit-hint-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.5px;
+}
+
+.unit-hint-usage {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+/* คำเตือนใช้พื้นหลังไม่ใช่สีตัวอักษร — --warning เป็นเหลืองอำพัน อ่านไม่ออกกลางแดด
+   (เหตุผลเดียวกับ .device-loc-warn) ส่วนสีแดงของด่านที่บล็อกอ่านออกอยู่แล้ว */
+.unit-msg {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 600;
+  background: var(--warning-soft);
+  border-radius: var(--radius-sm);
+}
+
+.unit-msg.is-error {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* ช่องยืนยันการเปลี่ยนมิเตอร์ — โผล่เฉพาะแถวที่เลขต่ำกว่าเดือนก่อน */
+.meter-reset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--sp-1);
+  padding: 10px;
+  background: var(--warning-soft);
+  border-radius: var(--radius-sm);
+}
+
+.meter-reset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.meter-reset-row .field-input {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
 /* ปุ่มบ้านใกล้เคียงของแต่ละแถว (มิเตอร์ติดกันจน GPS แยกไม่ออก)
    วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
    ปุ่มใหญ่พอกดด้วยนิ้วโป้งบนมือถือ เพราะใช้ตอนยืนอยู่หน้าบ้านจริง */

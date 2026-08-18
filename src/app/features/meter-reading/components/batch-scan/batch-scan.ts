@@ -175,6 +175,15 @@ interface ScanRow {
   confirmLowConfidence: boolean;
   /** ยืนยันแล้วว่าเป็นรูปที่ถ่ายใหม่ ไม่ใช่รูปเดิมที่ส่งซ้ำ */
   confirmDuplicateLocation: boolean;
+  /** ยืนยันแล้วว่าเลขที่ต่ำลงเกิดจากเปลี่ยนมิเตอร์ใหม่ ไม่ใช่ไปอ่านหน้าปัดของหลังข้าง ๆ มา */
+  confirmMeterReset: boolean;
+  /**
+   * เลขปิดของมิเตอร์ตัวเก่า ณ วันที่ถอดออก — ต้องมีคู่กับ confirmMeterReset เสมอ
+   *
+   * ขาดตัวนี้แล้วหน่วยของรอบที่เปลี่ยนมิเตอร์จะหายไปทั้งก้อน (หลังบ้านคิด
+   * เลขใหม่ − เลขตั้งต้น ซึ่งติดลบ) = ลูกบ้านได้ใช้น้ำฟรีหนึ่งรอบโดยไม่มีใครเห็น
+   */
+  oldMeterFinalUnit: number | null;
   /** ยืนยันแล้วว่าใช้รูปถูกใบ ทั้งที่วันถ่ายเก่ากว่ารอบที่ออก */
   confirmStalePhoto: boolean;
   /** เลขของแถวนี้มาจากการครอปแล้วอ่านใหม่ ไม่ใช่การอ่านรูปเต็มใบตอนแรก */
@@ -530,6 +539,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       confirmLowConfidence: false,
       confirmDuplicateLocation: false,
       confirmStalePhoto: false,
+      confirmMeterReset: false,
+      oldMeterFinalUnit: null,
       croppedRead: false,
       ocrUnit: null,
       meterDigits: null,
@@ -1097,10 +1108,131 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   abnormalUsage(row: ScanRow): { usage: number; average: number } | null {
     const candidate = this.candidateOf(row);
     const average = Number(candidate?.average_usage);
-    const usage = Number(candidate?.usage_unit);
+    const usage = Number(this.liveUsage(row) ?? candidate?.usage_unit);
     if (!Number.isFinite(average) || !Number.isFinite(usage) || average <= 0) return null;
 
     return usage > average * 3 && usage - average >= 30 ? { usage, average } : null;
+  }
+
+  // ==========================================
+  // เทียบกับเลขเดือนที่แล้ว — ด่านที่ทำงานแทน GPS ตอนมิเตอร์ติดกันเป็นแถว
+  // ==========================================
+
+  /**
+   * เลขตั้งต้นของบ้านที่แถวนี้เลือกอยู่ (หลังบ้านส่งมาพร้อมตัวเลือกบ้านตอนจับคู่)
+   *
+   * มิเตอร์ทาวน์โฮมห่างกัน 30 ซม. — GPS ที่คลาดเคลื่อน 5–20 ม. ชี้ขาดไม่ได้แน่นอน
+   * แต่ **เลขสะสมของแต่ละหลังต่างกันมาก** เลขเดือนที่แล้วจึงเป็นสิ่งเดียวที่เจ้าหน้าที่
+   * กวาดตาเทียบกับหน้าปัดตรงหน้าแล้วรู้ทันทีว่ากำลังจดมิเตอร์ของบ้านหลังไหนอยู่
+   */
+  previousUnit(row: ScanRow): number | null {
+    const raw = this.candidateOf(row)?.previous_unit;
+    // Number(null) = 0 — ต้องกันก่อน ไม่งั้น "หลังบ้านไม่ได้ส่งเลขตั้งต้นมา" จะกลายเป็น
+    // "เลขตั้งต้น 0" แล้วหน่วยของรอบนี้พุ่งเท่ากับเลขสะสมทั้งก้อน
+    // (ส่วน 0 จริง ๆ มีได้ คือบ้านที่เพิ่งลงทะเบียนแล้วยังไม่เคยจด จึงต้องแยกจาก null)
+    if (raw === null || raw === undefined || raw === ('' as unknown)) return null;
+
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  /**
+   * หน่วยน้ำจาก **เลขที่กรอกอยู่ตอนนี้**
+   *
+   * ไม่ใช้ `candidate.usage_unit` ตรง ๆ เพราะค่านั้นหลังบ้านคิดจากเลขที่ AI อ่านมาตอนจับคู่
+   * พอคนแก้เลขในช่อง หรือกดครอปแล้วอ่านใหม่ ค่าเดิมก็ค้างอยู่ที่เลขตัวเก่าทันที
+   */
+  liveUsage(row: ScanRow): number | null {
+    const previous = this.previousUnit(row);
+    const unit = Number(row.unit);
+    if (previous === null || !Number.isFinite(unit)) return null;
+
+    return unit - previous;
+  }
+
+  /**
+   * ผลตรวจเลขที่กรอก เทียบกับเลขเดือนที่แล้วของบ้านที่เลือกอยู่
+   *
+   *  - `error` เลขน้อยกว่าเลขตั้งต้น = มิเตอร์เดินถอยหลัง ซึ่งไม่เกิดขึ้นจริง
+   *    เกือบทุกครั้งคือไปอ่านหน้าปัดของหลังข้าง ๆ ที่เลขน้อยกว่ามา (หลังบ้านบล็อกอยู่แล้ว
+   *    แต่รู้ตอนยิงคือสายไป — เจ้าหน้าที่เดินจากจุดนั้นไปแล้ว)
+   *  - `warn` หน่วยพุ่งเกิน 1.5 เท่าของค่าเฉลี่ย = สัญญาณเดียวกันในทางกลับกัน
+   *    (ไปอ่านหน้าปัดหลังข้าง ๆ ที่เลขเยอะกว่า) แต่ยังเป็นการใช้น้ำจริงได้ จึงแค่เตือน
+   *
+   * เกิน 3 เท่าปล่อยให้เป็นหน้าที่ของ abnormalUsage() ต่อ — ข้อความแรงกว่าและกัน
+   * การออกบิลอัตโนมัติด้วย ตรงนี้จึงหยุดที่ 3 เท่าเพื่อไม่ให้ขึ้นซ้อนกันสองข้อความ
+   */
+  unitCheck(row: ScanRow): { level: 'error' | 'warn'; message: string } | null {
+    const previous = this.previousUnit(row);
+    const usage = this.liveUsage(row);
+    if (previous === null || usage === null) return null;
+
+    if (usage < 0) {
+      return {
+        level: 'error',
+        message: `เลขนี้น้อยกว่าเลขเดือนที่แล้วของบ้านหลังนี้ (${previous}) มิเตอร์ไม่เดินถอยหลัง — ` +
+          'ตรวจว่าอ่านหน้าปัดของหลังข้าง ๆ มาหรือเปล่าครับ'
+      };
+    }
+
+    const average = Number(this.candidateOf(row)?.average_usage);
+    if (!Number.isFinite(average) || average <= 0) return null;
+
+    // บ้านที่ใช้น้ำน้อยมาก (เฉลี่ย 4 หน่วย) ขยับนิดเดียวก็เกิน 1.5 เท่าแล้ว
+    // ต้องต่างกันพอสมควรด้วยถึงจะเตือน ไม่งั้นเตือนแทบทุกแถวจนคนเลิกอ่าน
+    const overshoot = usage > average * 1.5 && usage - average >= 10;
+    if (!overshoot || usage > average * 3) return null;
+
+    return {
+      level: 'warn',
+      message: `รอบนี้ใช้ ${usage} หน่วย มากกว่าที่บ้านหลังนี้เคยใช้ (เฉลี่ย ${Math.round(average)}) ` +
+        'เทียบเลขกับหน้าปัดอีกครั้งก่อนออกบิลครับ'
+    };
+  }
+
+  // ==========================================
+  // เปลี่ยนมิเตอร์ใหม่ — ทางเดียวที่เลขต่ำกว่าเดือนก่อนแล้วยังออกบิลได้
+  // ==========================================
+
+  /**
+   * แถวนี้ติดด่าน "เลขน้อยกว่าเลขตั้งต้น" อยู่ และยังไม่มีใครยืนยัน
+   *
+   * เกือบทุกครั้งคือไปอ่านหน้าปัดของหลังข้าง ๆ มา — แต่ "เปลี่ยนมิเตอร์ใหม่" ก็ให้เลขแบบนี้
+   * เหมือนกัน ถ้าไม่มีทางยืนยัน บ้านที่เพิ่งเปลี่ยนมิเตอร์จะออกบิลจากหน้านี้ไม่ได้เลยทั้งรอบ
+   *
+   * รับทั้งด่านที่ตรวจในหน้าเว็บ (unitCheck) และที่ตีกลับมาตอนถามเลขตั้งต้นก่อนยิง (saveNext)
+   */
+  meterResetPending(row: ScanRow): boolean {
+    if (row.status === 'saved' || row.confirmMeterReset) return false;
+    if (this.unitCheck(row)?.level === 'error') return true;
+
+    return row.errorCode === 'UNIT_BELOW_PREVIOUS' || /น้อยกว่าเลขตั้งต้น/.test(row.error ?? '');
+  }
+
+  /**
+   * กรอกเลขปิดของมิเตอร์เก่าครบและสมเหตุสมผลแล้วหรือยัง
+   *
+   * เลขปิดต้องไม่ต่ำกว่าเลขตั้งต้น (มิเตอร์ตัวเก่าเดินต่อจากรอบที่แล้วมาจนถึงวันถอด)
+   * ต่ำกว่านั้นแปลว่ากรอกมั่วหรือหยิบเลขผิดตัว ซึ่งจะทำให้หน่วยของรอบนี้ติดลบต่อไปอีก
+   */
+  meterResetReady(row: ScanRow): boolean {
+    const final = Number(row.oldMeterFinalUnit);
+    if (!Number.isFinite(final) || final < 0) return false;
+
+    const previous = this.previousUnit(row);
+    return previous === null || final >= previous;
+  }
+
+  /** ยืนยันว่าเปลี่ยนมิเตอร์ใหม่จริง — ธงกับเลขปิดจะถูกส่งไปด้วยกันตอนกดออกบิล */
+  confirmMeterReset(row: ScanRow): void {
+    if (this.isBusy || !this.meterResetReady(row)) return;
+
+    row.confirmMeterReset = true;
+    row.oldMeterFinalUnit = Number(row.oldMeterFinalUnit);
+    row.error = null;
+    row.errorCode = null;
+    if (row.status === 'save_failed') row.status = 'ready';
+    this.persist();
   }
 
   blockingIssue(row: ScanRow): string | null {
@@ -1108,6 +1240,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (!row.memberId) return 'ยังไม่รู้ว่าเป็นบ้านหลังไหน กรุณาเลือกเองครับ';
     if (row.unit === null) return 'ยังไม่มีเลขมิเตอร์ กรุณากรอกเองครับ';
     if (row.unit < 0) return 'เลขมิเตอร์ติดลบไม่ได้ครับ';
+    // เลขน้อยกว่าเลขเดือนที่แล้ว — หลังบ้านตีกลับอยู่แล้วตอนยิง (ดู saveNext) กันตั้งแต่ตรงนี้
+    // เพื่อให้เห็นตอนยังยืนอยู่หน้ามิเตอร์ ไม่ใช่ตอนกดออกบิลทั้งกองแล้วเดินกลับมาไม่ได้
+    const check = this.unitCheck(row);
+    if (check?.level === 'error' && !row.confirmMeterReset) return check.message;
     if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
     // กรอกเลขเองแล้วไม่มีรูป = ไม่เหลืออะไรให้ตรวจย้อนหลังเลยแม้แต่ชิ้นเดียว
     // หลังบ้านบล็อกตายอยู่แล้ว (ไม่มีปุ่มยืนยันให้กด) กันตั้งแต่ตรงนี้ดีกว่าปล่อยให้
@@ -1141,6 +1277,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       notes.push('ค้างอยู่ตอนออกบิลรอบก่อน กดออกบิลซ้ำได้ ถ้ามีบิลอยู่แล้วระบบจะบอกเอง');
     }
     if (row.croppedRead) notes.push('เลขนี้มาจากการครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่');
+    if (row.confirmMeterReset) {
+      notes.push(
+        `ยืนยันแล้วว่าเปลี่ยนมิเตอร์ใหม่ เลขปิดของตัวเก่าคือ ${row.oldMeterFinalUnit} — ` +
+          'ใบนี้ระบบจะไม่ออกบิลให้เอง ต้องกดออกบิลเองครับ'
+      );
+    }
 
     // วันถ่ายผิดรอบ = ไม่ใช่แค่วันบนบิลเพี้ยน แต่หน่วยน้ำของรอบถัดไปจะเพี้ยนตามไปด้วย
     // เพราะรอบถัดไปนับจากวันจดครั้งนี้ และรูปหลงกองมามักแปลว่าหยิบรูปเก่ามาผิดใบ
@@ -1355,6 +1497,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (row.capturedAt === null || this.isOutsideBillingMonth(row)) return false;
     if (row.warnings.length > 0) return false;
     if (this.abnormalUsage(row)) return false;
+    // เปลี่ยนมิเตอร์คือรอบที่ยอดคิดจากเลขสองตัวคนละก้อน ผิดแล้วมองไม่ออกจากยอดบนบิล
+    // ใบแบบนี้ต้องผ่านตาคนตอนกดออกบิลเสมอ ไม่ใช่ไหลออกไปเองพร้อมกองที่พิกัดตรงแปะ
+    if (row.confirmMeterReset) return false;
 
     return this.isConfirmedByCoords(row) || this.isConfirmedByMeterUnit(row);
   }
@@ -1433,6 +1578,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     row.confirmLowConfidence = false;
     row.confirmDuplicateLocation = false;
     row.confirmStalePhoto = false;
+    row.confirmMeterReset = false;
+    row.oldMeterFinalUnit = null;
   }
 
   /**
@@ -1632,7 +1779,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.meterReadingService.getPreviousUnit(Number(row.memberId), billing.month, billing.year).subscribe({
       next: (res: any) => {
         const previous = Number(res?.previous_unit);
-        if (Number.isFinite(previous) && currentUnit < previous) {
+        // ยืนยันว่าเปลี่ยนมิเตอร์แล้วก็ต้องผ่านด่านนี้ไปได้ ไม่งั้นกดยืนยันไปก็ตกที่เดิมทุกรอบ
+        // (หลังบ้านยังตรวจซ้ำเองอยู่ ธงที่ส่งไปเป็นแค่คำอนุญาต ไม่ใช่การข้ามด่าน)
+        if (!row.confirmMeterReset && Number.isFinite(previous) && currentUnit < previous) {
           row.status = 'save_failed';
           row.error = `เลข ${currentUnit} น้อยกว่าเลขตั้งต้นของบ้านนี้ (${previous}) มิเตอร์ไม่เดินถอยหลัง — ตรวจว่าเลือกบ้านถูกไหมครับ`;
           this.progress.done = index + 1;
@@ -1701,6 +1850,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // ด่านกันรูปเดิมถูกส่งซ้ำ / รูปที่ถ่ายไว้ก่อนรอบนี้
         confirm_duplicate_location: row.confirmDuplicateLocation,
         confirm_stale_photo: row.confirmStalePhoto,
+        // เปลี่ยนมิเตอร์ใหม่ — ธงกับเลขปิดของตัวเก่าต้องไปด้วยกันเสมอ ส่งธงเปล่า ๆ ไป
+        // หลังบ้านจะคิดหน่วยจากเลขใหม่ − เลขตั้งต้น ซึ่งติดลบ = ค่าน้ำรอบนั้นหายทั้งก้อน
+        confirm_meter_reset: row.confirmMeterReset,
+        old_meter_final_unit: row.confirmMeterReset ? Number(row.oldMeterFinalUnit) : undefined,
         billing_month: billing.month,
         billing_year: billing.year,
         // ส่งพิกัด/เวลาที่ถ่ายไปเก็บด้วย หลังบ้านเอาไปเรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้
@@ -1829,7 +1982,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       confirmDigitChange: false,
       confirmLowConfidence: false,
       confirmDuplicateLocation: false,
+      // คำยืนยันเรื่องเปลี่ยนมิเตอร์ผูกอยู่กับเลขตั้งต้นที่หลังบ้านส่งมาตอนจับคู่
+      // คิวที่กู้มาไม่มีตัวเลือกบ้านติดมาแล้ว จึงไม่เหลืออะไรให้ยืนยันกับตัวเลขไหน
       confirmStalePhoto: false,
+      confirmMeterReset: false,
+      oldMeterFinalUnit: null,
       croppedRead: false,
       // ตัวรูปไม่ได้ถูกเก็บไว้ ผลที่ AI เคยอ่านจึงยืนยันอะไรไม่ได้แล้ว
       // ต้องข้ามทั้งด่านจำนวนหลักและด่านความชัดไป (ดู digitsToSend / confidenceToSend)
