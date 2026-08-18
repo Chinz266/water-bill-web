@@ -32,7 +32,12 @@
     <div class="pick-fields">
       <label class="row-field">
         <span class="row-cap">บิลประจำเดือน</span>
-        <select class="field-input" [(ngModel)]="billingKey" [disabled]="isBusy">
+        <select
+          class="field-input"
+          [(ngModel)]="billingKey"
+          (ngModelChange)="onBillingKeyChanged()"
+          [disabled]="isBusy"
+        >
           @for (m of billingMonths; track m.key) {
             <option [value]="m.key">{{ m.label }}</option>
           }
@@ -216,10 +221,22 @@
       <div class="rows">
         @for (row of rows; track row.seq) {
           <article class="scan-row" [class.is-blocked]="blockingIssue(row)" [class.is-saved]="row.status === 'saved'">
-            @if (!row.previewUrl) {
-              <div class="row-photo row-photo-broken">ไม่มีรูป<br />(คิวที่กู้มา)</div>
-            } @else if (row.brokenImage) {
-              <div class="row-photo row-photo-broken">เปิดรูปไม่ขึ้น</div>
+            <!-- ไม่มีรูป/เปิดรูปไม่ขึ้น — ที่ตรงนี้ต้องเป็น "ทางออก" ไม่ใช่ป้ายบอกสถานะ เพราะแถวที่
+                 เลขกรอกเองแล้วไม่มีรูปคือแถวที่ออกบิลไม่ได้เลยจนกว่าจะมีรูปใหม่ (ดู blockingIssue) -->
+            @if (!row.previewUrl || row.brokenImage) {
+              <label class="row-photo row-photo-retake" [for]="'retake-photo-' + row.seq">
+                <span class="retake-icon">📸</span>
+                <span>{{ row.previewUrl ? 'เปิดรูปไม่ขึ้น' : 'ไม่มีรูป' }}<br />ถ่าย/อัปโหลดใหม่</span>
+              </label>
+              <input
+                [id]="'retake-photo-' + row.seq"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                [disabled]="isBusy"
+                (change)="onRetakePicked($event, row)"
+              />
             } @else {
               <img class="row-photo" [src]="row.previewUrl" [alt]="'รูปมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
             }
@@ -261,8 +278,11 @@
 
                 <!-- ความมั่นใจตอนอ่านเลข ต้องเห็นได้ทุกแถวตั้งแต่กวาดตา ไม่ใช่ซ่อนอยู่ในบรรทัดหมายเหตุ
                      เพราะโหมดกองคือจุดที่คนดูผ่าน ๆ มากที่สุด — และต้องโชว์ต่อแม้ออกบิลไปแล้ว
-                     เพราะใบที่ระบบออกให้เองก็ควรตรวจย้อนหลังได้ว่าอ่านเลขมาชัดแค่ไหน -->
-                @if (row.confidence !== null) {
+                     เพราะใบที่ระบบออกให้เองก็ควรตรวจย้อนหลังได้ว่าอ่านเลขมาชัดแค่ไหน
+
+                     ⚠️ ยกเว้นแถวที่ไม่มีรูปแล้ว (คิวที่กู้มา) — เปอร์เซ็นต์ของรูปที่หายไปแล้ว
+                        ยืนยันเลขในช่องไม่ได้ และทำให้คนคิดว่าเลขนั้นมาจากการอ่านรูป (ดู showConfidence) -->
+                @if (row.confidence !== null && showConfidence(row)) {
                   <span
                     class="chip"
                     [class.chip-success]="row.confidence >= 85"
@@ -279,21 +299,19 @@
                 <p class="row-saved">ออกบิลให้ {{ memberLabel(row.memberId) }} แล้วครับ</p>
               } @else {
                 <div class="row-fields">
-                  <label class="row-field row-field-house">
+                  <div class="row-field row-field-house">
                     <span class="row-cap">บ้านเลขที่</span>
-                    <select class="field-input" [(ngModel)]="row.memberId" (ngModelChange)="onMemberChanged(row)" [disabled]="isBusy">
-                      <option [ngValue]="null">— ยังไม่รู้ว่าบ้านไหน —</option>
-                      <!-- บ้านที่หลังบ้านเสนอ เรียงตามคะแนน พร้อมหน่วยที่จะได้ถ้าเลือกหลังนี้ -->
-                      @for (c of row.candidates; track c.members_id) {
-                        <option [ngValue]="c.members_id">
-                          {{ c.house_no }} — {{ c.name }} · ใช้ {{ c.usage_unit }} หน่วย@if (c.already_billed) { · มีบิลแล้ว}
-                        </option>
+                    <button type="button" class="house-btn" (click)="openHousePicker(row)" [disabled]="isBusy">
+                      @if (row.memberId) {
+                        <!-- มิเตอร์ในกลุ่มที่ติดกันต้องบอกตำแหน่งเสมอ ไม่งั้นบ้านเลขที่อย่างเดียว
+                             ไม่พอให้คนที่ยืนหน้ากำแพงรู้ว่าหมายถึงตัวไหน -->
+                        <span class="house-btn-value">{{ houseLabelWithPosition(row) }}</span>
+                      } @else {
+                        <span class="house-btn-empty">ยังไม่รู้ว่าบ้านไหน</span>
                       }
-                      @for (member of members; track member.id) {
-                        <option [ngValue]="member.id">{{ member.house_no }} — {{ member.fname }} {{ member.lname }}</option>
-                      }
-                    </select>
-                  </label>
+                      <span class="house-btn-edit">แก้ไข</span>
+                    </button>
+                  </div>
 
                   <label class="row-field row-field-unit">
                     <span class="row-cap">เลขมิเตอร์</span>
@@ -358,10 +376,24 @@
 
                 <!-- มิเตอร์ติดกันเป็นแถว (ตึกแถว/บ้านแฝด) GPS ชี้ขาดไม่ได้ — ยกบ้านที่ใกล้
                      จุดถ่ายรูปที่สุดมาให้กดทีเดียว ดีกว่าให้เลื่อนหาใน dropdown ยาว ๆ เอง -->
+                <!-- มิเตอร์กลุ่มที่ติดกัน: พาไล่ทีละตัวจากซ้ายไปขวา แทนที่จะให้เลือกอิสระ
+                     เพราะไม่มีข้อมูลอะไรเลยที่แยกตัวซ้าย/ตัวขวาออกจากกันได้นอกจากลำดับนี้ -->
+                @if (nextInCluster(row); as next) {
+                  <p class="row-issue">
+                    🧱 มิเตอร์กลุ่มนี้ติดกัน (ห่างกันราว 30 ซม. — พิกัดแยกไม่ได้)
+                    ตัวถัดไปที่ต้องจดคือ <strong>บ้าน {{ next.house_no }}</strong>
+                    (ตำแหน่ง: {{ positionLabel(next) }})
+                  </p>
+                }
+
                 @if (showNearbyChoices(row)) {
                   <div class="row-nearby">
                     <span class="row-cap">
-                      @if (row.memberId) {
+                      @if (!hasPhoto(row)) {
+                        <!-- ไม่มีรูปให้เทียบแล้ว เหลือเลขสะสมของแต่ละหลังเป็นตัวชี้ขาดว่าจดของหลังไหน -->
+                        ไม่มีรูปให้เทียบแล้ว — เทียบ<strong>เลขเดือนที่แล้ว</strong>ของแต่ละหลัง
+                        กับเลขที่กรอกไว้ แล้วเลือกหลังที่หน่วยน้ำสมเหตุสมผลครับ
+                      } @else if (row.memberId) {
                         มิเตอร์แถวนี้ใกล้กันหลายหลัง เทียบรูปแล้วเลือกหลังที่ถ่ายจริงครับ
                       } @else if (freeNearbyCount(row) === 1) {
                         <!-- หลังอื่นถูกรูปใบอื่นในกองใช้ไปแล้ว (บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว)
@@ -378,10 +410,21 @@
                           class="nearby-btn"
                           [class.is-on]="near.member.id === row.memberId"
                           [class.is-taken]="near.takenBySeq !== null"
+                          [class.is-locked]="clusterBlocker(near.member) !== null"
                           (click)="pickNearby(row, near.member)"
-                          [disabled]="isBusy || near.takenBySeq !== null"
+                          [disabled]="isBusy || near.takenBySeq !== null || clusterBlocker(near.member) !== null"
+                          [title]="clusterLockMessage(near.member) ?? ''"
                         >
                           <span class="nearby-house">{{ near.member.house_no }}</span>
+                          <!-- ตำแหน่งบนกำแพงมาแทนระยะทาง สำหรับมิเตอร์ที่ติดกัน -->
+                          @if (positionLabel(near.member); as position) {
+                            <span class="nearby-position">ตำแหน่ง: {{ position }}</span>
+                          }
+                          <!-- เลขเดือนที่แล้วของหลังนั้น — ตัวเดียวที่แยกบ้านออกจากกันได้จริง
+                               ตอนที่ทุกหลังขึ้น "ห่าง 0 ม." เท่ากันและไม่มีรูปให้ดู -->
+                          @if (near.previousUnit !== null) {
+                            <span class="nearby-prev">เดือนที่แล้ว: {{ near.previousUnit }}</span>
+                          }
                           <span class="nearby-name">{{ near.member.fname }} {{ near.member.lname }}</span>
                           @if (near.takenBySeq !== null) {
                             <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม. · รูป #{{ near.takenBySeq }} ใช้แล้ว</span>
@@ -450,8 +493,33 @@
                   <p class="row-note">💡 {{ row.matchReason }}</p>
                 }
 
+                <!-- อ่านมาไม่ชัดคือ "ป้ายเตือน" ไม่ใช่ด่าน — แก้เลขเองแล้วกดออกบิลได้ตามปกติ
+                     ต่างจากแถวที่ไม่มีรูป ซึ่ง blockingIssue กันไว้จนกว่าจะแนบรูปใหม่ -->
+                @if (lowConfidenceWarning(row)) {
+                  <p class="row-issue">
+                    ⚠️ AI อ่านเลขมาไม่ชัด ({{ row.confidence }}%) เทียบกับรูปแล้วแก้เลขให้ตรงก่อนออกบิลครับ
+                  </p>
+                }
+
                 @if (blockingIssue(row); as issue) {
                   <p class="row-issue">⚠️ {{ issue }}</p>
+                }
+
+                <!-- ด่าน "กรอกเองแต่ไม่มีรูป" ข้ามไม่ได้ ต้องมีรูปหน้าปัดจริงมาแทนเท่านั้น
+                     ปุ่มจึงต้องอยู่ติดกับข้อความ ไม่ใช่ปล่อยให้ไปหาเองว่าจะแนบรูปใหม่ตรงไหน -->
+                @if (needsRetake(row)) {
+                  <label class="btn btn-secondary btn-sm row-crop" [for]="'retake-cta-' + row.seq">
+                    📸 อัปโหลด/ถ่ายรูปใหม่
+                  </label>
+                  <input
+                    [id]="'retake-cta-' + row.seq"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    hidden
+                    [disabled]="isBusy"
+                    (change)="onRetakePicked($event, row)"
+                  />
                 }
 
                 @if (row.error) {
@@ -513,6 +581,76 @@
         </p>
       }
     </section>
+  }
+
+  <!-- กล่องเลือกบ้าน — แทน dropdown เพราะต้องเห็นระยะห่าง/หน่วยรอบก่อน/ใบที่จองไปแล้ว
+       ซึ่งเป็นข้อมูลที่ใช้ตัดสินว่าหลังไหนถูก ตอนที่ GPS แยกมิเตอร์ที่ติดกันไม่ออก -->
+  @if (housePickerRow; as row) {
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="เลือกบ้าน">
+      <div class="modal-card picker-card">
+        <div class="modal-header">
+          <h2 class="modal-title">เลือกบ้านของรูปที่ {{ row.seq }}</h2>
+          <button type="button" class="modal-close" (click)="closeHousePicker()" aria-label="ปิด">✕</button>
+        </div>
+
+        <input
+          class="field-input search-input"
+          type="search"
+          [(ngModel)]="houseSearch"
+          placeholder="พิมพ์บ้านเลขที่ หรือชื่อเจ้าของ"
+        />
+
+        <div class="house-list">
+          @for (option of housePickerOptions(); track option.member.id) {
+            <button
+              type="button"
+              class="house-option"
+              [class.is-on]="option.member.id === row.memberId"
+              [class.is-taken]="option.takenBySeq !== null"
+              [class.is-locked]="option.locked !== null"
+              (click)="pickHouse(option.member)"
+              [disabled]="isBusy || option.takenBySeq !== null || option.locked !== null"
+            >
+              <span class="house-option-no">
+                {{ option.member.house_no }}
+                @if (option.position; as position) {
+                  <span class="house-option-position">(ตำแหน่ง: {{ position }})</span>
+                }
+              </span>
+              <span class="house-option-name">{{ option.member.fname }} {{ option.member.lname }}</span>
+              <span class="house-option-meta">
+                @if (option.locked; as locked) {
+                  <!-- ล็อกเพราะยังไม่ได้จดตัวที่อยู่ทางซ้าย ไม่ใช่เพราะบ้านหลังนี้มีปัญหา -->
+                  🔒 {{ locked }}
+                } @else if (option.takenBySeq !== null) {
+                  รูป #{{ option.takenBySeq }} เลือกหลังนี้ไปแล้ว
+                } @else {
+                  @if (option.meters !== null) {
+                    ห่างจุดถ่าย {{ option.meters | number: '1.0-0' }} ม.
+                  } @else {
+                    บ้านนี้ยังไม่มีพิกัด
+                  }
+                  @if (option.usage !== null) {
+                    · รอบนี้จะใช้ {{ option.usage }} หน่วย
+                  }
+                }
+              </span>
+            </button>
+          } @empty {
+            <p class="field-hint">ไม่พบบ้านที่ค้นหาครับ</p>
+          }
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeHousePicker()">ปิด</button>
+          @if (row.memberId) {
+            <button type="button" class="btn btn-secondary" (click)="clearHouse()" [disabled]="isBusy">
+              เอาบ้านที่เลือกไว้ออก
+            </button>
+          }
+        </div>
+      </div>
+    </div>
   }
 
   <!-- กล่องครอปทีละรูป — อ่านใหม่เฉพาะกรอบที่เลือก แล้วจับคู่บ้านให้ใหม่ตามเลขที่ได้ -->

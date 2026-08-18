@@ -103,6 +103,12 @@ interface NearbyChoice {
   member: any;
   meters: number;
   /**
+   * เลขมิเตอร์เดือนที่แล้วของบ้านหลังนี้ — ดึงเฉพาะแถวที่ไม่มีรูปให้เทียบแล้ว
+   * (ดู loadNearbyPreviousUnits) เพราะตอนนั้นเลขสะสมคือหลักฐานเดียวที่เหลือ
+   * ว่ากำลังจดหน้าปัดของบ้านหลังไหน — null = ยังไม่ได้ค่า หรือหลังบ้านไม่มีให้
+   */
+  previousUnit: number | null;
+  /**
    * แถวอื่นในกองเลือกบ้านหลังนี้ไปแล้ว — 1 บ้านมีบิลได้รอบละใบเดียว (ดู isDuplicate)
    * เก็บลำดับรูปไว้ด้วย เพื่อให้คนไล่ขึ้นไปดูได้ว่ารูปไหนไปทับ ถ้าเห็นว่ารูปนั้นเลือกผิด
    */
@@ -284,6 +290,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   /** ต่ำกว่านี้ถือว่า AI ยังอ่านเลขไม่ชัดพอจะปล่อยผ่านโดยไม่มีคนดู */
   private readonly trustedConfidence = 85;
+
+  /**
+   * ต่ำกว่านี้คือ "อ่านแทบไม่ออก" ต้องขึ้นเตือนสีส้มให้เห็นชัดในแถว
+   * แต่ยัง**ไม่ใช่ด่าน** — คนแก้เลขเองแล้วกดออกบิลได้ตามปกติ ต่างจากใบที่ไม่มีรูป
+   */
+  private readonly weakConfidence = 50;
 
   membersFailed = false;
   isLoadingMembers = true;
@@ -476,6 +488,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (!option) return;
 
     this.billingKey = option.key;
+    this.onBillingKeyChanged();
     toast.success(`ตั้งรอบบิลเป็น ${option.label} ตามวันถ่ายในรูปให้แล้วครับ`, { id: 'batch-billing-auto' });
   }
 
@@ -593,6 +606,23 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       (member) => toCoords(member?.latitude, member?.longitude),
       { maxMeters: this.conflictMeters, minMargin: this.rivalMarginMeters }
     );
+
+    // ═══ ห้ามให้พิกัดแตะบ้านในกลุ่มมิเตอร์ที่ติดกันเลย ═══
+    //
+    // มิเตอร์ในกลุ่มห่างกัน 30 ซม. ส่วนค่าที่วัดได้แกว่งเป็นเมตร "หลังที่ใกล้ที่สุด"
+    // จึงเป็นผลของเสียงรบกวน ไม่ใช่ตำแหน่งจริง — เติมให้แล้วคนจะกดยืนยันตาม เพราะมัน
+    // มาพร้อมตัวเลขเป็นเมตรที่ดูน่าเชื่อถือ ทั้งที่วัดใหม่อีกรอบอาจได้อีกหลังหนึ่ง
+    //
+    // ต้องดักก่อนสาขา ambiguous ด้วย ไม่งั้นทุกใบของกำแพงนี้จะถูกส่งเข้า reportAmbiguous
+    // ซึ่งแนะนำให้ "ไปวัดพิกัดสองหลังนี้ใหม่" — คำแนะนำที่ทำตามแล้วก็ไม่มีอะไรดีขึ้น
+    // เพราะปัญหาไม่ได้อยู่ที่ค่าที่จดไว้ แต่อยู่ที่เพดานความละเอียดของ GPS เอง
+    if (match.kind !== 'none' && this.clusterMembers(match.item).length) {
+      row.matchConfidence = 'ambiguous';
+      row.matchReason =
+        `พิกัดในรูปตกอยู่ในกลุ่มมิเตอร์ที่ติดกัน (${match.item.cluster_group_id}) ` +
+        'ซึ่งแต่ละตัวห่างกันราว 30 ซม. — พิกัดแยกไม่ได้ กรุณาเลือกบ้านตามลำดับตำแหน่งซ้าย→ขวาครับ';
+      return;
+    }
 
     // มีบ้านใกล้ ๆ อยู่หลายหลังจนชี้ขาดไม่ได้ — บอกให้รู้ว่าลังเลระหว่างหลังไหน
     // ห้ามหยิบ match.item มาเติมให้เด็ดขาด ตัวมันคือ "หลังที่ใกล้กว่าอีกไม่กี่เมตร"
@@ -1245,6 +1275,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     const check = this.unitCheck(row);
     if (check?.level === 'error' && !row.confirmMeterReset) return check.message;
     if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
+    // มิเตอร์ที่ติดกันเป็นกลุ่ม: ออกบิลข้ามลำดับ = ไม่มีอะไรยืนยันได้เลยว่าเลขนี้มาจากตัวไหน
+    // (พิกัดใช้ไม่ได้ในระยะ 30 ซม. — ดู clusterLockMessage) จึงต้องกันตั้งแต่ก่อนยิง
+    const clusterLock = this.clusterLockMessage(this.memberById(row.memberId));
+    if (clusterLock) return clusterLock;
     // กรอกเลขเองแล้วไม่มีรูป = ไม่เหลืออะไรให้ตรวจย้อนหลังเลยแม้แต่ชิ้นเดียว
     // หลังบ้านบล็อกตายอยู่แล้ว (ไม่มีปุ่มยืนยันให้กด) กันตั้งแต่ตรงนี้ดีกว่าปล่อยให้
     // ยิงไปทั้งคิวแล้วตกกลับมาทีละใบพร้อมข้อความที่คนอ่านตอนนั้นแก้อะไรไม่ได้แล้ว
@@ -1309,12 +1343,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       notes.push('บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ใบเดิมจะถูกลบทิ้งแล้วออกใหม่');
     }
 
-    if (row.confidence !== null && row.confidence < 85) {
-      notes.push(
-        row.file
-          ? `AI อ่านได้ไม่ค่อยชัด (${row.confidence}%) ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นขึ้นครับ`
-          : `AI อ่านได้ไม่ค่อยชัด (${row.confidence}%)`
-      );
+    // ไม่มีรูปแล้วห้ามพูดถึงเปอร์เซ็นต์ที่ AI เคยอ่านได้เลย (ดู showConfidence)
+    if (this.showConfidence(row) && (row.confidence ?? 100) < 85) {
+      notes.push(`AI อ่านได้ไม่ค่อยชัด (${row.confidence}%) ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นขึ้นครับ`);
     }
     return notes;
   }
@@ -1374,12 +1405,19 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       .map((member) => {
         const coords = toCoords(member?.latitude, member?.longitude);
         return coords
-          ? { member, meters: distanceMeters(photo, coords), takenBySeq: this.takenBySeq(row, member?.id) }
+          ? {
+              member,
+              meters: distanceMeters(photo, coords),
+              takenBySeq: this.takenBySeq(row, member?.id),
+              previousUnit: this.cachedPreviousUnit(member?.id)
+            }
           : null;
       })
       .filter((near): near is NearbyChoice => near !== null && near.meters <= this.nearbyMeters)
       .sort((a, b) => a.meters - b.meters)
       .slice(0, this.maxNearby);
+
+    this.loadNearbyPreviousUnits(row);
   }
 
   /**
@@ -1415,6 +1453,160 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.rows.forEach((row) => this.refreshNearby(row));
   }
 
+  // ==========================================
+  // แถวที่ไม่มีรูปแล้ว — เลขเดือนที่แล้วมาแทนสายตา
+  // ==========================================
+
+  /**
+   * แถวนี้ยังมีรูปอยู่ไหม — ทั้งไฟล์ต้นฉบับ (ไว้ให้คนดู/ครอปอ่านใหม่) และรูปย่อที่จะแนบไปกับบิล
+   * คิวที่กู้มาจากเครื่องไม่มีทั้งสองอย่าง (รูปก้อนใหญ่เกินโควตา localStorage จึงไม่ได้ถูกเก็บ)
+   */
+  hasPhoto(row: ScanRow): boolean {
+    return row.file !== null || row.photoData !== null;
+  }
+
+  /**
+   * โชว์เปอร์เซ็นต์ที่ AI อ่านได้หรือไม่
+   *
+   * ไม่มีรูปแล้ว = เปอร์เซ็นต์นั้นยืนยันอะไรไม่ได้อีก ไม่มีอะไรให้คนเอาไปเทียบสักอย่าง
+   * เห็นแล้วเข้าใจผิดว่า "เลขในช่องมาจากการอ่านรูป" ทั้งที่มันคือเลขที่กรอกเอง
+   */
+  showConfidence(row: ScanRow): boolean {
+    return row.confidence !== null && this.hasPhoto(row);
+  }
+
+  /** AI อ่านมาไม่ชัดจนต้องเตือน — เตือนอย่างเดียว ยังแก้เลขแล้วกดออกบิลเองได้ */
+  lowConfidenceWarning(row: ScanRow): boolean {
+    return this.showConfidence(row) && row.status !== 'saved' && (row.confidence ?? 100) < this.weakConfidence;
+  }
+
+  /**
+   * แถวนี้ออกบิลไม่ได้จนกว่าจะมีรูปใหม่ — เลขไม่ได้มาจาก AI และไม่มีรูปเหลือให้ตรวจย้อนหลัง
+   * ต้องคู่กับด่านเดียวกันใน blockingIssue() เสมอ ไม่งั้นปุ่มถ่ายใหม่จะไปโผล่คนละใบกับที่ติดด่าน
+   */
+  needsRetake(row: ScanRow): boolean {
+    if (row.status === 'saved' || row.status === 'unknown') return false;
+
+    return !this.hasPhoto(row) && this.entryMethod(row) !== 'ocr';
+  }
+
+  /**
+   * เลขเดือนที่แล้วของบ้านใกล้เคียง คีย์ด้วย `บ้าน|รอบบิล` เพราะคนละรอบคือคนละเลข
+   * เก็บที่ระดับหน้า ไม่ใช่ที่แถว — รูปหลายใบในกองมักเสนอบ้านหลังเดียวกัน
+   */
+  private previousUnitCache = new Map<string, number | null>();
+  private previousUnitInFlight = new Set<string>();
+
+  private previousUnitKey(memberId: unknown): string {
+    return `${Number(memberId)}|${this.billingKey}`;
+  }
+
+  private cachedPreviousUnit(memberId: unknown): number | null {
+    return this.previousUnitCache.get(this.previousUnitKey(memberId)) ?? null;
+  }
+
+  /**
+   * ดึงเลขเดือนที่แล้วของทุกบ้านที่ยกมาเป็นตัวเลือกในแถวนี้ — เฉพาะแถวที่ไม่มีรูปแล้ว
+   *
+   * มิเตอร์ทาวน์โฮมห่างกัน 30 ซม. ปุ่มจึงบอกได้แค่ "ห่าง 0 ม." เท่ากันทุกหลัง และไม่มีรูปให้เทียบ
+   * ด้วย เหลือทางเดียวที่คนตัดสินได้จริงคือเทียบเลขสะสมของแต่ละหลังกับเลขที่กรอกไว้ในช่อง
+   *
+   * ล้มแล้วเงียบไว้ — เป็นตัวช่วยตัดสิน ไม่ใช่ข้อมูลที่ขาดแล้วออกบิลไม่ได้
+   */
+  private loadNearbyPreviousUnits(row: ScanRow): void {
+    if (!this.isBrowser || this.hasPhoto(row) || !row.nearby.length) return;
+
+    const billing = this.selectedBilling;
+    for (const near of row.nearby) {
+      const memberId = Number(near.member?.id);
+      if (!Number.isFinite(memberId)) continue;
+
+      const key = this.previousUnitKey(memberId);
+      if (this.previousUnitCache.has(key) || this.previousUnitInFlight.has(key)) continue;
+
+      this.previousUnitInFlight.add(key);
+      this.meterReadingService.getPreviousUnit(memberId, billing.month, billing.year).subscribe({
+        next: (result: any) => {
+          this.previousUnitInFlight.delete(key);
+          const value = Number(result?.previous_unit);
+          // Number(null) = 0 — บ้านที่หลังบ้านไม่มีเลขให้ ต้องเป็น null ไม่ใช่ 0
+          const usable = result?.previous_unit !== null && result?.previous_unit !== undefined && Number.isFinite(value);
+          this.previousUnitCache.set(key, usable ? value : null);
+          this.applyCachedPreviousUnits();
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.previousUnitInFlight.delete(key);
+          console.error('ดึงเลขเดือนที่แล้วของบ้านใกล้เคียงไม่สำเร็จ:', err);
+        }
+      });
+    }
+  }
+
+  /** เอาค่าที่ได้มาแล้วไปติดกับปุ่มบ้านใกล้เคียงทุกแถว (รูปหลายใบใช้บ้านหลังเดียวกันได้) */
+  private applyCachedPreviousUnits(): void {
+    for (const row of this.rows) {
+      for (const near of row.nearby) {
+        near.previousUnit = this.cachedPreviousUnit(near.member?.id);
+      }
+    }
+  }
+
+  /** เปลี่ยนรอบบิล = เลขเดือนที่แล้วเป็นคนละตัว ต้องดึงใหม่ ไม่ใช่โชว์ของรอบเก่าค้างไว้ */
+  onBillingKeyChanged(): void {
+    this.applyCachedPreviousUnits();
+    this.rows.forEach((row) => this.loadNearbyPreviousUnits(row));
+  }
+
+  /**
+   * แนบรูปใหม่ให้แถวที่ไม่มีรูปแล้ว (คิวที่กู้มา / รูปเปิดไม่ขึ้น)
+   *
+   * ไม่สั่งอ่านเลขใหม่ให้เอง เพราะเลขในช่องมักถูกกรอกมือไปแล้ว การอ่านทับจะกลบของที่คนพิมพ์
+   * ทิ้งโดยไม่มีใครทัน — พอมีไฟล์แล้วปุ่มครอปอ่านใหม่จะโผล่ให้กดเองอยู่แล้ว
+   */
+  async onRetakePicked(event: Event, row: ScanRow): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    // ล้างค่าใน input ไม่งั้นเลือกไฟล์เดิมซ้ำจะไม่มี event ให้จับ
+    if (input) input.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('ไฟล์นี้ไม่ใช่รูปครับ', { id: 'batch-retake' });
+      return;
+    }
+
+    const meta = await readPhotoMetadata(file);
+    const coords = toCoords(meta.latitude, meta.longitude);
+    const capturedAt = parseCaptureDate(meta.captureDate);
+
+    this.releasePreview(row);
+    row.file = file;
+    row.fileKey = this.keyOf(file);
+    row.fileName = file.name;
+    row.previewUrl = URL.createObjectURL(file);
+    row.brokenImage = false;
+    // รูปใหม่คือความจริงล่าสุด แต่ถ้าไฟล์ไม่มี EXIF ติดมา ของเดิมของแถวยังดีกว่าไม่มีอะไรเลย
+    if (capturedAt) row.capturedAt = capturedAt;
+    if (coords) {
+      row.latitude = coords.lat;
+      row.longitude = coords.lng;
+    }
+    // ข้อความเดิมพูดถึงรูปที่หายไปแล้ว ค้างไว้จะขัดกับสิ่งที่เห็นบนจอ
+    row.error = null;
+    row.errorCode = null;
+    if (row.status === 'save_failed') row.status = 'ready';
+    this.cdr.detectChanges();
+
+    row.photoData = await this.photoDataUrl(file);
+    this.matchByCoords(row);
+    this.refreshAllNearby();
+    this.persist();
+    this.cdr.detectChanges();
+
+    toast.success('แนบรูปใหม่ให้แถวนี้แล้วครับ ออกบิลต่อได้เลย', { id: 'batch-retake' });
+  }
+
   /** มีบ้านหลังอื่นอยู่ใกล้พอ ๆ กับหลังที่เลือก — GPS ชี้ขาดไม่ได้ ต้องให้คนดู */
   hasCloseRival(row: ScanRow): boolean {
     const mine = this.distanceToSelected(row);
@@ -1439,8 +1631,229 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   pickNearby(row: ScanRow, member: any): void {
     if (this.isBusy) return;
 
+    // มิเตอร์ในกลุ่มที่ติดกันต้องจดไล่ตามลำดับ ห้ามข้ามไปหยิบตัวขวาก่อน
+    const locked = this.clusterLockMessage(member);
+    if (locked) {
+      toast.error(locked, { id: 'batch-cluster-lock' });
+      return;
+    }
+
     row.memberId = member.id;
     this.onMemberChanged(row);
+  }
+
+  // ==========================================
+  // กลุ่มมิเตอร์ที่ติดกันจนพิกัดแยกไม่ออก
+  // ==========================================
+
+  /**
+   * ═══ ทำไมหน้านี้ต้องมีโหมดไล่ลำดับ ═══
+   *
+   * มิเตอร์ทาวน์โฮมเรียงติดกันบนกำแพงเดียวกัน ห่างกันราว 30 ซม. ส่วน GPS มือถือ
+   * คลาดเคลื่อน 3-5 ม. ในที่โล่ง และ 10-30 ม. ใต้ชายคา — ความคลาดเคลื่อนกว้างกว่า
+   * ระยะจริงเป็นสิบเท่า พิกัดจึงตอบไม่ได้เลยว่ากำลังถ่ายตัวซ้ายหรือตัวขวา
+   * และคำตอบที่ได้จะ "ดูน่าเชื่อถือ" เพราะมันมาพร้อมตัวเลขเป็นเมตร
+   *
+   * สิ่งเดียวที่ไม่แกว่งคือ**ลำดับตำแหน่งที่จดไว้ล่วงหน้า** (sequence_index)
+   * หน้านี้จึงพาไล่จดจากซ้ายไปขวาทีละหลัง แล้วล็อกหลังถัดไปไว้จนกว่าหลังก่อนหน้า
+   * จะมีเลขแล้ว — คนที่ยืนอยู่หน้ากำแพงรู้เสมอว่า "ตัวถัดไปคือตัวที่อยู่ทางขวามือ"
+   */
+  private memberById(id: unknown): any | null {
+    if (id === null || id === undefined) return null;
+    return this.members.find((m) => Number(m.id) === Number(id)) ?? null;
+  }
+
+  /** บ้านทุกหลังในกลุ่มเดียวกัน เรียงตามตำแหน่งซ้าย→ขวา ([] = บ้านเดี่ยว) */
+  clusterMembers(member: any): any[] {
+    const cluster = member?.cluster_group_id ?? null;
+    if (!cluster) return [];
+
+    return this.members
+      .filter((m) => m?.cluster_group_id === cluster)
+      .sort((a, b) => Number(a.sequence_index ?? 0) - Number(b.sequence_index ?? 0));
+  }
+
+  /**
+   * ป้ายบอกตำแหน่งบนกำแพง — null เมื่อบ้านหลังนี้ไม่ได้อยู่ในกลุ่ม
+   *
+   * ⚠️ ข้อความต้องตรงกับ BillsService.positionLabel() ของหลังบ้านคำต่อคำ
+   *    ไม่งั้นข้อความที่หลังบ้านตีกลับมาจะเรียกตำแหน่งเดียวกันคนละชื่อกับที่คนเห็นบนจอ
+   */
+  positionLabel(member: any): string | null {
+    const group = this.clusterMembers(member);
+    if (!group.length) return null;
+
+    const index = Number(member?.sequence_index ?? 0);
+    if (!index) return 'ยังไม่ได้ระบุตำแหน่ง';
+    if (index === 1) return 'ซ้ายสุด';
+    if (index === group.length) return 'ขวาสุด';
+    return group.length === 3 ? 'ตรงกลาง' : `ตัวที่ ${index} จากซ้าย`;
+  }
+
+  /** บ้านหลังนี้จดเสร็จแล้วหรือยัง — นับทั้งใบในกองนี้และบิลที่ออกไปแล้วในรอบนี้ */
+  private isClusterHouseDone(membersId: unknown): boolean {
+    const id = Number(membersId);
+
+    const inBatch = this.rows.some(
+      (row) => Number(row.memberId) === id && (row.status === 'saved' || row.unit !== null)
+    );
+    if (inBatch) return true;
+
+    // หลังบ้านบอกมาแล้วว่าบ้านหลังนี้มีบิลของรอบนี้อยู่ — ถือว่าจดไปแล้วเหมือนกัน
+    // ไม่งั้นรอบที่จดค้างไว้ครึ่งกลุ่มเมื่อวานจะกลับมาล็อกตัวที่เหลือทั้งแถบ
+    return this.rows.some((row) =>
+      row.candidates.some(
+        (candidate) => Number(candidate.members_id) === id && candidate.already_billed
+      )
+    );
+  }
+
+  /** หลังก่อนหน้าในกลุ่มที่ยังไม่ได้จด — null = จดหลังนี้ได้แล้ว */
+  clusterBlocker(member: any): any | null {
+    const group = this.clusterMembers(member);
+    if (!group.length) return null;
+
+    const index = Number(member?.sequence_index ?? 0);
+    // ยังไม่ได้กรอกลำดับให้บ้านหลังนี้ = ไม่รู้ว่ามันอยู่ตรงไหนของกำแพง
+    // ปล่อยผ่านดีกว่าล็อกทั้งกลุ่มไว้เฉย ๆ (ข้อมูลที่ขาดต้องไปเติมที่หน้าทะเบียน)
+    if (!index) return null;
+
+    return (
+      group.find(
+        (other) =>
+          Number(other.sequence_index ?? 0) > 0 &&
+          Number(other.sequence_index) < index &&
+          !this.isClusterHouseDone(other.id)
+      ) ?? null
+    );
+  }
+
+  /** ข้อความบอกว่าทำไมหลังนี้ยังกดไม่ได้ — null = กดได้ */
+  clusterLockMessage(member: any): string | null {
+    const blocker = this.clusterBlocker(member);
+    if (!blocker) return null;
+
+    return (
+      `ต้องจดบ้าน ${blocker.house_no} (ตำแหน่ง: ${this.positionLabel(blocker)}) ให้เสร็จก่อนครับ — ` +
+      'มิเตอร์กลุ่มนี้ติดกันจนพิกัดแยกไม่ออก ต้องไล่จดจากซ้ายไปขวาทีละตัว'
+    );
+  }
+
+  /** บ้านที่แถวนี้เลือกอยู่ พร้อมป้ายตำแหน่ง — ใช้โชว์บนปุ่มเลือกบ้าน */
+  houseLabelWithPosition(row: ScanRow): string {
+    const member = this.memberById(row.memberId);
+    const label = this.memberLabel(row.memberId);
+    const position = member ? this.positionLabel(member) : null;
+
+    return position ? `${label} (ตำแหน่ง: ${position})` : label;
+  }
+
+  /** หลังถัดไปที่ต้องจดในกลุ่มของแถวนี้ — null เมื่อไม่ได้อยู่ในกลุ่ม หรือจดครบแล้ว */
+  nextInCluster(row: ScanRow): any | null {
+    const member = this.memberById(row.memberId);
+    const group = this.clusterMembers(member);
+    if (!group.length) return null;
+
+    return group.find((other) => !this.isClusterHouseDone(other.id)) ?? null;
+  }
+
+  // ==========================================
+  // เลือกบ้าน — ปุ่มเปิดรายชื่อทั้งจอ แทน dropdown
+  // ==========================================
+
+  /**
+   * ทำไมไม่ใช้ <select>
+   *
+   * หมู่บ้านหนึ่งมีบ้านเป็นร้อยหลัง dropdown ของมือถือจึงกลายเป็นรายการยาวที่เลื่อนหาเอง
+   * ทั้งที่ตอนยืนอยู่หน้าบ้าน คนรู้อยู่แล้วว่าจะเลือกหลังไหน — และที่แย่กว่านั้นคือ
+   * dropdown ไม่มีที่ให้แสดง "ห่างกี่เมตร / รอบก่อนใช้กี่หน่วย / รูปใบอื่นจองไปแล้ว"
+   * ซึ่งเป็นข้อมูลทั้งหมดที่ใช้ตัดสินว่าหลังไหนถูก แถวที่ GPS แยกไม่ออกจึงเดาไม่ได้เลย
+   */
+  housePickerRow: ScanRow | null = null;
+  houseSearch = '';
+
+  openHousePicker(row: ScanRow): void {
+    if (this.isBusy || row.status === 'saved') return;
+
+    this.housePickerRow = row;
+    this.houseSearch = '';
+  }
+
+  closeHousePicker(): void {
+    this.housePickerRow = null;
+  }
+
+  /**
+   * รายชื่อบ้านของกล่องเลือก เรียงตาม "ใกล้จุดถ่ายรูปก่อน"
+   *
+   * บ้านที่รูปใบอื่นในกองจองไปแล้วยังอยู่ในรายการแต่กดไม่ได้ (เหตุผลเดียวกับปุ่มบ้านใกล้เคียง
+   * — กดไปก็ติดด่าน "ซ้ำในกอง" อยู่ดี แต่ต้องเห็นว่ามันมีอยู่ ไม่ใช่หายไปเฉย ๆ)
+   */
+  housePickerOptions(): {
+    member: any;
+    meters: number | null;
+    usage: number | null;
+    takenBySeq: number | null;
+    position: string | null;
+    locked: string | null;
+  }[] {
+    const row = this.housePickerRow;
+    if (!row) return [];
+
+    const photo = row.latitude !== null && row.longitude !== null
+      ? { lat: row.latitude, lng: row.longitude }
+      : null;
+
+    const term = this.houseSearch.trim().toLowerCase();
+
+    return this.matchableMembers
+      .filter((member) => {
+        if (!term) return true;
+        const name = `${member.house_no ?? ''} ${member.fname ?? ''} ${member.lname ?? ''}`.toLowerCase();
+        return name.includes(term);
+      })
+      .map((member) => {
+        const coords = toCoords(member?.latitude, member?.longitude);
+        const candidate = row.candidates.find((c) => Number(c.members_id) === Number(member.id));
+
+        return {
+          member,
+          meters: photo && coords ? distanceMeters(photo, coords) : null,
+          usage: candidate ? Number(candidate.usage_unit) : null,
+          takenBySeq: this.takenBySeq(row, member.id),
+          position: this.positionLabel(member),
+          // ล็อกไว้เพราะยังไม่ได้จดตัวที่อยู่ทางซ้ายของมัน (ไม่ใช่เพราะบ้านนี้ผิดอะไร)
+          locked: this.clusterLockMessage(member)
+        };
+      })
+      .sort((a, b) => {
+        // บ้านที่ไม่มีพิกัดไม่ได้แปลว่าอยู่ไกล แค่เทียบไม่ได้ — ต่อท้ายไว้ ไม่ใช่ตัดทิ้ง
+        if (a.meters === null && b.meters === null) {
+          return String(a.member.house_no).localeCompare(String(b.member.house_no), 'th');
+        }
+        if (a.meters === null) return 1;
+        if (b.meters === null) return -1;
+        return a.meters - b.meters;
+      });
+  }
+
+  /** เลือกบ้านจากกล่อง — เดินทางเดียวกับปุ่มบ้านใกล้เคียง แล้วปิดกล่องให้เลย */
+  pickHouse(member: any): void {
+    const row = this.housePickerRow;
+    if (!row) return;
+
+    this.pickNearby(row, member);
+    this.closeHousePicker();
+  }
+
+  /** ปล่อยบ้านที่เลือกไว้ — ใช้ตอนกดผิดหลัง ต้องมีทางถอยที่ไม่ต้องรีเฟรชหน้า */
+  clearHouse(): void {
+    const row = this.housePickerRow;
+    if (!row || this.isBusy) return;
+
+    row.memberId = null;
+    this.onMemberChanged(row);
+    this.closeHousePicker();
   }
 
   /**

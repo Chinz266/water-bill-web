@@ -1,0 +1,104 @@
+<section class="crop-shell">
+  <!-- ── เลือกรูป ── ผู้เรียกส่ง [file] มาแล้วก็ไม่ต้องขึ้นปุ่มนี้ให้รก -->
+  @if (!file()) {
+    <label class="crop-pick">
+      <input type="file" accept="image/*" capture="environment" (change)="pickFile($event)" [disabled]="busy()" />
+      <span class="crop-pick-icon">📷</span>
+      <span class="crop-pick-text">
+        <strong>ถ่ายรูปหน้าปัด หรือเลือกจากเครื่อง</strong>
+        <small>ถ่ายให้ตัวเลขเต็มจอที่สุด แล้วค่อยมาครอบในขั้นถัดไป</small>
+      </span>
+    </label>
+  }
+
+  @if (loadFailed()) {
+    <div class="alert alert-danger">
+      <span>⚠️</span>
+      <span>เปิดไฟล์นี้ไม่ได้ครับ กรุณาเลือกไฟล์รูปภาพ (JPG / PNG) ใหม่อีกครั้ง</span>
+    </div>
+  }
+
+  @if (source(); as image) {
+    <p class="crop-guide">
+      กรุณาปรับกรอบให้พอดีกับ<strong>ตัวเลขสีดำเท่านั้น</strong> —
+      <strong>ไม่รวมทศนิยมสีแดง</strong> และไม่เอาขอบฝาครอบเข้ามาด้วย
+    </p>
+
+    <!-- ── กรอบครอป ── -->
+    <div class="crop-stage">
+      <image-cropper
+        [imageFile]="image"
+        [maintainAspectRatio]="true"
+        [aspectRatio]="ratio()"
+        [resetCropOnAspectRatioChange]="false"
+        [transform]="transform()"
+        [imageQuality]="quality"
+        [resizeToWidth]="maxWidth"
+        [onlyScaleDown]="true"
+        output="base64"
+        format="jpeg"
+        alignImage="center"
+        imageAltText="รูปหน้าปัดมิเตอร์ที่กำลังครอบ"
+        cropperFrameAriaLabel="กรอบเลือกเฉพาะแถวตัวเลข"
+        (imageCropped)="onCropped($event)"
+        (loadImageFailed)="onLoadFailed()"
+      ></image-cropper>
+    </div>
+
+    <!-- ── เครื่องมือ ── สัดส่วนกับการหมุน อยู่ติดกรอบเพราะใช้ระหว่างลาก -->
+    <div class="crop-tools">
+      <div class="crop-ratio" role="group" aria-label="สัดส่วนกรอบ">
+        @for (option of ratios; track option.value) {
+          <button
+            type="button"
+            class="crop-chip"
+            [class.is-active]="ratio() === option.value"
+            (click)="setRatio(option.value)"
+            [disabled]="busy()"
+          >
+            {{ option.label }}
+          </button>
+        }
+      </div>
+
+      <div class="crop-rotate">
+        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(-1)" [disabled]="busy()">↺ หมุนซ้าย</button>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(1)" [disabled]="busy()">↻ หมุนขวา</button>
+      </div>
+    </div>
+
+    <!-- ── พรีวิวสด ── คนตรวจต้องเห็นสิ่งที่โมเดลจะเห็นจริง ๆ ก่อนกดยืนยัน -->
+    <div class="crop-preview">
+      <div class="crop-preview-head">
+        <h3>ภาพที่โมเดลจะได้เห็น</h3>
+        @if (cropWidth()) {
+          <span class="crop-meta">{{ cropWidth() }}×{{ cropHeight() }} px · ~{{ previewKb() }} KB</span>
+        }
+      </div>
+
+      @if (preview(); as dataUrl) {
+        <img class="crop-preview-img" [src]="dataUrl" alt="ตัวอย่างภาพที่ครอบแล้ว" />
+      } @else {
+        <p class="field-hint">ลากกรอบบนรูปด้านบน แล้วภาพตัวอย่างจะขึ้นตรงนี้ทันที</p>
+      }
+
+      @if (tooSmall()) {
+        <div class="alert alert-warning">
+          <span>🔍</span>
+          <span>
+            กรอบเล็กเกินไป (กว้าง {{ cropWidth() }} px) ตัวเลขอาจเบลอจนอ่านไม่ออก —
+            ลองถ่ายใหม่ให้ใกล้ขึ้น หรือขยายกรอบให้กว้างกว่านี้ครับ
+          </span>
+        </div>
+      }
+    </div>
+
+    <!-- ── ยืนยัน ── -->
+    <div class="crop-actions">
+      <button type="button" class="btn btn-ghost" (click)="cancel()" [disabled]="busy()">ยกเลิก</button>
+      <button type="button" class="btn btn-primary" (click)="confirm()" [disabled]="busy() || !preview()">
+        ✓ ยืนยันการครอบ
+      </button>
+    </div>
+  }
+</section>

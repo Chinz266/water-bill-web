@@ -1,0 +1,166 @@
+/* จอมือถือคือหน้างานจริง — วางเป็นคอลัมน์เดียวเสมอ แล้วค่อยแตกสองคอลัมน์บนจอกว้าง */
+.crop-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* ── ปุ่มเลือกรูป ── */
+.crop-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  cursor: pointer;
+}
+
+.crop-pick:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.crop-pick input {
+  display: none;
+}
+
+.crop-pick-icon {
+  font-size: 28px;
+}
+
+.crop-pick-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.crop-pick-text small {
+  color: var(--text-muted);
+}
+
+/* ── ข้อความกำกับ ── ต้องอ่านก่อนลากกรอบ จึงอยู่เหนือรูปเสมอ */
+.crop-guide {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── กรอบครอป ── */
+.crop-stage {
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #0f172a;
+}
+
+.crop-stage image-cropper {
+  display: block;
+  /* บนมือถือแนวตั้ง รูปเต็มจอทำให้ปุ่มยืนยันหลุดพ้นจอไปเลย */
+  max-height: 46vh;
+}
+
+/* ── เครื่องมือ ── */
+.crop-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  justify-content: space-between;
+}
+
+.crop-ratio,
+.crop-rotate {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.crop-chip {
+  min-width: 56px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crop-chip.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.crop-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── พรีวิว ── */
+.crop-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.crop-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1);
+}
+
+.crop-preview-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.crop-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.crop-preview-img {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  /* พื้นเข้มช่วยให้เห็นขอบภาพที่ครอปได้ชัดว่าตัดโดนตัวเลขไหม */
+  background: #0f172a;
+}
+
+/* ── ปุ่มยืนยัน ── ปักไว้ล่างสุด ระยะนิ้วโป้งบนมือถือ */
+.crop-actions {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.crop-actions .btn {
+  flex: 1;
+}
+
+@media (min-width: 760px) {
+  .crop-stage image-cropper {
+    max-height: 56vh;
+  }
+
+  .crop-actions {
+    justify-content: flex-end;
+  }
+
+  .crop-actions .btn {
+    flex: 0 0 auto;
+    min-width: 160px;
+  }
+}
