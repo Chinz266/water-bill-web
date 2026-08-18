@@ -52,10 +52,6 @@ export class VillageService {
     return this.http.get<Village[]>(this.baseUrl);
   }
 
-  getVillage(id: number): Observable<Village> {
-    return this.http.get<Village>(`${this.baseUrl}/${id}`);
-  }
-
   // PATCH /villages/:id — modify_by หลังบ้านอ่านจาก token เอง ไม่ต้องส่งมา
   updateVillage(id: number, payload: UpdateVillagePayload): Observable<Village> {
     return this.http.patch<Village>(`${this.baseUrl}/${id}`, payload);

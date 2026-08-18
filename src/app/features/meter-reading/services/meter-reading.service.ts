@@ -65,11 +65,6 @@ export class MeterReadingService {
     });
   }
 
-  // 🌟 3. ดึงประวัติการจดมิเตอร์ของบ้านหลังหนึ่ง (เรียงใหม่สุดมาก่อน) เอาไว้หาเลขมิเตอร์เดือนที่แล้ว
-  getReadingsByMember(memberId: number): Observable<MeterReading[]> {
-    return this.http.get<MeterReading[]>(`${this.apiUrl}/meter-readings/member/${memberId}`);
-  }
-
   /** บิลของบ้านหลังนี้ในเดือน/ปีที่ระบุ — null ถ้ายังไม่เคยออกบิล (1 บ้านมีบิลได้เดือนละใบ) */
   getBillForMonth(memberId: number, month: string, year: string): Observable<any> {
     return this.http.get(
