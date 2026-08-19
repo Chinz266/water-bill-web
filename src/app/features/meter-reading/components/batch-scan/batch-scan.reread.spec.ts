@@ -96,8 +96,14 @@ describe('BatchScanComponent — ครอปแล้วอ่านใหม�
   /** เปิดกล่องครอปของแถวแรกแล้วสมมติว่าคนลากกรอบเสร็จแล้ว */
   const cropAndReread = (target = component.rows[0]) => {
     component.openCrop(target as any);
-    component.onCropped({ blob: new Blob(['กรอบที่ครอป'], { type: 'image/jpeg' }) });
-    component.rereadCropped();
+    // สิ่งที่ <app-meter-cropper> ส่งออกมาตอนคนกดยืนยันกรอบ
+    component.rereadCropped({
+      dataUrl: 'data:image/jpeg;base64,Y3JvcHBlZA==',
+      blob: new Blob(['กรอบที่ครอป'], { type: 'image/jpeg' }),
+      fileName: 'meter.jpg',
+      width: 900,
+      height: 300
+    });
     return http.expectOne(r => r.url.endsWith('/bills/scan-batch'));
   };
 

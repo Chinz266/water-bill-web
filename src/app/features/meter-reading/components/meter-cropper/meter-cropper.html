@@ -24,6 +24,15 @@
       <strong>ไม่รวมทศนิยมสีแดง</strong> และไม่เอาขอบฝาครอบเข้ามาด้วย
     </p>
 
+    <!-- ── สถานะกรอบอัตโนมัติ ── ต้องบอกให้รู้ว่ากรอบที่เห็นมาจากไหน
+         คนถึงจะรู้ว่าต้องตรวจอะไร ไม่ใช่กดยืนยันตามกรอบที่โผล่มาเฉย ๆ -->
+    @if (autoBoxNote(); as note) {
+      <p class="crop-auto" [class.is-busy]="detecting()">
+        <span>{{ detecting() ? '⏳' : '🤖' }}</span>
+        <span>{{ note }}</span>
+      </p>
+    }
+
     <!-- ── กรอบครอป ── -->
     <div class="crop-stage">
       <image-cropper
@@ -40,7 +49,10 @@
         alignImage="center"
         imageAltText="รูปหน้าปัดมิเตอร์ที่กำลังครอบ"
         cropperFrameAriaLabel="กรอบเลือกเฉพาะแถวตัวเลข"
+        [cropper]="cropBox()"
         (imageCropped)="onCropped($event)"
+        (imageLoaded)="onImageLoaded($event)"
+        (cropperReady)="onCropperReady($event)"
         (loadImageFailed)="onLoadFailed()"
       ></image-cropper>
     </div>
@@ -60,6 +72,12 @@
           </button>
         }
       </div>
+
+      <!-- ทางลัดกลับไปตำแหน่งมาตรฐาน สำหรับตอนที่กรอบไปผิดที่ (โมเดลจับโดนคราบโคลน
+           หรือลากจนหลง) — วางไว้ติดกรอบเพราะใช้ระหว่างลาก ไม่ใช่ตอนจะกดยืนยัน -->
+      <button type="button" class="btn btn-ghost btn-sm crop-snap" (click)="quickSnap()" [disabled]="busy()">
+        🎯 จัดกรอบไปที่แถบตัวเลข
+      </button>
 
       <div class="crop-rotate">
         <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(-1)" [disabled]="busy()">↺ หมุนซ้าย</button>

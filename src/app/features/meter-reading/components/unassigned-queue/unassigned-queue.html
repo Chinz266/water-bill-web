@@ -1,7 +1,8 @@
 <div class="page-head">
-  <h1 class="page-title">รูปที่รอจับคู่กับบ้าน</h1>
+  <h1 class="page-title">รูปที่รอตรวจสอบ</h1>
   <p class="page-subtitle">
-    รูปที่คนเดินจดตัดสินหน้างานไม่ได้ — AI อ่านเลขไม่ออก หรือเข้าได้หลายบ้านพอ ๆ กัน
+    รูปที่คนเดินจดตัดสินหน้างานไม่ได้ — AI อ่านเลขไม่ออก · เข้าได้หลายบ้านพอ ๆ กัน ·
+    หรือรู้บ้านแล้วแต่ตัวเลขน่าสงสัยจนด่านตีกลับ
   </p>
 </div>
 
@@ -20,36 +21,68 @@
   } @else if (!rows().length) {
     <p class="text-muted">ไม่มีรูปค้างในคิวครับ 🎉</p>
   } @else {
-    <ul class="queue-list">
-      @for (row of rows(); track row.id) {
-        <li class="queue-item">
-          <button type="button" class="queue-photo" (click)="open(row)">
-            <img [src]="photoUrl(row)" [alt]="'รูปมิเตอร์รอจับคู่ รหัส ' + row.id" />
-          </button>
+    <!-- ═══ virtual scroll ═══
+         คิวโตได้เป็นร้อยใบตอนต้นเดือน การ์ดทุกใบมีรูปของตัวเอง — เรนเดอร์ทั้งหมด
+         พร้อมกันแปลว่าหน้าเว็บกระตุกและมือถือกินแรมจนแอปโดนปิด
+         cdk เรนเดอร์เฉพาะการ์ดที่เห็นอยู่บนจอ (+ กันชนเล็กน้อย) เท่านั้น
 
-          <div class="queue-body">
-            <p class="queue-unit">
-              @if (row.meter_unit !== null) {
-                เลขที่อ่านได้ <strong>{{ row.meter_unit }}</strong>
-              } @else {
-                <span class="chip chip-warning">AI อ่านเลขไม่ออก</span>
-              }
-            </p>
-            <p class="text-muted queue-meta">
-              ถ่ายเมื่อ {{ row.captured_at ? (row.captured_at | date:'d MMM y HH:mm') : 'ไม่ทราบเวลา' }}
-              · เข้าคิวเมื่อ {{ row.create_date | date:'d MMM y' }}
-            </p>
-            @if (row.note) {
-              <p class="text-muted queue-meta">บันทึก: {{ row.note }}</p>
+         ⚠️ [itemSize] ต้องตรงกับความสูงจริงของ .queue-item ใน CSS เป๊ะ ๆ
+            ไม่ตรงเมื่อไหร่การ์ดจะซ้อนกันหรือมีช่องโหว่ระหว่างใบ -->
+    <cdk-virtual-scroll-viewport class="queue-viewport" [itemSize]="itemSize">
+      <article
+        *cdkVirtualFor="let row of rows(); trackBy: trackById"
+        class="queue-item"
+        [attr.data-queue-id]="row.id"
+        [class.is-linked]="highlightedId() === row.id"
+      >
+        <button type="button" class="queue-photo" (click)="open(row)">
+          <!-- lazy: คิวยาว ๆ มีรูปเป็นร้อย โหลดเฉพาะที่เลื่อนมาถึงจริง -->
+          <img [src]="photoUrl(row)" [alt]="'รูปมิเตอร์รอตรวจ รหัส ' + row.id" loading="lazy" />
+        </button>
+
+        <div class="queue-body">
+          <p class="queue-unit queue-line">
+            @if (row.meter_unit !== null) {
+              เลขที่อ่านได้ <strong>{{ row.meter_unit }}</strong>
+            } @else {
+              <span class="chip chip-warning">AI อ่านเลขไม่ออก</span>
             }
+            @if (blockedLabel(row.blocked_code); as label) {
+              <span class="chip chip-warning">{{ label }}</span>
+            }
+          </p>
 
+          <!-- ช่องนี้สูงคงที่เสมอ (มีของหรือไม่มีก็ตาม) เพราะ virtual scroll วางการ์ด
+               ด้วยความสูงคงที่ — บรรทัดที่โผล่มาบ้างไม่โผล่บ้างทำให้ตำแหน่งเพี้ยนทั้งคิว -->
+          <p class="queue-line queue-chain">
+            @if (chainLabel(row); as label) {
+              <span class="chain-badge">🔗 {{ label }}</span>
+            } @else if (row.note) {
+              <span class="text-muted">บันทึก: {{ row.note }}</span>
+            }
+          </p>
+
+          <p class="text-muted queue-line queue-meta">
+            ถ่ายเมื่อ {{ row.captured_at ? (row.captured_at | date: 'd MMM y HH:mm') : 'ไม่ทราบเวลา' }}
+            · เข้าคิวเมื่อ {{ row.create_date | date: 'd MMM y' }}
+          </p>
+
+          <div class="queue-actions">
             <button type="button" class="btn btn-sm btn-primary" (click)="open(row)">
-              จับคู่กับบ้าน
+              {{ row.members_id ? 'ตรวจแล้วอนุมัติ' : 'จับคู่กับบ้าน' }}
             </button>
+
+            <!-- ปุ่มลัดของใบที่เป็นมิเตอร์ตัวเดียวกับใบที่รู้บ้านแล้ว — กดแล้วเปิดใบนี้
+                 พร้อมติ๊กบ้านนั้นไว้ให้ เหลือแค่ดูรูปกับตัวเลขแล้วกดออกบิล -->
+            @if (chainHouse(row); as house) {
+              <button type="button" class="btn btn-sm btn-secondary" (click)="openWithChain(row)">
+                ยืนยันบ้านเดียวกับคิว #{{ row.chain?.id }} ({{ house.house_no }})
+              </button>
+            }
           </div>
-        </li>
-      }
-    </ul>
+        </div>
+      </article>
+    </cdk-virtual-scroll-viewport>
   }
 </div>
 
@@ -63,6 +96,63 @@
       </div>
 
       <img class="detail-photo" [src]="photoUrl(row)" alt="รูปหน้าปัดมิเตอร์" />
+
+      <!-- ═══ ใบที่ถูกด่านตีกลับ ═══
+           ต้องเห็นทั้งเหตุผลและบ้านที่คนหน้างานเลือกไว้ ก่อนจะเริ่มดูตัวเลข
+           ไม่งั้นคนตรวจจะไม่รู้ว่ากำลังตรวจอะไรอยู่ แล้วก็กดอนุมัติผ่านไปเฉย ๆ -->
+      @if (row.blocked_reason) {
+        <div class="alert alert-warning">
+          <span>🔎</span>
+          <span>
+            <strong>ถูกตีกลับตอนอยู่หน้างาน:</strong> {{ row.blocked_reason }}
+          </span>
+        </div>
+      }
+
+      <!-- มิเตอร์ตัวเดียวกันที่ถ่ายไว้คนละวัน — ตัวเลขสองใบต้องอยู่ตรงหน้าคนตัดสิน -->
+      @if (chainLabel(row); as label) {
+        <div class="alert alert-info">
+          <span>🔗</span>
+          <span>
+            {{ label }}
+            @if (row.chain?.house_no) {
+              <br />ใบก่อนหน้าถูกจับคู่กับบ้าน <strong>{{ row.chain?.house_no }}</strong> ไปแล้ว
+            }
+            @if (row.chain?.cluster_group_id) {
+              <br />⚠️ มิเตอร์กลุ่มนี้ติดกันบนกำแพงเดียวกัน (ห่างกันราว 30 ซม.)
+              พิกัดแยกตัวซ้าย/ตัวขวาไม่ได้ — กรุณาเทียบเลขบนรูปกับเลขตั้งต้นให้แน่ใจก่อนครับ
+            }
+          </span>
+        </div>
+
+        @if (chainHouse(row); as house) {
+          <button type="button" class="btn btn-ghost btn-sm" (click)="selectedMemberId = house.members_id">
+            🔗 ใช้บ้านเดียวกับคิว #{{ row.chain?.id }} ({{ house.house_no }})
+          </button>
+        }
+      }
+
+      @if (suggested(); as house) {
+        <div class="alert alert-info">
+          <span>🏠</span>
+          <span>
+            <strong>คนหน้างานเลือกบ้าน {{ house.house_no }}</strong> ({{ house.name }})
+            @if (house.cluster_group_id) {
+              — มิเตอร์อยู่ในกลุ่มที่ติดกัน ({{ house.cluster_group_id }})
+              ตำแหน่งที่ {{ house.sequence_index }} จากซ้าย
+            }
+            <br />
+            เลขตั้งต้น {{ house.previous_unit }}
+            @if (house.usage_unit !== null) {
+              · ถ้าเป็นบ้านนี้จะใช้ไป <strong>{{ house.usage_unit }}</strong> หน่วย
+            }
+          </span>
+        </div>
+
+        <button type="button" class="btn btn-ghost btn-sm" (click)="useSuggested()">
+          ใช้บ้าน {{ house.house_no }} หลังนี้
+        </button>
+      }
 
       <!-- รอบบิล: เปลี่ยนแล้วผู้สมัครต้องคิดใหม่ เพราะเลขตั้งต้นของแต่ละบ้านคนละค่ากันในแต่ละเดือน -->
       <div class="form-row">
@@ -140,6 +230,13 @@
                   </span>
                   @if (candidate.already_billed) {
                     <span class="chip chip-warning">บ้านนี้ออกบิลรอบนี้ไปแล้ว</span>
+                  }
+
+                  <!-- ทิศทางเทียบกับหมุดที่ลงทะเบียนไว้ — ช่วยให้เห็นภาพว่ายืนถ่ายตรงไหน
+                       ข้อความเตือนต่อท้ายมาจาก directionBadge() ไม่ใช่ของตกแต่ง:
+                       ระยะระดับเซนติเมตรอยู่ใต้ความคลาดเคลื่อนของ GPS หลายสิบเท่า -->
+                  @if (directionBadge(candidate); as badge) {
+                    <span class="candidate-direction">{{ badge }}</span>
                   }
                 </span>
               </label>

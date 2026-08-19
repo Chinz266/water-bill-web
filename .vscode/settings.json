@@ -1,7 +1,56 @@
 {
-  "github.copilot.chat.commitMessage.instructions": [
+  // Copilot: ข้อความที่จะไปโผล่บน GitHub (commit / PR / review) เขียนเป็นไทย
+  // key ต้องเป็น commitMessageGeneration — ของเดิมใช้ commitMessage เฉย ๆ ซึ่งไม่มีจริง Copilot จึงไม่อ่าน
+  "github.copilot.chat.commitMessageGeneration.instructions": [
     {
-      "text": "Always write commit messages in Thai language."
+      "text": "เขียน commit message เป็นภาษาไทย สั้น ไม่มีหางเสียง (ไม่ใส่ ครับ/ค่ะ/นะ)"
+    },
+    {
+      "text": "รูปแบบ Conventional Commits: <type>(<scope>): <สรุปเป็นไทย> โดย type และ scope คงเป็นภาษาอังกฤษเสมอ (feat, fix, refactor, chore, test, docs, perf, build)"
+    },
+    {
+      "text": "subject หนึ่งบรรทัดสั้น ไม่ใส่จุดท้ายบรรทัด ใช้รูปคำสั่ง เช่น เพิ่ม/แก้/ย้าย/ถอด ไม่ใช่ เพิ่มแล้ว"
+    },
+    {
+      "text": "ใส่ body เฉพาะตอนที่ 'ทำไม' ไม่ชัดจาก diff และให้อธิบายเหตุผล ไม่ใช่เล่าว่าแก้ไฟล์ไหน"
+    },
+    {
+      "text": "technical term คงภาษาอังกฤษ: component, service, guard, signal, EXIF, endpoint, payload, token, build, test"
+    },
+    {
+      "text": "ชื่อไฟล์ ชื่อฟังก์ชัน ตัวแปร path และ trailer (BREAKING CHANGE:, Closes #42) คงเดิมเป๊ะ ห้ามแปล"
+    },
+    {
+      "text": "ห้ามใส่ emoji และห้ามใส่ข้อความว่าถูกสร้างโดย AI"
+    }
+  ],
+
+  // คำอธิบาย PR ที่ Copilot ร่างให้
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    {
+      "text": "เขียน title และ description ของ PR เป็นภาษาไทย สั้น ไม่มีหางเสียง"
+    },
+    {
+      "text": "หัวข้อในเนื้อหาใช้ ## ทำอะไร / ## ทำไม / ## รายละเอียด / ## ตรวจอะไรเป็นพิเศษ"
+    },
+    {
+      "text": "เน้นเหตุผลและผลกระทบต่อผู้ใช้ ไม่ใช่รายการไฟล์ที่แก้"
+    },
+    {
+      "text": "technical term ชื่อไฟล์ ชื่อฟังก์ชัน และ path คงภาษาอังกฤษเดิม"
+    }
+  ],
+
+  // comment ตอนให้ Copilot review โค้ด
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "text": "เขียน comment เป็นภาษาไทย สั้น ตรงประเด็น ไม่มีหางเสียง"
+    },
+    {
+      "text": "หนึ่ง comment = ที่เกิดเหตุ + ปัญหา + วิธีแก้ ไม่ต้องเล่าว่าโค้ดบรรทัดนั้นทำอะไร"
+    },
+    {
+      "text": "ชื่อ symbol ชื่อไฟล์ เลขบรรทัด และข้อความ error คงเดิมเป๊ะ ห้ามแปล"
     }
   ]
 }

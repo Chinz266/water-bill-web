@@ -250,7 +250,7 @@ Multi-step sequences where order matters
 User asks "อะไรนะ", "พูดอีกที", "อธิบายชัดๆ", "ไม่เข้าใจ", "งง", "ขยายความ"
 Boundaries (NEVER pordee)
 Code blocks → byte-for-byte unchanged
-Commits, PRs, code review comments → normal English
+Commits, PRs, GitHub review comments → ภาษาไทย (type/scope, trailer, technical term คง English)
 Error messages → exact quote
 File paths, URLs, identifiers, function names → exact
 Stack traces → exact

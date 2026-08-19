@@ -212,8 +212,13 @@ describe('BatchScanComponent — ด่านความชัดของก�
       })] as any;
 
       component.openCrop(component.rows[0] as any);
-      component.onCropped({ blob: new Blob(['กรอบ'], { type: 'image/jpeg' }) });
-      component.rereadCropped();
+      component.rereadCropped({
+        dataUrl: 'data:image/jpeg;base64,Y3JvcHBlZA==',
+        blob: new Blob(['กรอบ'], { type: 'image/jpeg' }),
+        fileName: 'meter.jpg',
+        width: 900,
+        height: 300
+      });
       http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({
         results: [{
           index: 0,

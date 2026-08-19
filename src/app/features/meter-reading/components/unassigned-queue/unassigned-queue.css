@@ -1,18 +1,67 @@
-.queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* ── virtual scroll ──
+   ความสูงของ viewport ต้องกำหนดตายตัว ไม่งั้น cdk คิดไม่ออกว่าจอเห็นได้กี่ใบ
+   80vh เพราะหน้านี้เป็นงานที่คนนั่งไล่ทีละใบ ให้เห็นได้มากที่สุดเท่าที่จอมี */
+.queue-viewport {
+  height: 80vh;
+  max-height: 720px;
 }
 
+/* ⚠️ ความสูงรวม (148 + 12 margin) ต้องตรงกับ itemSize ใน unassigned-queue.ts
+      แก้ที่ไหนต้องแก้อีกที่ทันที ไม่งั้นการ์ดจะซ้อนกันหรือมีช่องโหว่ */
 .queue-item {
   display: flex;
   gap: 14px;
+  height: 148px;
+  margin-bottom: 12px;
   padding: 12px;
+  box-sizing: border-box;
   border: 1px solid var(--line-soft);
   border-radius: 12px;
+  /* กันเนื้อหาที่ยาวเกินคาดดันการ์ดให้สูงกว่า itemSize */
+  overflow: hidden;
+  background: var(--card);
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+
+/* การ์ดที่หน้าจอเพิ่งเลื่อนมาหา — ต้องเด่นพอให้ตาจับได้ว่ากระโดดมาที่ไหน แล้วดับเอง */
+.queue-item.is-linked {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+/* ทุกบรรทัดในการ์ดเป็นบรรทัดเดียวเสมอ — ข้อความที่ตัดบรรทัดเองจะทำให้การ์ดสูงไม่เท่ากัน
+   ซึ่ง virtual scroll รับไม่ได้ (มันวางตำแหน่งจาก itemSize ไม่ได้วัดของจริง) */
+.queue-line {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.queue-chain {
+  min-height: 22px;
+  font-size: 13px;
+}
+
+.chain-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.queue-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: auto;
+  overflow: hidden;
 }
 
 /* รูปคือข้อมูลชิ้นเดียวที่ใช้ตัดสิน จึงต้องใหญ่พอให้เห็นเลขบนหน้าปัดตั้งแต่หน้ารายการ */
@@ -118,4 +167,14 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* ป้ายทิศทางสัมพัทธ์ในรายการบ้านที่เป็นไปได้ — โทนกลาง ๆ ไม่ใช่สีเตือน
+   เพราะมันคือข้อมูลประกอบ ไม่ใช่คำเตือนที่ต้องลงมือทำอะไร */
+.candidate-direction {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }

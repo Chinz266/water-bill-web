@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api.config';
 
 // เรทค่าน้ำที่ใช้อยู่จริงในระบบ (หลังบ้านคืน price_per_unit มาเป็น string เช่น '15.00')
@@ -9,6 +9,25 @@ export interface WaterRate {
   price_per_unit: string | number;
   status: string;
   create_date?: string;
+}
+
+/**
+ * กรอบที่โมเดลชี้ว่าแถวตัวเลขอยู่ตรงไหน — **สัดส่วน 0-1 ของภาพ ไม่ใช่พิกเซล**
+ *
+ * เป็นสัดส่วนเพราะกรอบครอปทำงานบนภาพที่ย่อแล้ว (ขนาดต่างกันทุกเครื่อง/ทุกการหมุนจอ)
+ * ตัวเลขพิกเซลของภาพต้นฉบับจึงใช้ตรง ๆ ไม่ได้ ต้องคูณกับขนาดที่แสดงจริงเสมอ
+ *
+ * ⚠️ เป็นพิกัดของภาพ "ตามที่เก็บในไฟล์" ยังไม่หมุนตาม EXIF Orientation
+ *    ต้องผ่าน mapBoxThroughExif() ก่อนเอาไปวางบนกรอบครอป ไม่งั้นรูปแนวตั้งจากมือถือ
+ *    จะได้กรอบไปโผล่คนละมุมของภาพ
+ */
+export interface MeterCropBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** 'digits' = กรอบของเลขสีดำล้วน (ที่ต้องการจริง), 'border' = ทั้งแถบ ยังไม่ตัดเลขแดงออก */
+  source: 'digits' | 'border';
 }
 
 // การจดมิเตอร์ 1 ครั้งของบ้าน 1 หลัง
@@ -30,6 +49,34 @@ export class MeterReadingService {
   // 1. ฟังก์ชันส่งรูปภาพไปให้ AI ประมวลผล
   uploadCroppedImage(formData: FormData): Observable<any> {
     return this.http.post(`${this.apiUrl}/meter-readings/ocr-upload`, formData);
+  }
+
+  /**
+   * ถามโมเดลว่า "แถวตัวเลขอยู่ตรงไหนของรูป" เพื่อตั้งกรอบครอปให้ล่วงหน้า
+   *
+   * ═══ ทำไมต้องยิงก่อนครอป ทั้งที่เดี๋ยวก็ต้องยิงอ่านเลขอีกรอบ ═══
+   *
+   * คนที่ยืนจดกลางแดดต้องลากกรอบเองทุกใบ ใบละหลายวินาที แล้วกรอบที่ลากเร็ว ๆ
+   * มักกินเลขทศนิยมสีแดงเข้ามาด้วย ซึ่งทำให้ยอดคลาด 1,000 เท่า
+   * ให้โมเดลตั้งกรอบให้ก่อนแล้วคนแค่ดูว่าตรงไหม เป็นการแลกเวลาเครื่อง 1 รอบ
+   * กับความผิดพลาดที่ปลายทางเป็นยอดเงินของลูกบ้าน
+   *
+   * ล้มเหลวแล้ว **เงียบ** — คืน null ให้กรอบครอปใช้กรอบกลางภาพตามเดิม
+   * เพราะนี่เป็นแค่ตัวช่วย ไม่ใช่ขั้นตอนที่ขาดไม่ได้ ขึ้น error ตรงนี้มีแต่ทำให้คนหยุดทำงาน
+   */
+  detectCropBox(file: File): Observable<MeterCropBox | null> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+
+    return this.http
+      .post<{ crop_box?: MeterCropBox | null }>(
+        `${this.apiUrl}/meter-readings/ocr-upload`,
+        form
+      )
+      .pipe(
+        map((result) => result?.crop_box ?? null),
+        catchError(() => of(null))
+      );
   }
 
   /**

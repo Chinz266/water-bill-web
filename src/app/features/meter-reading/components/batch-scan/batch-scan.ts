@@ -1,9 +1,10 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ImageCropperComponent, ImageTransform } from 'ngx-image-cropper';
 import { toast } from 'ngx-sonner';
+import { MeterCropResult, MeterCropperComponent } from '../meter-cropper/meter-cropper';
 import { MeterReadingService } from '../../services/meter-reading.service';
+import { UnassignedService } from '../../services/unassigned.service';
 import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorCode, extractErrorMessage } from '../../../auth/services/auth-error';
@@ -236,12 +237,13 @@ interface ScanRow {
 @Component({
   selector: 'app-batch-scan',
   standalone: true,
-  imports: [CommonModule, FormsModule, ImageCropperComponent, DeviceLocationComponent],
+  imports: [CommonModule, FormsModule, MeterCropperComponent, DeviceLocationComponent],
   templateUrl: './batch-scan.html',
   styleUrls: ['./batch-scan.css']
 })
 export class BatchScanComponent implements OnInit, OnDestroy {
   private meterReadingService = inject(MeterReadingService);
+  private unassignedService = inject(UnassignedService);
   private memberService = inject(MemberService);
   private villageService = inject(VillageService);
   private auth = inject(AuthService);
@@ -961,6 +963,80 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
+  // ฝากใบที่ติดด่านไว้ให้ผู้ดูแลตรวจ
+  // ==========================================
+
+  /** แถวที่กำลังส่งเข้าคิว — กันกดซ้ำระหว่างรออัปโหลดรูป */
+  sendingReview: ScanRow | null = null;
+
+  /**
+   * ควรมีปุ่ม "ส่งให้ผู้ดูแลตรวจ" ไหม
+   *
+   * ขึ้นเฉพาะใบที่ **หลังบ้านตีกลับ** เท่านั้น (มี errorCode) ไม่ใช่ทุกใบที่ยังไม่ได้ออกบิล —
+   * ปุ่มที่ขึ้นตลอดจะกลายเป็นทางลัดให้โยนงานทั้งกองไปให้คนอื่น ทั้งที่ส่วนใหญ่กดออกบิลได้เลย
+   *
+   * ต้องมีรูปที่ย่อไว้แล้วด้วย เพราะคิวรับเฉพาะใบที่มีรูป — แถวที่กู้มาจากคิวเก่าไม่มีรูปเหลือ
+   */
+  canSendToReview(row: ScanRow): boolean {
+    return Boolean(row.errorCode) && Boolean(row.photoData) && row.status !== 'saved';
+  }
+
+  /**
+   * ฝากใบนี้ไว้ในคิวรอตรวจ แทนที่จะกดยืนยันข้ามด่านเอง
+   *
+   * ═══ ทำไมต้องมีทางเลือกนี้ ═══
+   *
+   * คนที่ยืนกลางแดดกับมิเตอร์อีกหลายสิบตัวที่ยังไม่ได้จด ไม่ใช่คนที่ควรตัดสินว่า
+   * หน่วยน้ำที่พุ่งขึ้นสามเท่านั้นเป็นท่อแตกจริงหรือ AI อ่านผิด เมื่อทางเลือกมีแค่
+   * "กดผ่าน" กับ "ทิ้งงานค้างไว้" คนจะกดผ่าน แล้วด่านทั้งหมดก็กลายเป็นพิธีกรรม
+   *
+   * ส่งบ้านที่เลือกไว้กับรหัสด่านไปด้วย คนตรวจจะได้เปิดมาเจอทั้งเหตุผลและบ้าน
+   * ไม่ต้องไล่หาใหม่ว่ารูปนี้ของใครและมันติดอะไร
+   */
+  sendToReview(row: ScanRow): void {
+    if (this.isBusy || this.sendingReview || !this.canSendToReview(row)) return;
+
+    this.sendingReview = row;
+    this.cdr.detectChanges();
+
+    this.unassignedService
+      .create({
+        meter_photo: row.photoData!,
+        villages_id: this.villagesId ?? undefined,
+        members_id: row.memberId ?? undefined,
+        blocked_code: row.errorCode ?? undefined,
+        blocked_reason: row.error ?? undefined,
+        meter_unit: row.unit ?? undefined,
+        meter_digits: row.meterDigits ?? undefined,
+        read_confidence: row.ocrConfidence ?? undefined,
+        latitude: row.latitude ?? undefined,
+        longitude: row.longitude ?? undefined,
+        captured_at: row.capturedAt?.toISOString(),
+        create_by: this.auth.admin()?.id
+      })
+      .subscribe({
+        next: () => {
+          this.sendingReview = null;
+          // ออกจากกองไปแล้ว — ปล่อยแถวค้างไว้จะทำให้คนกดออกบิลซ้ำอีกทางหนึ่ง
+          this.releasePreview(row);
+          this.rows = this.rows.filter((r) => r !== row);
+          this.persist();
+          this.cdr.detectChanges();
+          toast.success('ส่งให้ผู้ดูแลตรวจแล้วครับ — ดูได้ที่หน้า "รูปที่รอตรวจสอบ"', {
+            id: 'batch-review'
+          });
+        },
+        error: (err) => {
+          this.sendingReview = null;
+          this.cdr.detectChanges();
+          toast.error(extractErrorMessage(err, 'ส่งเข้าคิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
+            id: 'batch-review'
+          });
+        }
+      });
+  }
+
+  // ==========================================
   // ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่ทีละรูป
   // ==========================================
 
@@ -970,10 +1046,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
    * ครอบกรอบให้ตั้งแต่แรก — ปุ่มนี้คือทางกลับไปใช้วิธีที่แม่นกว่า เฉพาะใบที่อ่านมาไม่ดี
    */
   cropRow: ScanRow | null = null;
-  cropBlob: Blob | null = null;
-  cropTransform: ImageTransform = {};
   isRereading = false;
-  private cropRotation = 0;
 
   /** ควรชวนให้ครอปอ่านใหม่ไหม — อ่านไม่ออก หรืออ่านออกแบบไม่ค่อยมั่นใจ */
   shouldReread(row: ScanRow): boolean {
@@ -986,24 +1059,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     // แถวที่กู้มาจากคิวเก่าไม่มีตัวรูปแล้ว ครอปไม่ได้
     if (this.isBusy || !row.file) return;
     this.cropRow = row;
-    this.cropBlob = null;
-    this.cropRotation = 0;
-    this.cropTransform = {};
   }
 
   closeCrop(): void {
     if (this.isRereading) return;
     this.cropRow = null;
-    this.cropBlob = null;
-  }
-
-  onCropped(event: any): void {
-    this.cropBlob = event?.blob ?? null;
-  }
-
-  rotateCrop(direction: -1 | 1): void {
-    this.cropRotation += direction * 90;
-    this.cropTransform = { ...this.cropTransform, rotate: this.cropRotation };
   }
 
   /**
@@ -1013,21 +1073,19 @@ export class BatchScanComponent implements OnInit, OnDestroy {
    * เลขมิเตอร์ พออ่านเลขได้ใหม่ บ้านที่เคยเสนอไว้จากเลขตัวเก่าก็ต้องคิดใหม่ทั้งชุด
    * ไม่งั้นจะได้เลขถูกแต่บ้านผิด ซึ่งมองไม่ออกด้วยตาเพราะทุกอย่างดูเรียบร้อยดี
    */
-  rereadCropped(): void {
+  rereadCropped(crop: MeterCropResult): void {
     const row = this.cropRow;
-    if (!row || !this.cropBlob || this.isRereading) return;
+    if (!row || this.isRereading) return;
 
     const billing = this.selectedBilling;
     const form = new FormData();
-    form.append('files', this.cropBlob, row.fileName);
+    form.append('files', crop.blob, row.fileName);
     form.append('billing_month', billing.month);
     form.append('billing_year', billing.year);
     if (this.villagesId) form.append('villages_id', String(this.villagesId));
 
     this.isRereading = true;
     this.cdr.detectChanges();
-
-    const cropped = this.cropBlob;
 
     this.meterReadingService.scanBatch(form).subscribe({
       next: async (res: any) => {
@@ -1050,7 +1108,6 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // อ่านไม่ชัด ฯลฯ) ใช้ต่อไม่ได้ ต้องปล่อยให้ด่านของหลังบ้านตรวจเลขใหม่อีกรอบ ไม่ใช่ข้ามไปเลย
         if (row.unit !== before) this.clearConfirms(row);
         this.cropRow = null;
-        this.cropBlob = null;
         this.persist();
         this.cdr.detectChanges();
 
@@ -1061,12 +1118,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         //
         // พิกัดกับวันถ่ายอ่านจากไฟล์ต้นฉบับไปตั้งแต่ตอนเลือกรูปแล้ว (canvas ทิ้ง EXIF ทั้งก้อน)
         // การทับตรงนี้จึงไม่กระทบด่านไหนเลย
-        const encoded = await this.photoDataUrl(cropped);
-        if (encoded) {
-          row.photoData = encoded;
-          this.persist();
-          this.cdr.detectChanges();
-        }
+        // ใช้ data URL ที่กล่องครอปส่งมาเลย (ย่อ ≤1200 px คุณภาพ 80 มาแล้ว)
+        // ไม่ต้องแปลงซ้ำจาก blob ก้อนเดิม ซึ่งได้ผลเท่ากันแต่เสียเวลาเข้ารหัสอีกรอบ
+        row.photoData = crop.dataUrl;
+        this.persist();
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.isRereading = false;

@@ -52,6 +52,26 @@
   line-height: 1.6;
 }
 
+/* ── แถบสถานะกรอบอัตโนมัติ ── สีน้ำเงินคนละโทนกับคำเตือนสีเหลืองด้านบน
+   เพราะเป็นคนละเรื่องกัน: อันบนคือสิ่งที่คนต้องระวัง อันนี้คือสิ่งที่ระบบทำให้แล้ว */
+.crop-auto {
+  display: flex;
+  gap: var(--sp-1);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.crop-auto.is-busy {
+  color: var(--text-muted);
+}
+
 /* ── กรอบครอป ── */
 .crop-stage {
   overflow: hidden;

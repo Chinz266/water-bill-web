@@ -535,6 +535,23 @@
                   </button>
                 }
 
+                <!-- ทางเลือกที่สามของใบที่ติดด่าน: ไม่ต้องตัดสินเองตรงนี้
+                     คนที่ยืนกลางแดดกับมิเตอร์อีกหลายสิบตัวไม่ใช่คนที่ควรชี้ขาดว่าเลขผิดปกตินี้ถูกไหม -->
+                @if (canSendToReview(row)) {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm row-confirm"
+                    (click)="sendToReview(row)"
+                    [disabled]="isBusy || sendingReview === row"
+                  >
+                    @if (sendingReview === row) {
+                      <span class="btn-spinner"></span> กำลังส่ง...
+                    } @else {
+                      📮 ส่งให้ผู้ดูแลตรวจแทน
+                    }
+                  </button>
+                }
+
                 @for (note of notes(row); track note) {
                   <p class="row-note">· {{ note }}</p>
                 }
@@ -662,38 +679,18 @@
           <button type="button" class="modal-close" (click)="closeCrop()" [disabled]="isRereading" aria-label="ปิด">✕</button>
         </div>
 
-        <p class="field-hint">ลากกรอบให้เหลือเฉพาะแถวตัวเลข แล้วกดอ่านใหม่ครับ</p>
+        <!-- ใช้กล่องครอปตัวกลาง (AI ตั้งกรอบให้ก่อน · ล็อกสัดส่วนแถบตัวเลข · ย่อ+บีบอัดให้)
+             แทนการเขียนกรอบครอปซ้ำไว้ในหน้านี้ ซึ่งเคยเพี้ยนกันคนละแบบสองที่ -->
+        @if (isRereading) {
+          <p class="field-hint"><span class="btn-spinner"></span> กำลังอ่านเลขจากกรอบนี้...</p>
+        }
 
-        <div class="crop-frame">
-          <image-cropper
-            [imageFile]="row.file!"
-            [maintainAspectRatio]="false"
-            [transform]="cropTransform"
-            format="jpeg"
-            (imageCropped)="onCropped($event)"
-          ></image-cropper>
-        </div>
-
-        <div class="crop-tools">
-          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateCrop(-1)" [disabled]="isRereading">
-            ↺ หมุนซ้าย
-          </button>
-          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateCrop(1)" [disabled]="isRereading">
-            ↻ หมุนขวา
-          </button>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" (click)="closeCrop()" [disabled]="isRereading">ปิด</button>
-          <button type="button" class="btn btn-primary" (click)="rereadCropped()" [disabled]="isRereading || !cropBlob">
-            @if (isRereading) {
-              <span class="btn-spinner"></span>
-              กำลังอ่าน...
-            } @else {
-              อ่านเลขจากกรอบนี้
-            }
-          </button>
-        </div>
+        <app-meter-cropper
+          [file]="row.file"
+          [busy]="isRereading"
+          (cropped)="rereadCropped($event)"
+          (cancelled)="closeCrop()"
+        ></app-meter-cropper>
       </div>
     </div>
   }
