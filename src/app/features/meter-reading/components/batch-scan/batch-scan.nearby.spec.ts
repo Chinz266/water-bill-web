@@ -151,6 +151,101 @@ describe('BatchScanComponent — มิเตอร์ที่อยู่ใ�
   });
 
   /**
+   * เลขมิเตอร์เป็นยอดสะสมของแต่ละหลัง จึงเป็นหลักฐานที่แยกบ้านออกจากกันได้จริง ต่างจากระยะทาง
+   * ที่ทุกหลังบนกำแพงเดียวกันได้เท่ากันหมด — หลังบ้านส่งเลขตั้งต้น/หน่วยเฉลี่ยของทุกหลัง
+   * ที่เข้าเกณฑ์มาให้พร้อมผลอ่านเลขอยู่แล้ว (candidates) ปุ่มต้องเอามาโชว์ ไม่ใช่โชว์แต่ระยะ
+   */
+  describe('เลขมิเตอร์บนปุ่มเลือกบ้าน', () => {
+    const candidate = (over: any = {}) => ({
+      members_id: 1,
+      house_no: '99/1',
+      name: 'สมชาย ใจดี',
+      previous_unit: 1200,
+      usage_unit: 50,
+      average_usage: 45,
+      already_billed: false,
+      score: 0.9,
+      distance_m: null,
+      ...over
+    });
+
+    it('เลขตั้งต้นกับหน่วยเฉลี่ยต้องมาจาก candidates ที่มีอยู่แล้ว ไม่ต้องยิงถามซ้ำทีละหลัง', () => {
+      const target = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.75009)], {
+        candidates: [
+          candidate(),
+          candidate({ members_id: 2, house_no: '99/2', previous_unit: 1000, average_usage: 200, score: 0.5 })
+        ]
+      });
+
+      expect(target.nearby.map((n: any) => n.previousUnit)).toEqual([1200, 1000]);
+      expect(target.nearby.map((n: any) => n.averageUsage)).toEqual([45, 200]);
+      expect(target.nearby.every((n: any) => n.meterFits === true)).toBe(true);
+    });
+
+    it('หน่วยบนปุ่มคิดจากเลขในช่องตอนนี้ ไม่ใช่ค่าที่หลังบ้านคิดไว้ตอนจับคู่', () => {
+      const target = setup([house(1, '99/1', 13.75001)], { candidates: [candidate()] });
+
+      expect(component.nearbyUsage(target, target.nearby[0])).toBe(50);
+
+      // คนแก้เลขในช่องเอง — ตัวเลขที่ใช้ตัดสินต้องขยับตาม ไม่ใช่ค้างที่ 50
+      target.unit = 1300;
+      expect(component.nearbyUsage(target, target.nearby[0])).toBe(100);
+    });
+
+    it('หลังที่เลขไม่เข้าต้องติดป้ายบอกเหตุผล แต่ยังกดได้ เผื่อเลขในช่องพิมพ์ผิด', () => {
+      const target = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.75009)], {
+        candidates: [candidate()]
+      });
+
+      const rejected = target.nearby.find((n: any) => Number(n.member.id) === 2)!;
+
+      expect(rejected.meterFits).toBe(false);
+      expect(component.nearbyMeterNote(target, rejected)).toBe('เลขที่อ่านได้ไม่เข้ากับหลังนี้');
+      // ป้ายเตือนเท่านั้น ห้ามล็อกปุ่ม — ด่านจริงอยู่ตอนกดออกบิล
+      expect(rejected.takenBySeq).toBeNull();
+    });
+
+    it('เลขในช่องน้อยกว่าเลขตั้งต้นของหลังนั้น → บอกว่ามิเตอร์ไม่เดินถอยหลัง', () => {
+      const target = setup([house(1, '99/1', 13.75001)], { unit: 1100, candidates: [candidate()] });
+
+      expect(component.nearbyMeterNote(target, target.nearby[0])).toContain('ไม่เดินถอยหลัง');
+    });
+
+    it('หลังที่เลขเข้าเค้าต้องมาก่อน ถึงจะอยู่ไกลกว่า — ปุ่มแรกคือปุ่มที่คนกดโดยไม่อ่าน', () => {
+      const target = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.75009)], {
+        candidates: [candidate({ members_id: 2, house_no: '99/2', previous_unit: 1000 })]
+      });
+
+      expect(target.nearby.map((n: any) => n.member.house_no)).toEqual(['99/2', '99/1']);
+    });
+
+    it('ยังไม่ได้อ่านเลข → ไม่มีอะไรมาค้าน ต้องไม่ติดป้ายมั่ว', () => {
+      const target = setup([house(1, '99/1', 13.75001)]);
+
+      expect(target.nearby[0].meterFits).toBeNull();
+      expect(component.nearbyMeterNote(target, target.nearby[0])).toBeNull();
+    });
+
+    /**
+     * ⚠️ เคสที่สำคัญที่สุดของชุดนี้ — เลขมิเตอร์มีสิทธิ์แค่ "จัดลำดับ" กับ "ติดป้าย"
+     * ห้ามคัดหลังที่เลขไม่เข้าออกจาก row.nearby เพราะ hasCloseRival() อ่านจากลิสต์เดียวกัน
+     * เป็นด่านกันระบบออกบิลเอง ถ้าคู่แข่งหายไป ด่านจะเงียบทั้งที่ GPS ยังชี้ไม่ขาดเหมือนเดิม
+     */
+    it('หลังที่เลขไม่เข้ายังนับเป็นคู่แข่ง — ด่านกันออกบิลเองต้องไม่ถูกลด', () => {
+      const target = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.75009)], {
+        memberId: 1,
+        matchedBy: 'system',
+        candidates: [candidate()]
+      });
+
+      expect(target.nearby.length).toBe(2);
+      expect(component.hasCloseRival(target)).toBe(true);
+      expect(component.isConfirmedByCoords(target)).toBe(false);
+      expect(component.autoSavable(target)).toBe(false);
+    });
+  });
+
+  /**
    * บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว ตัวเลือกที่รูปใบอื่นจองไปแล้วจึงกดไปก็ติด "ซ้ำในกอง"
    * อยู่ดี — ตัดออกจากตัวเลือกที่กดได้ แต่ห้ามเติมหลังที่เหลือให้เอง เพราะถ้ารูปที่ไปจอง
    * ไว้เลือกผิด แถวนี้จะผิดตามเป็นลูกโซ่โดยไม่มีใครทัก

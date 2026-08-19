@@ -104,11 +104,27 @@ interface NearbyChoice {
   member: any;
   meters: number;
   /**
-   * เลขมิเตอร์เดือนที่แล้วของบ้านหลังนี้ — ดึงเฉพาะแถวที่ไม่มีรูปให้เทียบแล้ว
-   * (ดู loadNearbyPreviousUnits) เพราะตอนนั้นเลขสะสมคือหลักฐานเดียวที่เหลือ
-   * ว่ากำลังจดหน้าปัดของบ้านหลังไหน — null = ยังไม่ได้ค่า หรือหลังบ้านไม่มีให้
+   * เลขมิเตอร์เดือนที่แล้วของบ้านหลังนี้ — หลักฐานที่แยกบ้านออกจากกันได้จริง
+   *
+   * มาได้สองทาง: จาก `row.candidates` ที่หลังบ้านส่งมาพร้อมผลอ่านเลข (ได้ฟรี ไม่ต้องยิงเพิ่ม)
+   * หรือจาก loadNearbyPreviousUnits สำหรับแถวที่ไม่มีรูปแล้วและยังไม่เคยผ่านหลังบ้าน
+   * null = ยังไม่ได้ค่า หรือหลังบ้านไม่มีให้
    */
   previousUnit: number | null;
+  /** หน่วยที่บ้านหลังนี้เคยใช้ต่อรอบ — ไว้บอกว่าเลขที่กรอกอยู่ให้ผลเข้าเค้าไหม */
+  averageUsage: number | null;
+  /**
+   * เลขที่อ่านได้เข้ากับบ้านหลังนี้ไหม ตามที่หลังบ้านคัดมาแล้ว (ดู rankCandidates)
+   * — true = อยู่ในตัวเลือกที่ผ่านทั้งด่าน "ไม่เดินถอยหลัง" และ "หน่วยไม่พุ่ง"
+   * — false = ตกด่านไปแล้ว กดได้อยู่แต่ต้องติดป้ายเตือน
+   * — null = ยังไม่ได้อ่านเลข (ไม่มี candidates) ยังไม่มีอะไรให้ตัดสิน
+   *
+   * ⚠️ ค่านี้คิดจากเลขที่ AI อ่านมา ถ้าคนแก้เลขเองทีหลังมันจะเก่า — ด่านที่ต้องเชื่อถือได้
+   *    จึงคิดสดจาก previousUnit เทียบเลขในช่อง (ดู nearbyMeterNote) ไม่ใช่อ่านธงนี้อย่างเดียว
+   */
+  meterFits: boolean | null;
+  /** คะแนนความเข้าเค้าจากหลังบ้าน — ใช้เรียงปุ่มเท่านั้น ไม่ได้เอาไปตัดสินอะไร */
+  score: number | null;
   /**
    * แถวอื่นในกองเลือกบ้านหลังนี้ไปแล้ว — 1 บ้านมีบิลได้รอบละใบเดียว (ดู isDuplicate)
    * เก็บลำดับรูปไว้ด้วย เพื่อให้คนไล่ขึ้นไปดูได้ว่ารูปไหนไปทับ ถ้าเห็นว่ารูปนั้นเลือกผิด
@@ -916,8 +932,6 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       if (coords) {
         row.latitude = coords.lat;
         row.longitude = coords.lng;
-        // พิกัดเปลี่ยน = บ้านที่อยู่ใกล้จุดถ่ายก็เปลี่ยนตาม
-        this.refreshNearby(row);
       }
 
       // คนแก้บ้านเองไว้แล้วต้องไม่ให้ผลจากหลังบ้านทับ
@@ -934,6 +948,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
       row.status = row.unit === null ? 'read_failed' : 'ready';
       row.error = row.unit === null ? (result?.reason ?? 'อ่านเลขจากรูปนี้ไม่ได้ กรอกเองได้ครับ') : null;
+
+      // คิดบ้านใกล้เคียงใหม่ท้ายสุด — ทั้งพิกัดในรูปและตัวเลือกที่หลังบ้านคัดมาเพิ่งเปลี่ยนไป
+      // ทั้งคู่ และปุ่มต้องพกเลขตั้งต้น/หน่วยเฉลี่ยจาก candidates ชุดใหม่ไปด้วย
+      this.refreshNearby(row);
     }
   }
 
@@ -1446,9 +1464,14 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private readonly maxNearby = 3;
 
   /**
-   * บ้านที่อยู่ใกล้จุดถ่ายรูปใบนี้ เรียงจากใกล้ไปไกล — คิดใหม่เมื่อพิกัด/รายชื่อบ้านเปลี่ยน
+   * บ้านที่อยู่ใกล้จุดถ่ายรูปใบนี้ — คิดใหม่เมื่อพิกัด/รายชื่อบ้าน/ผลอ่านเลขเปลี่ยน
    * เก็บไว้ที่แถวแทนที่จะคำนวณสดใน template เพราะ getter ใน @for จะถูกเรียกซ้ำทุกรอบ
    * change detection คูณจำนวนบ้านทั้งหมู่บ้าน
+   *
+   * ⚠️ **หลังไหนได้เข้ารอบ ตัดจากระยะทางล้วน ๆ เหมือนเดิม** ห้ามเอาเลขมิเตอร์มาคัดออก
+   *    ตรงนี้ — hasCloseRival() อ่านจากลิสต์นี้เป็นด่านกันการออกบิลเอง ถ้าหลังที่ใกล้พอ ๆ กัน
+   *    หลุดออกไปเพราะ "เลขไม่เข้า" ด่านจะเงียบแล้วระบบจะออกบิลให้เองทั้งที่ GPS ยังชี้ไม่ขาด
+   *    เลขมิเตอร์มีสิทธิ์แค่ "จัดลำดับ" กับ "ติดป้าย" เท่านั้น
    */
   private refreshNearby(row: ScanRow): void {
     if (row.latitude === null || row.longitude === null) {
@@ -1460,20 +1483,56 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     row.nearby = this.matchableMembers
       .map((member) => {
         const coords = toCoords(member?.latitude, member?.longitude);
-        return coords
-          ? {
-              member,
-              meters: distanceMeters(photo, coords),
-              takenBySeq: this.takenBySeq(row, member?.id),
-              previousUnit: this.cachedPreviousUnit(member?.id)
-            }
-          : null;
+        if (!coords) return null;
+
+        // หลังบ้านส่งเลขตั้งต้น/หน่วยเฉลี่ยของทุกหลังที่เข้าเกณฑ์มาพร้อมผลอ่านเลขอยู่แล้ว
+        // หยิบจากตรงนี้ก่อนเสมอ จะได้ไม่ต้องยิงถามเลขเดือนที่แล้วซ้ำทีละหลัง
+        const candidate = this.candidateFor(row, member?.id);
+
+        return {
+          member,
+          meters: distanceMeters(photo, coords),
+          takenBySeq: this.takenBySeq(row, member?.id),
+          previousUnit: candidate ? this.toNumberOrNull(candidate.previous_unit) : this.cachedPreviousUnit(member?.id),
+          averageUsage: candidate ? this.toNumberOrNull(candidate.average_usage) : null,
+          meterFits: row.candidates.length === 0 ? null : candidate !== null,
+          score: candidate ? this.toNumberOrNull(candidate.score) : null
+        };
       })
       .filter((near): near is NearbyChoice => near !== null && near.meters <= this.nearbyMeters)
       .sort((a, b) => a.meters - b.meters)
-      .slice(0, this.maxNearby);
+      .slice(0, this.maxNearby)
+      .sort((a, b) => this.compareNearby(a, b));
 
     this.loadNearbyPreviousUnits(row);
+  }
+
+  /** ตัวเลือกที่หลังบ้านเสนอมาสำหรับบ้านหลังนี้ — null = ตกด่านเลขมิเตอร์ หรือยังไม่ได้อ่านเลข */
+  private candidateFor(row: ScanRow, memberId: unknown): Candidate | null {
+    if (memberId === null || memberId === undefined) return null;
+    return row.candidates.find((c) => Number(c.members_id) === Number(memberId)) ?? null;
+  }
+
+  /** หลังบ้านส่ง decimal มาเป็น string ได้ และ Number(null) = 0 ซึ่งเป็นเลขที่ดูเหมือนจริง */
+  private toNumberOrNull(raw: unknown): number | null {
+    if (raw === null || raw === undefined) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  /**
+   * ลำดับปุ่มบนจอ: หลังที่เลขมิเตอร์เข้าเค้ามาก่อน แล้วค่อยเรียงตามระยะ
+   *
+   * เรียงตามระยะล้วน ๆ ทำให้หลังที่เลขบอกว่าเป็นไปไม่ได้ไปนั่งปุ่มแรกได้เรื่อย ๆ เพราะบังเอิญ
+   * GPS เพี้ยนมาทางนั้น — ซึ่งเป็นตำแหน่งที่คนกดโดยไม่อ่านมากที่สุด
+   */
+  private compareNearby(a: NearbyChoice, b: NearbyChoice): number {
+    const rank = (near: NearbyChoice) => (near.meterFits === false ? 1 : 0);
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+
+    if (a.score !== null && b.score !== null && a.score !== b.score) return b.score - a.score;
+
+    return a.meters - b.meters;
   }
 
   /**
@@ -1502,6 +1561,38 @@ export class BatchScanComponent implements OnInit, OnDestroy {
    */
   freeNearbyCount(row: ScanRow): number {
     return row.nearby.reduce((total, near) => total + (near.takenBySeq === null ? 1 : 0), 0);
+  }
+
+  /**
+   * หน่วยน้ำที่จะได้ ถ้าแถวนี้เป็นของบ้านหลังนั้นจริง — คิดสดจากเลขที่อยู่ในช่องตอนนี้
+   *
+   * คิดสดไม่ใช่หยิบ usage_unit ที่หลังบ้านคิดมา เพราะคนแก้เลขในช่องได้ตลอด และเลขที่แก้แล้ว
+   * คือเลขที่จะถูกส่งขึ้นไปจริง ถ้าปุ่มยังโชว์ของเก่าอยู่ คนจะเลือกบ้านจากตัวเลขที่ไม่ได้ใช้
+   * คืน primitive ไม่ใช่ object เพราะถูกเรียกทุกรอบ change detection (เหมือน freeNearbyCount)
+   */
+  nearbyUsage(row: ScanRow, near: NearbyChoice): number | null {
+    if (near.previousUnit === null || row.unit === null) return null;
+
+    return row.unit - near.previousUnit;
+  }
+
+  /**
+   * เหตุผลที่เลขมิเตอร์ค้านว่าแถวนี้ไม่ใช่ของบ้านหลังนั้น — null = ไม่มีอะไรค้าน
+   *
+   * เป็นแค่ป้ายเตือน ปุ่มยังกดได้อยู่ **โดยตั้งใจ** — เลขในช่องยังพิมพ์ผิดได้ และบ้านที่เพิ่ง
+   * เปลี่ยนมิเตอร์จะเข้าเงื่อนไข "เดินถอยหลัง" ทั้งที่เป็นหลังที่ถูก การล็อกปุ่มจึงกลายเป็น
+   * ทางตันที่ไม่มีทางออกบนจอ ส่วนด่านจริงที่กันบิลผิดอยู่แล้วคือ unitCheck() ตอนกดออกบิล
+   */
+  nearbyMeterNote(row: ScanRow, near: NearbyChoice): string | null {
+    const usage = this.nearbyUsage(row, near);
+    if (usage !== null && usage < 0) {
+      return `เลขน้อยกว่าเลขตั้งต้นของหลังนี้ (${near.previousUnit}) — มิเตอร์ไม่เดินถอยหลัง`;
+    }
+
+    // หลังบ้านคัดออกไปแล้วตั้งแต่ตอนอ่านเลข (เดินถอยหลัง หรือหน่วยพุ่งเกินเพดาน)
+    if (near.meterFits === false) return 'เลขที่อ่านได้ไม่เข้ากับหลังนี้';
+
+    return null;
   }
 
   /** เรียกใหม่ทั้งกอง — ใช้ตอนรายชื่อบ้านมาถึงช้า หรือเปลี่ยนหมู่บ้านที่จับคู่ */
@@ -1603,6 +1694,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private applyCachedPreviousUnits(): void {
     for (const row of this.rows) {
       for (const near of row.nearby) {
+        // ค่าที่มากับ candidates เป็นของรอบเดียวกันและมาพร้อมหน่วยเฉลี่ยด้วย ห้ามเอาค่าที่ยิงถาม
+        // ทีหลังมาทับ — ถามไม่สำเร็จเมื่อไหร่ เลขที่คนใช้ตัดสินอยู่จะหายไปทั้งที่มีอยู่แล้ว
+        if (near.meterFits === true) continue;
+
         near.previousUnit = this.cachedPreviousUnit(near.member?.id);
       }
     }

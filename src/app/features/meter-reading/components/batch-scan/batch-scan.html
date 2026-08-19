@@ -411,6 +411,7 @@
                           [class.is-on]="near.member.id === row.memberId"
                           [class.is-taken]="near.takenBySeq !== null"
                           [class.is-locked]="clusterBlocker(near.member) !== null"
+                          [class.is-mismatch]="nearbyMeterNote(row, near) !== null"
                           (click)="pickNearby(row, near.member)"
                           [disabled]="isBusy || near.takenBySeq !== null || clusterBlocker(near.member) !== null"
                           [title]="clusterLockMessage(near.member) ?? ''"
@@ -420,10 +421,21 @@
                           @if (positionLabel(near.member); as position) {
                             <span class="nearby-position">ตำแหน่ง: {{ position }}</span>
                           }
-                          <!-- เลขเดือนที่แล้วของหลังนั้น — ตัวเดียวที่แยกบ้านออกจากกันได้จริง
-                               ตอนที่ทุกหลังขึ้น "ห่าง 0 ม." เท่ากันและไม่มีรูปให้ดู -->
+                          <!-- เลขมิเตอร์ของหลังนั้นเทียบกับเลขในช่อง — ตัวเดียวที่แยกบ้านออกจากกัน
+                               ได้จริงตอนที่ทุกหลังขึ้น "ห่าง 3 ม." พอ ๆ กันจนระยะบอกอะไรไม่ได้ -->
                           @if (near.previousUnit !== null) {
-                            <span class="nearby-prev">เดือนที่แล้ว: {{ near.previousUnit }}</span>
+                            <span class="nearby-prev">
+                              เดือนที่แล้ว {{ near.previousUnit | number: '1.0-0' }}
+                              @if (nearbyUsage(row, near) !== null) {
+                                → ใช้ {{ nearbyUsage(row, near) | number: '1.0-0' }} หน่วย
+                              }
+                            </span>
+                            @if (near.averageUsage !== null) {
+                              <span class="nearby-avg">ปกติใช้ {{ near.averageUsage | number: '1.0-1' }} หน่วย</span>
+                            }
+                          }
+                          @if (nearbyMeterNote(row, near); as note) {
+                            <span class="nearby-mismatch">{{ note }}</span>
                           }
                           <span class="nearby-name">{{ near.member.fname }} {{ near.member.lname }}</span>
                           @if (near.takenBySeq !== null) {
