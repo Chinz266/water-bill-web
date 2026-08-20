@@ -246,6 +246,144 @@ describe('BatchScanComponent — มิเตอร์ที่อยู่ใ�
   });
 
   /**
+   * ป้ายซ้าย/ขวาเชื่อได้แค่ไหน ขึ้นกับว่าพิกัดของ **สองหลังนั้น** แม่นแค่ไหน
+   * ไม่ใช่ค่ากลางของทั้งระบบ — มิเตอร์กลางทุ่งโล่งกับมิเตอร์ใต้ชายคาต่างกันหลายเท่า
+   * หลังบ้านส่ง spread_m (MAD ของการจดที่ผ่านมา) มาให้ในทุก candidate อยู่แล้ว
+   */
+  describe('ป้ายซ้าย/ขวา ปรับเกณฑ์ตามความแม่นของแต่ละคู่', () => {
+    const spreadCandidate = (id: number, houseNo: string, spread: number | null, score: number) => ({
+      members_id: id,
+      house_no: houseNo,
+      name: 'สมชาย ใจดี',
+      previous_unit: 1200,
+      usage_unit: 50,
+      average_usage: 45,
+      already_billed: false,
+      score,
+      distance_m: null,
+      spread_m: spread
+    });
+
+    /** สองหลังห่างกันราว 15 ม. — ระยะมาตรฐานของบ้านข้างกัน (DEFAULT_METER_PITCH_M) */
+    const pair = (spreadA: number | null, spreadB: number | null) =>
+      setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.750145)], {
+        candidates: [
+          spreadCandidate(1, '99/1', spreadA, 0.9),
+          spreadCandidate(2, '99/2', spreadB, 0.5)
+        ]
+      });
+
+    it('พิกัดทั้งคู่นิ่ง → ห่าง 15 ม. พอจะบอกทิศได้ ป้ายขึ้น', () => {
+      expect(pair(2, 2).nearby[1].sideLabel).toBe('บน');
+    });
+
+    /**
+     * ระยะจริงเท่าเดิมทุกเมตร เปลี่ยนแค่ความแม่นของพิกัด — ป้ายต้องหายไป
+     * นี่คือเคสที่เกณฑ์ตายตัวค่าเดียวตอบผิด เพราะมันไม่รู้จักบ้านเป็นราย ๆ
+     */
+    it('พิกัดกระจายกว้าง → ระยะเท่าเดิมแต่เชื่อทิศไม่ได้แล้ว ป้ายต้องเงียบ', () => {
+      const target = pair(15, 15);
+
+      expect(target.nearby[1].sideLabel).toBeNull();
+      expect(target.nearby[1].sideRef).toBeNull();
+    });
+
+    it('บ้านที่ยังไม่มีประวัติพอ → ใช้เพดานตอนลงทะเบียน (±20 ม.) ป้ายจึงยังไม่ขึ้น', () => {
+      expect(pair(null, null).nearby[1].sideLabel).toBeNull();
+    });
+
+    it('รู้ความแม่นข้างเดียว → ยังต้องเผื่อข้างที่ไม่รู้เต็มเพดาน', () => {
+      expect(pair(1, null).nearby[1].sideLabel).toBeNull();
+    });
+
+    it('ห่างกันมากพอ ป้ายขึ้นได้แม้ยังไม่มีประวัติเลย', () => {
+      // 99/2 อยู่เหนือ 99/1 ราว 43 ม. ซึ่งชนะเกณฑ์ของคู่ที่ไม่มีประวัติ (~28 ม.)
+      const target = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.7504)]);
+
+      expect(target.nearby[1].sideLabel).toBe('บน');
+      expect(target.nearby[1].sideRef).toBe('99/1');
+    });
+  });
+
+  /**
+   * เลขมิเตอร์กับพิกัดเป็นหลักฐานคนละชิ้นที่หามาได้อิสระจากกัน ตอบตรงกันคือยืนยันซึ่งกันและกัน
+   * ตอบคนละหลังแปลว่าทางใดทางหนึ่งผิดแน่ ๆ — ใบแบบนั้นห้ามไหลออกไปเป็นบิลเองเด็ดขาด
+   * แต่ก็ห้ามให้พิกัดไปเปลี่ยนบ้านที่เลขชี้มาด้วย เพราะพิกัดเป็นสัญญาณที่แย่กว่า
+   */
+  describe('เลขมิเตอร์กับพิกัดค้านกัน', () => {
+    /** 13.75 + 0.0009 ≈ 100 ม. เหนือจุดถ่าย · 13.75001 ≈ 1 ม. */
+    const clash = (over: any = {}) =>
+      setup([house(1, '99/1', 13.7504), house(2, '99/2', 13.75001)], {
+        memberId: 1,
+        matchedBy: 'system',
+        matchedByCoords: false,
+        matchConfidence: 'high',
+        ...over
+      });
+
+    it('บ้านที่เลขชี้อยู่ไกล แต่ยืนถ่ายที่หลังอื่น → ค้าน และห้ามออกบิลเอง', () => {
+      const target = clash();
+
+      const note = component.coordsContradictMeter(target)!;
+      expect(note).toContain('99/1');
+      expect(note).toContain('99/2');
+      expect(component.autoSavable(target)).toBe(false);
+    });
+
+    it('ค้านแล้วต้องไม่เปลี่ยนบ้านให้เอง — พิกัดเป็นสัญญาณที่แย่กว่าเลขมิเตอร์', () => {
+      const target = clash();
+
+      expect(component.coordsContradictMeter(target)).not.toBeNull();
+      expect(target.memberId).toBe(1);
+      expect(target.matchedBy).toBe('system');
+    });
+
+    it('ป้ายบอกทิศของหลังที่ยืนอยู่ เทียบกับหลังที่เลขชี้มา', () => {
+      // 99/2 อยู่ใต้ 99/1 ราว 43 ม. — ทิศมาจากหมุดสองอัน ไม่ใช่จากพิกัดในรูป
+      expect(component.coordsContradictMeter(clash())).toContain('ทางล่าง');
+    });
+
+    it('ผลต่างระยะยังไม่ชนะความคลาดเคลื่อน → ไม่ใช่ข้อขัดแย้ง ต้องเงียบ', () => {
+      // สองหลังห่างจากจุดถ่าย 11 ม. กับ 1 ม. — ต่างกัน 10 ม. ซึ่งน้อยกว่า 36 ม.
+      const target = setup([house(1, '99/1', 13.7501), house(2, '99/2', 13.75001)], {
+        memberId: 1,
+        matchedBy: 'system',
+        matchedByCoords: false
+      });
+
+      expect(component.coordsContradictMeter(target)).toBeNull();
+    });
+
+    it('คนเลือกบ้านเอง → ไม่มีสองทางให้ค้านกัน ต้องไม่ไปฟ้องสิ่งที่คนตัดสินแล้ว', () => {
+      expect(component.coordsContradictMeter(clash({ matchedBy: 'manual' }))).toBeNull();
+    });
+
+    it('บ้านที่พิกัดเป็นคนชี้มาเอง → ค้านตัวเองไม่ได้', () => {
+      expect(component.coordsContradictMeter(clash({ matchedByCoords: true }))).toBeNull();
+    });
+
+    /**
+     * ⚠️ คงกฎเดิมของทั้งระบบ — ในกลุ่มมิเตอร์ที่ติดกัน ระยะทางเป็นเสียงรบกวนล้วน ๆ
+     * ด่านที่สร้างจากระยะทางจะฟ้องมั่วทุกใบจนคนเลิกอ่านคำเตือน
+     */
+    it('กลุ่มมิเตอร์ที่ติดกันต้องไม่ถูกด่านนี้แตะเลย', () => {
+      const wall = [
+        { ...house(1, '99/1', 13.7504), cluster_group_id: 'w1', sequence_index: 1 },
+        { ...house(2, '99/2', 13.75001), cluster_group_id: 'w1', sequence_index: 2 }
+      ];
+      const target = setup(wall, {
+        memberId: 1,
+        matchedBy: 'system',
+        matchedByCoords: false
+      });
+
+      expect(component.coordsContradictMeter(target)).toBeNull();
+      // ป้ายซ้าย/ขวาจากหมุดก็ต้องไม่ขึ้นในกลุ่มนี้ ตัวที่ตอบได้คือ sequence_index
+      expect(target.nearby.every((n: any) => n.sideLabel === null)).toBe(true);
+    });
+  });
+
+  /**
    * บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว ตัวเลือกที่รูปใบอื่นจองไปแล้วจึงกดไปก็ติด "ซ้ำในกอง"
    * อยู่ดี — ตัดออกจากตัวเลือกที่กดได้ แต่ห้ามเติมหลังที่เหลือให้เอง เพราะถ้ารูปที่ไปจอง
    * ไว้เลือกผิด แถวนี้จะผิดตามเป็นลูกโซ่โดยไม่มีใครทัก

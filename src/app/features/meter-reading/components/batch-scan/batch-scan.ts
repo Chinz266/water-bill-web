@@ -9,7 +9,17 @@ import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorCode, extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../services/bill-print.service';
-import { LatLng, distanceMeters, isFarFrom, medianCoords, pickNearest, toCoords } from '../../services/geo';
+import {
+  LatLng,
+  SideLabel,
+  distanceMeters,
+  isFarFrom,
+  medianCoords,
+  pickNearest,
+  sideFloorFor,
+  sideOf,
+  toCoords
+} from '../../services/geo';
 import { logAmbiguousMatch, logCoordsMismatch } from '../../services/coords-log';
 import { parseCaptureDate, readPhotoMetadata } from '../../services/exif';
 import { suggestBillingMonth } from '../../services/billing-cycle';
@@ -44,6 +54,11 @@ interface Candidate {
   already_billed: boolean;
   score: number;
   distance_m: number | null;
+  /**
+   * การกระจายของพิกัดที่เคยไปจดบ้านหลังนี้ (MAD เป็นเมตร) — null = ประวัติยังไม่ถึง 3 ครั้ง
+   * คือ "ความแม่นจริงของบ้านหลังนี้" ที่วัดมาจากข้อมูลของบ้านหลังนั้นเอง ไม่ใช่ค่ากลางทั้งระบบ
+   */
+  spread_m: number | null;
 }
 
 /**
@@ -125,6 +140,17 @@ interface NearbyChoice {
   meterFits: boolean | null;
   /** คะแนนความเข้าเค้าจากหลังบ้าน — ใช้เรียงปุ่มเท่านั้น ไม่ได้เอาไปตัดสินอะไร */
   score: number | null;
+  /** ความแม่นของพิกัดบ้านหลังนี้ (MAD) — ตัวคิดว่าป้ายซ้าย/ขวาของคู่นี้เชื่อได้ไหม */
+  spreadM: number | null;
+  /**
+   * หลังนี้วางตัวอยู่ทางไหนของหลังอ้างอิง ตามหมุดที่ลงทะเบียนไว้ (null = บอกไม่ได้)
+   *
+   * บอกไม่ได้เมื่อหมุดสองอันใกล้กันกว่า SIDE_FLOOR_M หรืออยู่ในกลุ่มมิเตอร์ที่ติดกัน —
+   * สองกรณีนี้ทิศที่คำนวณได้คือความเพี้ยนตอนจดหมุด ไม่ใช่ตำแหน่งจริงบนพื้น
+   */
+  sideLabel: SideLabel | null;
+  /** บ้านที่ sideLabel เอาไปเทียบด้วย — ต้องโชว์คู่กันเสมอ "ซ้าย" เฉย ๆ ไม่มีความหมาย */
+  sideRef: string | null;
   /**
    * แถวอื่นในกองเลือกบ้านหลังนี้ไปแล้ว — 1 บ้านมีบิลได้รอบละใบเดียว (ดู isDuplicate)
    * เก็บลำดับรูปไว้ด้วย เพื่อให้คนไล่ขึ้นไปดูได้ว่ารูปไหนไปทับ ถ้าเห็นว่ารูปนั้นเลือกผิด
@@ -1481,7 +1507,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const photo = { lat: row.latitude, lng: row.longitude };
     row.nearby = this.matchableMembers
-      .map((member) => {
+      .map((member): NearbyChoice | null => {
         const coords = toCoords(member?.latitude, member?.longitude);
         if (!coords) return null;
 
@@ -1496,7 +1522,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           previousUnit: candidate ? this.toNumberOrNull(candidate.previous_unit) : this.cachedPreviousUnit(member?.id),
           averageUsage: candidate ? this.toNumberOrNull(candidate.average_usage) : null,
           meterFits: row.candidates.length === 0 ? null : candidate !== null,
-          score: candidate ? this.toNumberOrNull(candidate.score) : null
+          score: candidate ? this.toNumberOrNull(candidate.score) : null,
+          spreadM: candidate ? this.toNumberOrNull(candidate.spread_m) : null,
+          sideLabel: null,
+          sideRef: null
         };
       })
       .filter((near): near is NearbyChoice => near !== null && near.meters <= this.nearbyMeters)
@@ -1504,7 +1533,40 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       .slice(0, this.maxNearby)
       .sort((a, b) => this.compareNearby(a, b));
 
+    this.applySides(row);
     this.loadNearbyPreviousUnits(row);
+  }
+
+  /**
+   * ติดป้าย "อยู่ทางไหนของหลังอ้างอิง" ให้ปุ่มที่เหลือ โดยยึดปุ่มแรกเป็นหลัก
+   *
+   * ทิศนี้มาจาก**หมุดสองอันที่จดไว้** ไม่ได้มาจากพิกัดในรูป จึงไม่แกว่งตามสัญญาณตอนถ่าย
+   * — คนที่ยืนอยู่หน้ากำแพงเทียบกับของจริงตรงหน้าได้ทันทีว่าตัวที่ถ่ายอยู่ทางซ้ายหรือขวา
+   *
+   * เกณฑ์ว่า "ห่างพอจะเชื่อทิศได้ไหม" คิดจากความแม่นของสองหลังนั้นเอง (sideFloorFor)
+   * ไม่ใช่ค่าตายตัว — บ้านที่พิกัดกระจาย 10 ม. กับบ้านที่กระจาย 2 ม. ต้องใช้คนละเกณฑ์
+   * ป้ายจึงขึ้นเฉพาะคู่ที่เชื่อได้จริง และเงียบไปเองสำหรับคู่ที่ข้อมูลยังไม่พอ
+   *
+   * ⚠️ กลุ่มมิเตอร์ที่ติดกันไม่ติดป้ายเลย (คงกฎเดิมทั้งระบบ) — หมุดห่างกัน 30 ซม.
+   *    ทิศที่ได้เป็นความเพี้ยนตอนลงทะเบียนล้วน ๆ ตัวที่ตอบซ้าย/ขวาในกลุ่มได้จริงคือ
+   *    positionLabel() ที่อ่านจาก sequence_index ซึ่งขึ้นบนปุ่มอยู่แล้ว
+   */
+  private applySides(row: ScanRow): void {
+    const [reference, ...rest] = row.nearby;
+    if (!reference || !rest.length) return;
+
+    const from = toCoords(reference.member?.latitude, reference.member?.longitude);
+    if (!from || this.clusterMembers(reference.member).length) return;
+
+    for (const near of rest) {
+      if (this.clusterMembers(near.member).length) continue;
+
+      const to = toCoords(near.member?.latitude, near.member?.longitude);
+      if (!to) continue;
+
+      near.sideLabel = sideOf(from, to, sideFloorFor(reference.spreadM, near.spreadM));
+      near.sideRef = near.sideLabel === null ? null : String(reference.member?.house_no ?? '');
+    }
   }
 
   /** ตัวเลือกที่หลังบ้านเสนอมาสำหรับบ้านหลังนี้ — null = ตกด่านเลขมิเตอร์ หรือยังไม่ได้อ่านเลข */
@@ -2017,6 +2079,65 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * ระยะที่ถือว่า "ยืนใกล้อีกหลังมากกว่าจนความคลาดเคลื่อนอธิบายไม่ได้" (เมตร)
+   *
+   * ตรงกับ ScanBatchService.GPS_COMBINED_ERROR_M ของหลังบ้าน: หมุดที่จดไว้คลาดได้ 20 ม.
+   * จุดที่ถ่ายจริงคลาดได้อีก ~30 ม. ความคลาดเคลื่อนอิสระบวกกันแบบ RSS ได้ √(20²+30²) ≈ 36
+   * ผลต่างระยะที่น้อยกว่านี้อธิบายด้วยความเพี้ยนของการวัดได้หมด จึงไม่ใช่ข้อขัดแย้ง
+   */
+  private readonly contradictMarginMeters = 36;
+
+  /**
+   * พิกัด **ค้าน** บ้านที่เลขมิเตอร์ชี้มา — null = ไม่ค้าน (หรือเทียบไม่ได้)
+   *
+   * ═══ ด่านนี้ตอบคำถามที่ coordsDisagree() ตอบไม่ได้ ═══
+   *
+   * coordsDisagree() ดูระยะ**สัมบูรณ์** (เกิน 50 ม. = คนละบ้าน) ซึ่งปล่อยเคสนี้ผ่าน:
+   * บ้านที่เลขชี้มาอยู่ห่าง 40 ม. (ผ่าน) แต่มีอีกหลังห่างแค่ 2 ม. — ยืนอยู่ที่มิเตอร์ของ
+   * อีกหลังชัด ๆ ทั้งที่เลขบังเอิญเข้ากับหลังที่อยู่ไกล ซึ่งเกิดได้จริงเมื่อสองหลังมีเลข
+   * สะสมใกล้กันและหน่วยที่ใช้พอ ๆ กัน ใบแบบนี้เคยไหลออกไปเป็นบิลเองผ่าน isConfirmedByMeterUnit()
+   *
+   * ═══ ทำไมเป็นแค่ "ด่านค้าน" ไม่ใช่ "ตัวตัดสิน" ═══
+   *
+   * ค้านแล้วหยุดไม่ให้ระบบออกบิลเอง **แต่ไม่เปลี่ยนบ้านให้** — พิกัดยังเป็นข้อมูลที่แยก
+   * บ้านห่างกัน 4–20 ม. ไม่ออกอยู่ดี การให้มันไปทับบ้านที่เลขมิเตอร์ชี้มาคือเอาสัญญาณ
+   * ที่แย่กว่าไปทับสัญญาณที่ดีกว่า ตรงนี้จึงบอกแค่ว่า "สองทางตอบไม่ตรงกัน คนช่วยดูที"
+   *
+   * ⚠️ ไม่แตะกลุ่มมิเตอร์ที่ติดกัน — ในกลุ่มนั้นระยะทางเป็นเสียงรบกวนล้วน ๆ ด่านที่สร้าง
+   *    จากระยะทางจะฟ้องมั่วทุกใบจนคนเลิกอ่าน (เหตุผลเต็มที่ matchByCoords)
+   */
+  coordsContradictMeter(row: ScanRow): string | null {
+    if (row.status === 'saved') return null;
+    // ตรวจเฉพาะบ้านที่ "เลขมิเตอร์ชี้มา" — บ้านที่คนเลือกเองหรือที่พิกัดเป็นคนชี้ ไม่มีสองทางให้ค้านกัน
+    if (row.matchedBy !== 'system' || row.matchedByCoords) return null;
+
+    const mine = this.distanceToSelected(row);
+    if (mine === null) return null;
+
+    const selected = this.memberById(row.memberId);
+    if (this.clusterMembers(selected).length) return null;
+
+    const rival = row.nearby.reduce<NearbyChoice | null>((closest, near) => {
+      if (Number(near.member?.id) === Number(row.memberId)) return closest;
+      if (this.clusterMembers(near.member).length) return closest;
+      return closest === null || near.meters < closest.meters ? near : closest;
+    }, null);
+
+    if (!rival || mine - rival.meters <= this.contradictMarginMeters) return null;
+
+    const side = toCoords(selected?.latitude, selected?.longitude);
+    const rivalCoords = toCoords(rival.member?.latitude, rival.member?.longitude);
+    const where = side && rivalCoords ? sideOf(side, rivalCoords) : null;
+
+    return (
+      `เลขมิเตอร์ชี้บ้าน ${selected?.house_no} (ห่าง ${Math.round(mine)} ม.) ` +
+      `แต่จุดถ่ายรูปอยู่ที่บ้าน ${rival.member?.house_no} (ห่าง ${Math.round(rival.meters)} ม.)` +
+      (where ? ` ซึ่งอยู่ทาง${where}ของบ้าน ${selected?.house_no}` : '') +
+      ' — สองทางตอบไม่ตรงกัน กรุณาตรวจก่อนออกบิลครับ'
+    );
+  }
+
+  /**
    * หลังบ้านชี้บ้านหลังนี้จาก **เลขมิเตอร์** แบบมั่นใจสูง
    *
    * เลขมิเตอร์เป็นยอดสะสมที่แต่ละบ้านห่างกันมาก จึงแม่นกว่า GPS ที่แยกบ้านห่างกัน
@@ -2048,6 +2169,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
    *   3. รูปมีวันถ่าย และวันถ่ายอยู่ในรอบเดือนที่กำลังออก — ไม่มีวันถ่ายแปลว่าบิลจะไปลง
    *      วันที่กดอัปโหลด ซึ่งเพี้ยนตั้งแต่วันจดไปจนถึงจำนวนวันของรอบถัดไป
    *   4. หลังบ้านไม่ได้แนบคำเตือนมา และหน่วยน้ำไม่พุ่งผิดปกติ
+   *   5. เลขมิเตอร์กับพิกัดไม่ได้ตอบคนละหลัง (ดู coordsContradictMeter)
    *
    * ⚠️ ด่านของหลังบ้านยังทำงานเต็มที่ทุกใบและไม่เคยถูกข้ามให้: เลขน้อยกว่าเลขตั้งต้น
    *    (เช็คก่อนยิง) · หน่วยน้ำสูงผิดปกติ · จำนวนหลักบนหน้าปัดเปลี่ยน — ธง confirm_*
@@ -2064,6 +2186,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     // เปลี่ยนมิเตอร์คือรอบที่ยอดคิดจากเลขสองตัวคนละก้อน ผิดแล้วมองไม่ออกจากยอดบนบิล
     // ใบแบบนี้ต้องผ่านตาคนตอนกดออกบิลเสมอ ไม่ใช่ไหลออกไปเองพร้อมกองที่พิกัดตรงแปะ
     if (row.confirmMeterReset) return false;
+    // เลขมิเตอร์กับพิกัดตอบคนละหลัง — ทางใดทางหนึ่งผิดแน่ ๆ ต้องมีคนดูก่อนเสมอ
+    if (this.coordsContradictMeter(row) !== null) return false;
 
     return this.isConfirmedByCoords(row) || this.isConfirmedByMeterUnit(row);
   }
@@ -2420,6 +2544,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         old_meter_final_unit: row.confirmMeterReset ? Number(row.oldMeterFinalUnit) : undefined,
         billing_month: billing.month,
         billing_year: billing.year,
+        // ที่มาของบ้านในใบนี้ — หลักฐานย้อนหลัง ไม่ใช่ด่าน (ไม่มีอะไรฝั่งหลังบ้านอ่านค่านี้)
+        // ส่งค่า ณ ตอนกดออกบิลจริง ไม่ใช่ตอนจับคู่ครั้งแรก เพราะคนแก้บ้านทีหลังได้
+        // และค่าที่ต้องเก็บคือ "ตอนบิลออก ใครเป็นคนเลือกบ้านหลังนี้"
+        matched_by: row.matchedBy,
+        match_confidence: row.matchConfidence ?? undefined,
         // ส่งพิกัด/เวลาที่ถ่ายไปเก็บด้วย หลังบ้านเอาไปเรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้
         latitude: row.latitude ?? undefined,
         longitude: row.longitude ?? undefined,
