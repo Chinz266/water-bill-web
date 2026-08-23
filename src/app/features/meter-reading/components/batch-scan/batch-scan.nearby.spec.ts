@@ -151,6 +151,85 @@ describe('BatchScanComponent — มิเตอร์ที่อยู่ใ�
   });
 
   /**
+   * `notes()` คืนได้ทีละ 5-6 ข้อและมักซ้ำใจความกัน กองรวมกันแล้วบังหัวข้อที่ต้องลงมือทำจริง
+   */
+  describe('ยุบรายการข้อสังเกตไว้หลังปุ่มกด', () => {
+    it('เริ่มต้นต้องปิดไว้ และกดสลับได้', () => {
+      const target = setup([house(1, '99/1', 13.7498)]);
+
+      expect(component.areNotesOpen(target)).toBe(false);
+
+      component.toggleNotes(target);
+      expect(component.areNotesOpen(target)).toBe(true);
+
+      component.toggleNotes(target);
+      expect(component.areNotesOpen(target)).toBe(false);
+    });
+
+    it('กางแถวหนึ่งต้องไม่กางแถวอื่นตามไปด้วย', () => {
+      setup([house(1, '99/1', 13.7498)]);
+      component.rows = [
+        { ...component.rows[0], seq: 1 },
+        { ...component.rows[0], seq: 2 }
+      ] as any;
+
+      component.toggleNotes(component.rows[0]);
+
+      expect(component.areNotesOpen(component.rows[0])).toBe(true);
+      expect(component.areNotesOpen(component.rows[1])).toBe(false);
+    });
+  });
+
+  /**
+   * คำถามที่คนโยนรูปเข้ามาถามจริง ๆ คือ "มิเตอร์ในรูปนี้คือตัวไหน" ไม่ใช่ "บ้าน B อยู่ทางไหน
+   * ของบ้าน A" — ตัวนี้จึงเทียบพิกัดในรูปกับหมุดที่ลงทะเบียนไว้ ไม่ใช่หมุดเทียบหมุด
+   */
+  describe('ทิศของรูปเทียบกับหมุดบ้าน', () => {
+    it('รูปถ่ายจากทางเหนือของหมุด → ตอบ "บน" พร้อมระยะ', () => {
+      // รูปอยู่ที่ 13.75 ส่วนหมุดอยู่ใต้ลงไป → รูปอยู่ทางเหนือของหมุด
+      const target = setup([house(1, '99/1', 13.7498)]);
+      const side = component.photoSide(target, target.nearby[0].member);
+
+      expect(side?.label).toBe('บน');
+      expect(side?.meters).toBeGreaterThan(20);
+      // ห่างเกิน SIDE_FLOOR_M → ยืนยันได้
+      expect(side?.certain).toBe(true);
+    });
+
+    it('รูปถ่ายจากทางตะวันออกของหมุด → ตอบ "ขวา"', () => {
+      const target = setup([{ ...house(1, '99/1', 13.75), longitude: 100.4997 }]);
+
+      expect(component.photoSide(target, target.nearby[0].member)?.label).toBe('ขวา');
+    });
+
+    it('รูปกับหมุดใกล้กันกว่าเกณฑ์ → ตอบให้ แต่ยืนยันไม่ได้', () => {
+      // ห่างราว 2 ม. — ต่ำกว่าความคลาดของ GPS ทิศที่ได้เป็นเสียงรบกวน
+      const target = setup([house(1, '99/1', 13.749982)]);
+      const side = component.photoSide(target, target.nearby[0].member);
+
+      expect(side?.label).toBe('บน');
+      expect(side?.certain).toBe(false);
+    });
+
+    it('รูปไม่มีพิกัด หรือบ้านยังไม่มีหมุด → ไม่มีอะไรให้เทียบ ต้องคืน null ไม่ใช่เดา', () => {
+      const noPhoto = setup([house(1, '99/1', 13.7498)], { latitude: null, longitude: null });
+      expect(component.photoSide(noPhoto, { latitude: 13.7498, longitude: 100.5 })).toBeNull();
+
+      const withPhoto = setup([house(1, '99/1', 13.7498)]);
+      expect(component.photoSide(withPhoto, { latitude: null, longitude: null })).toBeNull();
+    });
+
+    it('ยังไม่ได้เลือกบ้าน → ป้ายบนหัวแถวต้องไม่ขึ้น', () => {
+      const target = setup([house(1, '99/1', 13.7498)]);
+
+      expect(component.photoSideForRow(target)).toBeNull();
+
+      target.memberId = 1;
+      expect(component.photoSideForRow(target)?.label).toBe('บน');
+    });
+  });
+
+  /**
    * เลขมิเตอร์เป็นยอดสะสมของแต่ละหลัง จึงเป็นหลักฐานที่แยกบ้านออกจากกันได้จริง ต่างจากระยะทาง
    * ที่ทุกหลังบนกำแพงเดียวกันได้เท่ากันหมด — หลังบ้านส่งเลขตั้งต้น/หน่วยเฉลี่ยของทุกหลัง
    * ที่เข้าเกณฑ์มาให้พร้อมผลอ่านเลขอยู่แล้ว (candidates) ปุ่มต้องเอามาโชว์ ไม่ใช่โชว์แต่ระยะ
@@ -264,40 +343,83 @@ describe('BatchScanComponent — มิเตอร์ที่อยู่ใ�
       spread_m: spread
     });
 
-    /** สองหลังห่างกันราว 15 ม. — ระยะมาตรฐานของบ้านข้างกัน (DEFAULT_METER_PITCH_M) */
+    /** สองหลังห่างกันราว 18 ม. — พ้นเขต 10 ม. ที่ GPS บอกซ้าย/ขวาไม่ได้ */
     const pair = (spreadA: number | null, spreadB: number | null) =>
-      setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.750145)], {
+      setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.750175)], {
         candidates: [
           spreadCandidate(1, '99/1', spreadA, 0.9),
           spreadCandidate(2, '99/2', spreadB, 0.5)
         ]
       });
 
-    it('พิกัดทั้งคู่นิ่ง → ห่าง 15 ม. พอจะบอกทิศได้ ป้ายขึ้น', () => {
-      expect(pair(2, 2).nearby[1].sideLabel).toBe('บน');
+    it('พิกัดทั้งคู่นิ่ง → ห่าง 18 ม. พ้นเขต 10 ม. ป้ายขึ้นแบบยืนยันแล้ว', () => {
+      const target = pair(2, 2);
+
+      expect(target.nearby[1].sideLabel).toBe('บน');
+      expect(target.nearby[1].sideCertain).toBe(true);
     });
 
     /**
-     * ระยะจริงเท่าเดิมทุกเมตร เปลี่ยนแค่ความแม่นของพิกัด — ป้ายต้องหายไป
-     * นี่คือเคสที่เกณฑ์ตายตัวค่าเดียวตอบผิด เพราะมันไม่รู้จักบ้านเป็นราย ๆ
+     * ═══ เกณฑ์ถูกครอบด้วยเพดาน SIDE_TRUST_M (10 ม.) ═══
+     *
+     * ก่อนหน้านี้คู่ที่ความคลาดสูงจะได้เกณฑ์ 21-28 ม. ซึ่งกว้างกว่าระยะห่างจริงระหว่าง
+     * บ้านข้างกัน ป้ายจึงเงียบเสมอสำหรับบ้านที่ยังไม่มีประวัติ — ซึ่งคือบ้านส่วนใหญ่
+     * ในหมู่บ้านที่เพิ่งเริ่มใช้ระบบ ตอนนี้ทุกคู่ใช้เกณฑ์เดียวกันที่ 10 ม.
+     *
+     * ⚠️ 10 ม. เป็นค่าที่เจ้าของระบบเลือกเอง ไม่ใช่ค่าที่ข้อมูลชี้ (ข้อมูลชี้ 20 ม.)
+     *    ป้ายที่ขึ้นมาเป็นของประกอบการตัดสินใจของคน ไม่ใช่ตัวชี้ขาดว่าเป็นบ้านไหน
      */
-    it('พิกัดกระจายกว้าง → ระยะเท่าเดิมแต่เชื่อทิศไม่ได้แล้ว ป้ายต้องเงียบ', () => {
+    it('พิกัดกระจายกว้าง → ห่าง 18 ม. ยังชนะเกณฑ์ 10 ม. ป้ายขึ้น', () => {
       const target = pair(15, 15);
 
-      expect(target.nearby[1].sideLabel).toBeNull();
-      expect(target.nearby[1].sideRef).toBeNull();
+      expect(target.nearby[1].sideLabel).toBe('บน');
+      expect(target.nearby[1].sideRef).toBe('99/1');
     });
 
-    it('บ้านที่ยังไม่มีประวัติพอ → ใช้เพดานตอนลงทะเบียน (±20 ม.) ป้ายจึงยังไม่ขึ้น', () => {
-      expect(pair(null, null).nearby[1].sideLabel).toBeNull();
+    it('บ้านที่ยังไม่มีประวัติพอ → เพดานครอบไว้ที่ 10 ม. ป้ายจึงขึ้นได้แล้ว', () => {
+      expect(pair(null, null).nearby[1].sideLabel).toBe('บน');
     });
 
-    it('รู้ความแม่นข้างเดียว → ยังต้องเผื่อข้างที่ไม่รู้เต็มเพดาน', () => {
-      expect(pair(1, null).nearby[1].sideLabel).toBeNull();
+    it('รู้ความแม่นข้างเดียว → ชนเพดานเดียวกัน ป้ายขึ้นเหมือนกัน', () => {
+      expect(pair(1, null).nearby[1].sideLabel).toBe('บน');
+    });
+
+    /**
+     * จอ "ตอบเสมอ" ตามที่เจ้าของระบบเลือก — แต่คำตอบในเขต 15 ม. ต้องติดธง sideCertain
+     * เป็น false เพื่อให้ template เขียนว่าเดา ไม่ใช่เขียนเหมือนป้ายที่ยืนยันแล้ว
+     */
+    it('ความคลาดสูง + หมุดห่างกันไม่ถึง 15 ม. → ตอบให้ แต่ยังยืนยันไม่ได้', () => {
+      const close = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.750077)], {
+        candidates: [
+          spreadCandidate(1, '99/1', null, 0.9),
+          spreadCandidate(2, '99/2', null, 0.5)
+        ]
+      });
+
+      expect(close.nearby[1].sideLabel).toBe('บน');
+      expect(close.nearby[1].sideRef).toBe('99/1');
+      expect(close.nearby[1].sideCertain).toBe(false);
+    });
+
+    /**
+     * เหตุผลที่มิเตอร์ห่างกัน 30 ซม. แยกไม่ออก ใช้ได้กับทุกระยะที่สั้นกว่าความคลาดของ
+     * เครื่อง ไม่ใช่แค่ 30 ซม. — หมุดที่นิ่งแค่ไหนก็ไม่ช่วย เพราะสิ่งที่แกว่งคือพิกัดตอนถ่าย
+     * ไม่ใช่หมุดที่จดไว้ เขต 15 ม. จึงยืนยันไม่ได้เท่ากันหมด ต่อให้หมุดนิ่งแค่ไหน
+     */
+    it('หมุดนิ่งมาก แต่ห่างกันไม่ถึง 15 ม. → ยังติดธงว่าเดา ไม่ใช่ยืนยัน', () => {
+      const close = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.750077)], {
+        candidates: [
+          spreadCandidate(1, '99/1', 0.5, 0.9),
+          spreadCandidate(2, '99/2', 0.5, 0.5)
+        ]
+      });
+
+      expect(close.nearby[1].sideLabel).toBe('บน');
+      expect(close.nearby[1].sideCertain).toBe(false);
     });
 
     it('ห่างกันมากพอ ป้ายขึ้นได้แม้ยังไม่มีประวัติเลย', () => {
-      // 99/2 อยู่เหนือ 99/1 ราว 43 ม. ซึ่งชนะเกณฑ์ของคู่ที่ไม่มีประวัติ (~28 ม.)
+      // 99/2 อยู่เหนือ 99/1 ราว 43 ม. ซึ่งพ้นเขต 15 ม. ไปไกล ไม่ว่าจะมีประวัติหรือไม่
       const target = setup([house(1, '99/1', 13.75001), house(2, '99/2', 13.7504)]);
 
       expect(target.nearby[1].sideLabel).toBe('บน');

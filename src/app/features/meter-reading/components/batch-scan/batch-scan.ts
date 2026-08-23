@@ -11,6 +11,7 @@ import { extractErrorCode, extractErrorMessage } from '../../../auth/services/au
 import { BillPrintService } from '../../services/bill-print.service';
 import {
   LatLng,
+  SIDE_FLOOR_M,
   SideLabel,
   distanceMeters,
   isFarFrom,
@@ -143,14 +144,20 @@ interface NearbyChoice {
   /** ความแม่นของพิกัดบ้านหลังนี้ (MAD) — ตัวคิดว่าป้ายซ้าย/ขวาของคู่นี้เชื่อได้ไหม */
   spreadM: number | null;
   /**
-   * หลังนี้วางตัวอยู่ทางไหนของหลังอ้างอิง ตามหมุดที่ลงทะเบียนไว้ (null = บอกไม่ได้)
+   * หลังนี้วางตัวอยู่ทางไหนของหลังอ้างอิง ตามหมุดที่ลงทะเบียนไว้ (null = ไม่มีพิกัดให้เทียบ)
    *
-   * บอกไม่ได้เมื่อหมุดสองอันใกล้กันกว่า SIDE_FLOOR_M หรืออยู่ในกลุ่มมิเตอร์ที่ติดกัน —
-   * สองกรณีนี้ทิศที่คำนวณได้คือความเพี้ยนตอนจดหมุด ไม่ใช่ตำแหน่งจริงบนพื้น
+   * ตอบทุกครั้งที่หมุดสองอันไม่ทับกันสนิท — แต่ **ต้องอ่านคู่กับ `sideCertain` เสมอ**
+   * เพราะคำตอบตอนหมุดใกล้กันเกินเกณฑ์ เป็นการเดาจากพิกัดที่แกว่ง ไม่ใช่ตำแหน่งจริงบนพื้น
    */
   sideLabel: SideLabel | null;
   /** บ้านที่ sideLabel เอาไปเทียบด้วย — ต้องโชว์คู่กันเสมอ "ซ้าย" เฉย ๆ ไม่มีความหมาย */
   sideRef: string | null;
+  /**
+   * `sideLabel` ผ่านเกณฑ์ระยะของคู่นี้ไหม (`sideFloorFor`) — false = เดาจากพิกัด
+   *
+   * ⚠️ จอต้องเขียนสองอย่างนี้ต่างกัน ป้ายที่เดามาแต่เขียนเหมือนของจริง แย่กว่าไม่ขึ้นเลย
+   */
+  sideCertain: boolean;
   /**
    * แถวอื่นในกองเลือกบ้านหลังนี้ไปแล้ว — 1 บ้านมีบิลได้รอบละใบเดียว (ดู isDuplicate)
    * เก็บลำดับรูปไว้ด้วย เพื่อให้คนไล่ขึ้นไปดูได้ว่ารูปไหนไปทับ ถ้าเห็นว่ารูปนั้นเลือกผิด
@@ -334,6 +341,19 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   /** ต่ำกว่านี้ถือว่า AI ยังอ่านเลขไม่ชัดพอจะปล่อยผ่านโดยไม่มีคนดู */
   private readonly trustedConfidence = 85;
+
+  /**
+   * ต่ำกว่านี้ห้ามออกบิลด้วยเลขที่ AI อ่านมา — **ด่านตาย ไม่มีปุ่มยืนยันให้กดผ่าน**
+   *
+   * ต่างจาก trustedConfidence (85) ที่แค่กันไม่ให้ระบบออกบิลเอง ใบที่ AI อ่านได้ 43-79%
+   * เดิมยังกดออกบิลได้ด้วยเลขของ AI ตรง ๆ ซึ่งเป็นเลขที่ไม่มีใครเทียบกับหน้าปัดเลยสักคน
+   * — คนกดเห็นแค่ตัวเลขในช่อง ไม่ได้เห็นว่าหลักไหนที่ AI เดา
+   *
+   * ทางออกมีสองทางและทั้งสองทางแปลว่ามีคนดูหน้าปัดแล้วจริง ๆ:
+   *   1. พิมพ์เลขเองทับ (เลขในช่องต่างจากที่ AI อ่าน) — ด่านนี้ปล่อยผ่านทันที
+   *   2. กด "ครอปช่องตัวเลขแล้วอ่านใหม่" จนได้คะแนนถึงเกณฑ์
+   */
+  private readonly minBillConfidence = 80;
 
   /**
    * ต่ำกว่านี้คือ "อ่านแทบไม่ออก" ต้องขึ้นเตือนสีส้มให้เห็นชัดในแถว
@@ -1374,6 +1394,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     // เพื่อให้เห็นตอนยังยืนอยู่หน้ามิเตอร์ ไม่ใช่ตอนกดออกบิลทั้งกองแล้วเดินกลับมาไม่ได้
     const check = this.unitCheck(row);
     if (check?.level === 'error' && !row.confirmMeterReset) return check.message;
+    // AI อ่านไม่ชัดพอ และเลขในช่องยังเป็นเลขของ AI อยู่ = ยังไม่มีใครเทียบกับหน้าปัดเลย
+    // ปล่อยผ่านทันทีที่คนพิมพ์เลขเองทับ เพราะตอนนั้นเลขมาจากตาคน ไม่ใช่คะแนนของโมเดล
+    const unreadable = this.unreadableIssue(row);
+    if (unreadable) return unreadable;
     if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
     // มิเตอร์ที่ติดกันเป็นกลุ่ม: ออกบิลข้ามลำดับ = ไม่มีอะไรยืนยันได้เลยว่าเลขนี้มาจากตัวไหน
     // (พิกัดใช้ไม่ได้ในระยะ 30 ซม. — ดู clusterLockMessage) จึงต้องกันตั้งแต่ก่อนยิง
@@ -1399,6 +1423,25 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       return 'บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ถ้าจะออกใหม่ให้ติ๊ก "ลบใบเดิมแล้วออกใหม่" ด้านล่างครับ';
     }
     return null;
+  }
+
+  /**
+   * ด่านความชัดของเลข — null = ผ่าน
+   *
+   * เทียบ row.unit กับ row.ocrUnit ไม่ใช่ดูแค่คะแนน: คะแนนเป็นของ "เลขที่ AI อ่าน"
+   * ไม่ใช่ของ "เลขที่จะถูกส่งขึ้นไป" คนที่แก้เลขเองแล้วยังโดนบล็อกด้วยคะแนนของเลขตัวเก่า
+   * คือทางตัน (เงื่อนไขเดียวกับ confidenceToSend ที่ไม่ส่งคะแนนขึ้นไปเมื่อคนแก้เลขแล้ว)
+   */
+  private unreadableIssue(row: ScanRow): string | null {
+    if (row.confidence === null) return null;
+    if (row.confidence >= this.minBillConfidence) return null;
+    // เลขในช่องไม่ใช่ของ AI แล้ว — มีคนอ่านหน้าปัดมาเอง คะแนนของ AI หมดความหมาย
+    if (row.ocrUnit === null || row.unit !== row.ocrUnit) return null;
+
+    return (
+      `AI อ่านเลขได้ไม่ชัดพอ (${row.confidence}% ต่ำกว่าเกณฑ์ ${this.minBillConfidence}%) ` +
+      'ออกบิลด้วยเลขนี้ไม่ได้ครับ — กรุณาดูรูปแล้วพิมพ์เลขเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
+    );
   }
 
   /** เรื่องที่ควรรู้แต่ไม่ถึงกับห้ามบันทึก (รวมคำเตือนที่หลังบ้านส่งมาด้วย) */
@@ -1525,7 +1568,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           score: candidate ? this.toNumberOrNull(candidate.score) : null,
           spreadM: candidate ? this.toNumberOrNull(candidate.spread_m) : null,
           sideLabel: null,
-          sideRef: null
+          sideRef: null,
+          sideCertain: false
         };
       })
       .filter((near): near is NearbyChoice => near !== null && near.meters <= this.nearbyMeters)
@@ -1564,8 +1608,13 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       const to = toCoords(near.member?.latitude, near.member?.longitude);
       if (!to) continue;
 
-      near.sideLabel = sideOf(from, to, sideFloorFor(reference.spreadM, near.spreadM));
+      // ตอบทุกครั้งที่หมุดไม่ทับกันสนิท (floor 0) แล้วค่อยบอกแยกว่าคำตอบนั้นยืนยันได้ไหม
+      // — เจ้าของระบบเลือกให้จอ "ตอบเสมอ" ดีกว่าเงียบ แต่ต้องไม่กลบว่าอันไหนเป็นการเดา
+      near.sideLabel = sideOf(from, to, 0);
       near.sideRef = near.sideLabel === null ? null : String(reference.member?.house_no ?? '');
+      near.sideCertain =
+        near.sideLabel !== null &&
+        distanceMeters(from, to) >= sideFloorFor(reference.spreadM, near.spreadM);
     }
   }
 
@@ -1874,6 +1923,235 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private memberById(id: unknown): any | null {
     if (id === null || id === undefined) return null;
     return this.members.find((m) => Number(m.id) === Number(id)) ?? null;
+  }
+
+  /**
+   * แถวที่กางรายการข้อสังเกตออกอยู่ (เก็บด้วย `seq` ของแถว)
+   *
+   * `notes()` คืนได้ทีละ 5-6 ข้อ และมักซ้ำใจความกันเอง (คำเตือน "ถ่ายรัวจุดเดิม" ขึ้นทีละคู่
+   * รูปที่ 4-6, 5-6, 6-7 ทั้งที่เป็นเรื่องเดียวกัน) กองรวมกันแล้วบังหัวข้อที่ต้องลงมือทำจริง
+   *
+   * ⚠️ ยุบแค่ `notes()` — พวก `row-issue` ที่บอกว่าต้องทำอะไร (ยังไม่รู้ว่าบ้านไหน,
+   *    ออกบิลไม่ได้) ยังโชว์เสมอ ห้ามเอาไปซ่อนตาม
+   */
+  private noteRows = new Set<number>();
+
+  areNotesOpen(row: ScanRow): boolean {
+    return this.noteRows.has(Number(row?.seq));
+  }
+
+  toggleNotes(row: ScanRow): void {
+    const seq = Number(row?.seq);
+    if (this.noteRows.has(seq)) this.noteRows.delete(seq);
+    else this.noteRows.add(seq);
+  }
+
+  /** แถวที่กางกล่อง "ค่าสำหรับกรอกตารางทดลอง" ไว้ */
+  private labRows = new Set<number>();
+
+  isLabOpen(row: ScanRow): boolean {
+    return this.labRows.has(Number(row?.seq));
+  }
+
+  toggleLab(row: ScanRow): void {
+    const seq = Number(row?.seq);
+    if (this.labRows.has(seq)) this.labRows.delete(seq);
+    else this.labRows.add(seq);
+  }
+
+  /**
+   * ค่าที่ต้องเอาไปกรอกตารางทดลอง (meter-pair-match-test.xlsx) ของรูปใบนี้
+   *
+   * ═══ ทำไมต้องมีกล่องนี้ ═══
+   *
+   * ตัวเลขพวกนี้หน้าจอคิดไว้ครบแล้ว แต่กระจายอยู่คนละที่ (พิกัดอยู่ในหัวแถว ระยะอยู่บนปุ่ม
+   * บ้าน ทิศอยู่อีกป้าย) คนทำการทดลองต้องไล่จดทีละจุดแล้วพิมพ์เข้า Excel เอง ซึ่งพิมพ์ผิด
+   * ง่ายมากเพราะเป็นทศนิยม 6 ตำแหน่ง 200 ใบ — กล่องนี้รวบมาไว้ที่เดียว เรียงตามคอลัมน์ในไฟล์
+   *
+   * ⚠️ อ่านจาก `row` กับ `row.nearby` ที่คำนวณไว้แล้วล้วน ๆ **ห้ามคิดเลขใหม่ในนี้** ไม่งั้น
+   *    จะมีสองความจริงในหน้าเดียว: ตัวเลขบนปุ่มบ้านกับตัวเลขในกล่องนี้ค่อย ๆ เพี้ยนจากกัน
+   *    แล้วไม่มีใครรู้ว่าอันไหนคือค่าที่ระบบใช้ตัดสินจริง
+   */
+  labValues(row: ScanRow): {
+    lat: number;
+    lng: number;
+    meters: { houseNo: string; distance: number; isNearest: boolean; isPicked: boolean }[];
+    suggested: string | null;
+    picked: string | null;
+    errorMeters: number | null;
+    pinGap: number | null;
+    pinSide: SideLabel | null;
+    pinSideCertain: boolean;
+  } | null {
+    const photo = toCoords(row?.latitude, row?.longitude);
+    if (!photo || !row?.nearby?.length) return null;
+
+    const nearest = row.nearby.reduce((a, b) => (b.meters < a.meters ? b : a));
+    const picked = row.memberId === null ? null : row.nearby.find((n) => Number(n.member?.id) === Number(row.memberId)) ?? null;
+
+    // ระยะระหว่างมิเตอร์สองตัวที่ใกล้ที่สุด = ตัวหารของ % ความคลาดเคลื่อนในไฟล์ Excel
+    const [first, second] = [...row.nearby].sort((a, b) => a.meters - b.meters);
+    const pinA = toCoords(first?.member?.latitude, first?.member?.longitude);
+    const pinB = toCoords(second?.member?.latitude, second?.member?.longitude);
+
+    return {
+      lat: photo.lat,
+      lng: photo.lng,
+      meters: row.nearby.map((near) => ({
+        houseNo: String(near.member?.house_no ?? '-'),
+        distance: near.meters,
+        isNearest: near === nearest,
+        isPicked: picked !== null && near === picked
+      })),
+      suggested: String(nearest.member?.house_no ?? '-'),
+      picked: picked === null ? null : String(picked.member?.house_no ?? '-'),
+      errorMeters: picked === null ? null : picked.meters,
+      pinGap: pinA && pinB ? distanceMeters(pinA, pinB) : null,
+      pinSide: second?.sideLabel ?? null,
+      pinSideCertain: second?.sideCertain === true
+    };
+  }
+
+  /**
+   * รูปมิเตอร์สองตัววางเรียงตามตำแหน่งจริง เพื่อให้คนเทียบกับกำแพงตรงหน้าได้ทันที
+   *
+   * ═══ ทำไมต้องเป็นรูป ไม่ใช่ข้อความ ═══
+   *
+   * ป้าย "88/2 อยู่ทางขวาของ 88/1" อ่านแล้วยังต้องแปลในหัวอีกชั้นว่าตกลงตัวที่ถืออยู่
+   * คือตัวไหน คนหน้างานยืนอยู่หน้ากำแพงที่มีมิเตอร์เรียงกันจริง ๆ การเอารูปสองใบมาวาง
+   * เรียงซ้าย-ขวาตามที่พิกัดบอก ทำให้เทียบกับของจริงได้ด้วยตาโดยไม่ต้องแปล
+   *
+   * รูปมาจากกองที่กำลังสแกนอยู่ (`rows`) ไม่ได้ไปดึงจากที่อื่น — มิเตอร์ตัวข้าง ๆ มักถูก
+   * ถ่ายในรอบเดียวกันอยู่แล้ว ถ้ายังไม่มีก็บอกตรง ๆ ว่ายังไม่มี ไม่ใส่รูปมั่วมาแทน
+   *
+   * ⚠️ ลำดับซ้าย-ขวามาจาก `sideLabel` ซึ่งคำนวณจากหมุดที่ลงทะเบียนไว้ ต้องอ่านคู่กับ
+   *    `certain` เสมอ — ที่ระยะต่ำกว่าเกณฑ์ ลำดับที่เห็นเป็นการเดา ไม่ใช่ตำแหน่งจริง
+   */
+  pairPhotos(row: ScanRow): {
+    first: { houseNo: string; previewUrl: string | null; seq: number | null };
+    second: { houseNo: string; previewUrl: string | null; seq: number | null };
+    axis: 'ซ้าย-ขวา' | 'บน-ล่าง';
+    sentence: string;
+    certain: boolean;
+  } | null {
+    const [reference, other] = [...(row?.nearby ?? [])].sort((a, b) => a.meters - b.meters);
+    if (!reference || !other || !other.sideLabel) return null;
+
+    const side = other.sideLabel;
+    const panelFor = (near: any) => {
+      const src = this.rows.find(
+        (r) => Number(r?.memberId) === Number(near.member?.id) && !!r?.previewUrl
+      );
+      return {
+        houseNo: String(near.member?.house_no ?? '-'),
+        previewUrl: src?.previewUrl ?? null,
+        seq: src ? Number(src.seq) : null
+      };
+    };
+
+    const refPanel = panelFor(reference);
+    const otherPanel = panelFor(other);
+    // 'ซ้าย' = ตัวอื่นอยู่ซ้ายของตัวอ้างอิง จึงต้องวางไว้ช่องแรก ไม่งั้นภาพกับป้ายจะค้านกัน
+    const flip = side === 'ซ้าย' || side === 'บน';
+
+    return {
+      first: flip ? otherPanel : refPanel,
+      second: flip ? refPanel : otherPanel,
+      axis: side === 'ซ้าย' || side === 'ขวา' ? 'ซ้าย-ขวา' : 'บน-ล่าง',
+      sentence: `${otherPanel.houseNo} อยู่ทาง${side}ของ ${refPanel.houseNo}`,
+      certain: other.sideCertain === true
+    };
+  }
+
+  /**
+   * คัดลอกพิกัดของรูปใบนี้เป็น "ละติจูด<แท็บ>ลองจิจูด" — วางลงแผ่น Photos ช่อง F ได้ตรง ๆ
+   *
+   * คัดลอกแค่พิกัด ไม่ใช่ทั้งแถว เพราะไฟล์ Excel คำนวณระยะ/ทิศ/% เองหมดจากพิกัดสองค่านี้
+   * ส่งตัวเลขที่หน้าเว็บคิดไว้แล้วเข้าไปด้วยจะกลายเป็นค่าที่แก้มือได้ ซึ่งทำให้ตรวจสอบย้อนหลัง
+   * ไม่ได้ว่าเลขในไฟล์มาจากสูตรหรือมาจากคนวาง
+   */
+  copyPhotoCoords(row: ScanRow): void {
+    const v = this.labValues(row);
+    if (!v) return;
+    this.writeClipboard(this.coordLine(v.lat, v.lng), 'คัดลอกพิกัดของรูป #' + row.seq + ' แล้วครับ');
+  }
+
+  /** คัดลอกพิกัดของทุกรูปในกอง เรียงตามลำดับที่เห็นบนจอ — วางทีเดียวลง Photos ได้ทั้งกอง */
+  copyAllPhotoCoords(): void {
+    const lines = this.rows
+      .map((row) => {
+        const c = toCoords(row?.latitude, row?.longitude);
+        // รูปที่ไม่มีพิกัดต้องเว้นบรรทัดว่างไว้ ไม่ใช่ข้ามไป ไม่งั้นแถวที่เหลือจะเลื่อนขึ้น
+        // ไปวางผิดรูปทั้งกองโดยที่หน้าตาดูปกติดี
+        return c ? this.coordLine(c.lat, c.lng) : '\t';
+      })
+      .join('\n');
+
+    if (!lines) return;
+    this.writeClipboard(lines, 'คัดลอกพิกัด ' + this.rows.length + ' รูปแล้วครับ วางลงแผ่น Photos ได้เลย');
+  }
+
+  /** ทศนิยม 6 ตำแหน่งเท่าที่ไฟล์ Excel ใช้ — คั่นด้วยแท็บเพื่อให้ตกคนละช่องตอนวาง */
+  private coordLine(lat: number, lng: number): string {
+    return lat.toFixed(6) + '\t' + lng.toFixed(6);
+  }
+
+  private writeClipboard(text: string, done: string): void {
+    if (!this.isBrowser || !navigator?.clipboard) {
+      toast.error('เบราว์เซอร์นี้คัดลอกให้ไม่ได้ครับ', { id: 'lab-copy' });
+      return;
+    }
+
+    navigator.clipboard.writeText(text).then(
+      () => toast.success(done, { id: 'lab-copy' }),
+      () => toast.error('คัดลอกไม่สำเร็จครับ', { id: 'lab-copy' })
+    );
+  }
+
+  /**
+   * รูปใบนี้ถ่ายจากทางไหนของหมุดบ้านหลังนั้น — บน/ล่าง/ซ้าย/ขวา
+   *
+   * ต่างจาก `applySides()` ที่เทียบหมุดบ้านกับหมุดบ้าน — ตัวนี้เทียบ**พิกัดในรูป**กับหมุด
+   * ซึ่งเป็นคำถามที่คนโยนรูปเข้ามาถามจริง ๆ ว่า "มิเตอร์ในรูปนี้คือตัวไหน"
+   *
+   * คิดในหน้าเว็บเอง ไม่รอ `candidate.relative` จากหลังบ้าน — พิกัดอ่านจาก EXIF ตั้งแต่
+   * ตอนเลือกไฟล์ ป้ายจึงขึ้นทันทีที่โยนรูปเข้ามา
+   *
+   * ⚠️ แกว่งกว่า `applySides()` เพราะพิกัดในรูปมาจากเซนเซอร์ตอนถ่าย ไม่ใช่หมุดที่จดไว้
+   *    ต้องโชว์ `certain` คู่กับป้ายเสมอ
+   */
+  photoSide(
+    row: ScanRow,
+    member: any
+  ): { label: SideLabel; meters: number; certain: boolean } | null {
+    const photo = toCoords(row?.latitude, row?.longitude);
+    const pin = toCoords(member?.latitude, member?.longitude);
+    if (!photo || !pin) return null;
+
+    // floor 0 = ตอบเสมอที่หมุดกับรูปไม่ทับกันสนิท แล้วบอกแยกว่าคำตอบนั้นยืนยันได้ไหม
+    const label = sideOf(pin, photo, 0);
+    if (label === null) return null;
+
+    const meters = distanceMeters(pin, photo);
+    return { label, meters, certain: meters >= SIDE_FLOOR_M };
+  }
+
+  /**
+   * ละติจูด/ลองจิจูดของรูปสำหรับโชว์บนหัวแถว — null เมื่อรูปไม่มีพิกัดที่ใช้ได้
+   *
+   * ผ่าน toCoords() เหมือนทางอื่นทั้งหมด ค่าที่ถูกคัดทิ้ง (0,0 / ไม่ใช่ตัวเลข) จึงขึ้นเป็น
+   * "ไม่มีพิกัดในรูป" ตรง ๆ ดีกว่าโชว์เลขที่ระบบเองก็ไม่ได้เอาไปจับคู่บ้าน
+   * ทศนิยม 6 ตำแหน่งเท่ากับที่ copyPhotoCoords() คัดลอกออกไป จะได้เทียบกันได้ด้วยตา
+   */
+  photoCoordsLabel(row: ScanRow): string | null {
+    const c = toCoords(row?.latitude, row?.longitude);
+    return c ? c.lat.toFixed(6) + ', ' + c.lng.toFixed(6) : null;
+  }
+
+  /** ทิศของรูปเทียบกับบ้านที่เลือกไว้ในแถวนี้ — null เมื่อยังไม่ได้เลือกบ้าน */
+  photoSideForRow(row: ScanRow): { label: SideLabel; meters: number; certain: boolean } | null {
+    const member = this.memberById(row?.memberId);
+    return member ? this.photoSide(row, member) : null;
   }
 
   /** บ้านทุกหลังในกลุ่มเดียวกัน เรียงตามตำแหน่งซ้าย→ขวา ([] = บ้านเดี่ยว) */

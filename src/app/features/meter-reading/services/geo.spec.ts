@@ -1,5 +1,6 @@
 import {
   SIDE_FLOOR_M,
+  SIDE_TRUST_M,
   UNMEASURED_SPREAD_M,
   distanceMeters,
   medianCoords,
@@ -130,33 +131,40 @@ describe('sideOf — บ้านไหนอยู่ทางไหนขอ�
  * และคับเกินไปสำหรับอีกบ้านเสมอ — ต้องคิดจากความแม่นของคู่นั้น ๆ เอง
  */
 describe('sideFloorFor — เกณฑ์เชื่อทิศของบ้านแต่ละคู่', () => {
-  it('รวมความคลาดสองหลังแบบ hypot ไม่ใช่บวกตรง ๆ (เป็นความคลาดของผลต่าง)', () => {
-    // √(3² + 4²) = 5
-    expect(sideFloorFor(3, 4)).toBeCloseTo(5, 6);
-  });
-
-  it('บ้านที่พิกัดกระจายมาก ต้องใช้เกณฑ์กว้างกว่าบ้านที่พิกัดนิ่ง', () => {
-    expect(sideFloorFor(10, 10)).toBeGreaterThan(sideFloorFor(2, 2));
-  });
-
-  it('คู่ที่พิกัดนิ่งมาก ไม่ลดต่ำกว่าพื้นเสียงรบกวนของ GPS', () => {
-    // √(0.5² + 0.5²) ≈ 0.7 ซึ่งต่ำกว่า SIDE_FLOOR_M — ต้องถูกดันขึ้นมา
+  /**
+   * ⚠️ SIDE_FLOOR_M กับ SIDE_TRUST_M เท่ากันที่ 15 ม. เกณฑ์จึงเป็น 15 เสมอในตอนนี้
+   * และการปรับตามความแม่นของแต่ละคู่ถูกปิดผลโดยตั้งใจ (ดู geo.ts) เทสต์ชุดนี้จึงล็อกว่า
+   * "เขตที่ GPS บอกซ้าย/ขวาไม่ได้" กว้าง 15 ม. เท่ากันทุกคู่ ไม่ใช่ล็อกสูตรเดิม
+   */
+  it('คู่ที่พิกัดนิ่งมาก ก็ยังไม่ต่ำกว่าเขต 15 ม. ที่ GPS บอกไม่ได้', () => {
     expect(sideFloorFor(0.5, 0.5)).toBe(SIDE_FLOOR_M);
+    expect(sideFloorFor(3, 4)).toBe(SIDE_FLOOR_M);
+  });
+
+  it('พิกัดกระจายมากหรือน้อย ตอนนี้ได้เกณฑ์เท่ากันหมด', () => {
+    expect(sideFloorFor(10, 10)).toBe(sideFloorFor(2, 2));
+    expect(sideFloorFor(2, 2)).toBe(SIDE_TRUST_M);
   });
 
   /**
    * ไม่มี spread = ประวัติยังไม่ถึง 3 ครั้ง เหลือแต่หมุดตอนลงทะเบียนซึ่งคลาดได้ถึง 20 ม.
-   * ต้องเป็นเกณฑ์ที่กว้างที่สุด ไม่ใช่แคบที่สุด — บ้านที่รู้น้อยที่สุดห้ามได้เกณฑ์หลวมที่สุด
+   * เกณฑ์ดิบจึงเป็น √(20²+20²) ≈ 28.3 ม. ซึ่งกว้างกว่าระยะห่างจริงระหว่างบ้านส่วนใหญ่
+   * จนป้ายไม่เคยขึ้นเลย — SIDE_TRUST_M ครอบไว้ที่ 15 ม. ตามที่เจ้าของระบบเลือก
    */
-  it('บ้านที่ยังไม่มีประวัติพอ ใช้เพดานความคลาดตอนลงทะเบียนแทน', () => {
+  it('บ้านที่ยังไม่มีประวัติพอ ถูกเพดาน SIDE_TRUST_M ครอบไว้', () => {
     const both = sideFloorFor(null, null);
 
-    expect(both).toBeCloseTo(Math.hypot(UNMEASURED_SPREAD_M, UNMEASURED_SPREAD_M), 6);
-    expect(both).toBeGreaterThan(sideFloorFor(5, 5));
+    expect(both).toBe(SIDE_TRUST_M);
+    expect(both).toBeLessThan(Math.hypot(UNMEASURED_SPREAD_M, UNMEASURED_SPREAD_M));
+    expect(both).toBe(sideFloorFor(5, 5));
   });
 
-  it('รู้ข้างเดียวก็ยังต้องเผื่อข้างที่ไม่รู้เต็มเพดาน', () => {
-    expect(sideFloorFor(2, null)).toBeCloseTo(Math.hypot(2, UNMEASURED_SPREAD_M), 6);
+  it('รู้ข้างเดียวก็ยังชนเพดานเดียวกัน ไม่ทะลุไปตามความคลาดของข้างที่ไม่รู้', () => {
+    expect(sideFloorFor(2, null)).toBe(SIDE_TRUST_M);
+  });
+
+  it('เกณฑ์ไม่มีทางเกิน SIDE_TRUST_M ไม่ว่าความคลาดจะสูงแค่ไหน', () => {
+    expect(sideFloorFor(100, 100)).toBe(SIDE_TRUST_M);
   });
 });
 

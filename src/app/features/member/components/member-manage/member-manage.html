@@ -33,7 +33,7 @@
             @if (meter.digits) {
               {{ meter.digits }} หลัก
             } @else {
-              <span class="text-muted">ยังไม่ได้กรอก — กรอกไว้จะช่วยจับ AI อ่านหลักหาย/เกินตั้งแต่บิลใบแรก</span>
+              <span class="text-muted">ยังไม่ได้กรอก — กรอกไว้จะช่วยจับกรณีระบบอ่านเลขหลักหายหรือเกิน</span>
             }
           </dd>
         </div>
@@ -81,6 +81,98 @@
       </ul>
     }
   }
+</div>
+
+<!-- 📍 ตำแหน่งมิเตอร์ในกลุ่มที่ติดกัน -->
+<div class="card">
+  <h2 class="section-heading">ตำแหน่งมิเตอร์ในกลุ่ม</h2>
+
+  <div class="alert alert-info">
+    <span>📍</span>
+    <span>
+      กรอกเฉพาะบ้านที่<strong>มิเตอร์ติดเรียงกันบนกำแพงเดียวกัน</strong> (ทาวน์โฮม ห้องเช่า ตึกแถว)
+      มิเตอร์พวกนี้อยู่ใกล้กันเกินกว่าที่ตำแหน่งจากมือถือจะแยกได้ ลำดับที่กรอกตรงนี้
+      คือสิ่งเดียวที่บอกได้ว่าตัวไหนของบ้านไหนครับ
+      <br />
+      <strong>บ้านที่มิเตอร์อยู่แยกของตัวเอง เว้นว่างไว้ได้เลย</strong>
+    </span>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="cluster-group">กลุ่มมิเตอร์</label>
+    <input
+      id="cluster-group"
+      class="field-input"
+      type="text"
+      placeholder="เช่น WALL-206"
+      [(ngModel)]="clusterForm.cluster_group_id"
+    />
+    <p class="field-hint">
+      ตั้งชื่ออะไรก็ได้ ขอแค่ทุกบ้านบนกำแพงเดียวกันใช้ชื่อเดียวกันครับ
+    </p>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="cluster-seq">ตำแหน่งในกลุ่ม</label>
+    <input
+      id="cluster-seq"
+      class="field-input"
+      type="number"
+      inputmode="numeric"
+      min="1"
+      step="1"
+      [(ngModel)]="clusterForm.sequence_index"
+    />
+    <p class="field-hint">
+      <strong>ยืนหันหน้าเข้าหากำแพง แล้วนับจากซ้ายไปขวา</strong> — ตัวซ้ายสุดคือ 1
+      <br />
+      ⚠️ ทั้งหมู่บ้านต้องยืนนับด้านเดียวกัน ไม่งั้นซ้ายขวาจะกลับกันทั้งกลุ่ม
+    </p>
+  </div>
+
+  @if (takenByOther; as taken) {
+    <div class="alert alert-warning">
+      <span>⚠️</span>
+      <span>
+        ตำแหน่งที่ {{ clusterForm.sequence_index }} เป็นของ<strong>บ้านเลขที่ {{ taken.house_no }}</strong>
+        อยู่แล้ว — ตำแหน่งซ้ำกันจะแยกมิเตอร์สองตัวนี้ไม่ได้ครับ
+      </span>
+    </div>
+  }
+
+  @if (sequenceGap; as gap) {
+    <div class="alert alert-info">
+      <span>💡</span>
+      <span>
+        กลุ่มนี้ยังไม่มีบ้านที่ตำแหน่ง {{ gap }} — ถ้าลงทะเบียนครบแล้ว
+        แปลว่านับข้ามไปหนึ่งตัว ลองเช็กที่หน้างานอีกทีครับ
+      </span>
+    </div>
+  }
+
+  @if (groupMates.length > 0) {
+    <h3 class="sub-heading">บ้านในกลุ่มนี้</h3>
+    <ul class="history-list">
+      @for (mate of groupMates; track mate.id) {
+        <li>
+          ตัวที่ {{ mate.sequence_index ?? '—' }} จากซ้าย ·
+          บ้านเลขที่ {{ mate.house_no }}
+          @if (mate.id === membersId()) {
+            <span class="chip chip-success">บ้านหลังนี้</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  <button
+    type="button"
+    class="btn btn-primary"
+    (click)="saveCluster()"
+    [disabled]="isSavingCluster()"
+  >
+    @if (isSavingCluster()) { กำลังบันทึก... } @else { บันทึกตำแหน่งมิเตอร์ }
+  </button>
 </div>
 
 <!-- 🚪 ผู้อยู่อาศัย -->
@@ -205,7 +297,7 @@
           [(ngModel)]="meterForm.digits"
         />
         <p class="field-hint">
-          นับเลขศูนย์นำหน้าด้วย (00025 = 5 หลัก) — กรอกไว้แล้วระบบจะจับเคส AI อ่านหลักหาย/เกินได้
+          นับเลขศูนย์นำหน้าด้วย (00025 = 5 หลัก) — กรอกไว้ระบบจะจับได้เวลาอ่านหลักหายหรือเกิน
         </p>
       </div>
 

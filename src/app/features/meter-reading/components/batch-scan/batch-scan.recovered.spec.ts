@@ -117,11 +117,19 @@ describe('BatchScanComponent — แถวที่กู้มาแล้ว�
     expect(component.showConfidence(target)).toBe(true);
   });
 
-  it('AI อ่านได้ต่ำกว่า 50% แต่มีรูป → เตือนอย่างเดียว ยังแก้เลขแล้วออกบิลได้', () => {
+  it('AI อ่านได้ต่ำกว่า 50% และเลขยังเป็นของ AI → บล็อกไว้ (ด่าน 80%)', () => {
     const target = setup(row({ confidence: 40 }));
 
     expect(component.lowConfidenceWarning(target)).toBe(true);
-    // เตือน ≠ ด่าน — ใบนี้ยังเข้าคิวออกบิลได้ตามปกติ
+    expect(component.blockingIssue(target)).toContain('80%');
+    expect(component.savableRows.length).toBe(0);
+  });
+
+  it('AI อ่านได้ต่ำกว่า 50% แต่คนพิมพ์เลขเองทับแล้ว → ออกบิลได้ตามเดิม', () => {
+    const target = setup(row({ confidence: 40, unit: 1258 }));
+
+    expect(component.lowConfidenceWarning(target)).toBe(true);
+    // เลขในช่องมาจากตาคน ไม่ใช่คะแนนของโมเดล — ด่านความชัดจึงไม่เกี่ยวแล้ว
     expect(component.blockingIssue(target)).toBeNull();
     expect(component.savableRows.length).toBe(1);
   });

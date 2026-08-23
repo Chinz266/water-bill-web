@@ -1832,3 +1832,340 @@ button.chip:hover {
   font-size: 14px;
   color: var(--text-muted);
 }
+
+/* ปุ่มกางรายละเอียดในแถวสแกน (.row-more)
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+
+   ของที่อยู่หลังปุ่มนี้เป็นของไว้ดูตอนสงสัย ไม่ใช่ของที่ต้องอ่านทุกใบ — ปุ่มจึงต้องเบา
+   กว่าปุ่มจริงในแถว ไม่งั้นจะแย่งสายตาไปจากปุ่มเลือกบ้านซึ่งเป็นงานหลักของหน้านี้ */
+.row-more {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.row-more:hover {
+  color: var(--primary);
+}
+
+
+/* กล่อง "ค่าสำหรับกรอกตารางทดลอง" ในหน้าสแกนมิเตอร์ (batch-scan)
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+
+   คนใช้กล่องนี้กำลังนั่งกรอก Excel 200 บรรทัด สายตาวิ่งจอ-ไฟล์-จอ ตลอดเวลา
+   หน้าตาจึงต้องแบ่งเป็นส่วนที่นับได้ (1-2-3) ตรงกับลำดับที่ต้องกรอกจริง
+   และค่าต้องตัวใหญ่พอที่จะอ่านจากระยะเอนตัวถอยหลัง ไม่ใช่ต้องเพ่ง
+
+   สีทุกตัวมาจาก custom property ด้านบนของไฟล์นี้ — ห้ามใส่ hex สดตามกฎในโปรเจกต์ */
+.lab-toggle {
+  margin-top: var(--sp-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lab-caret {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.lab {
+  margin-top: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* รูปอยู่หัวกล่องเสมอ — ตัวเลขข้างล่างเป็นของใบนี้ใบเดียว ต้องไม่มีทางเข้าใจผิด */
+.lab-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--line-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-thumb {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: block;
+  flex: 0 0 auto;
+}
+
+.lab-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lab-head-text strong {
+  font-size: 1.1rem;
+}
+
+/* หนึ่งส่วน = หนึ่งที่ที่ต้องไปกรอกในไฟล์ ขีดเส้นคั่นให้ชัดว่าจบส่วนไหนแล้ว */
+.lab-sec {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-sec:last-child {
+  border-bottom: none;
+}
+
+/* ส่วนที่ 1 เป็นส่วนเดียวที่ต้องลงมือทำ (คัดลอกไปวาง) อีกสองส่วนเป็นตัวเลขไว้ตรวจ
+   ย้อนหลังว่าไฟล์คำนวณตรงกับระบบไหม — แต้มสีไว้ให้สายตาลงที่ส่วนที่ต้องทำก่อน */
+.lab-sec:first-of-type {
+  background: var(--primary-soft);
+}
+
+.lab-sec-title {
+  margin: 0 0 var(--sp-2);
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lab-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.lab-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--sp-2);
+}
+
+.lab-row + .lab-row {
+  margin-top: var(--sp-2);
+}
+
+.lab-box {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lab-box-wide {
+  grid-column: 1 / -1;
+}
+
+.lab-key {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.lab-val {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  /* ตัวเลขความกว้างเท่ากันทุกตัว — ไล่สายตาลงคอลัมน์ระยะทีละกล่องแล้วไม่เต้น */
+  font-variant-numeric: tabular-nums;
+}
+
+.lab-val small {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.lab-mono {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
+.lab-muted {
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ป้ายสถานะเป็นเม็ดยา ไม่ใช่ข้อความลอย — กวาดตาแล้วเห็นทันทีว่ากล่องไหนถูกทำเครื่องหมายไว้ */
+.lab-tag {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--line-soft);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.lab-copy {
+  margin-top: var(--sp-2);
+}
+
+/* ตัวที่ระบบแนะนำกับตัวที่คนเลือกไว้ ต้องแยกออกจากกันด้วยตา — สองอันนี้ไม่ตรงกันคือ
+   ข้อมูลสำคัญของการทดลอง ไม่ใช่ความผิดพลาด */
+.lab-box.is-nearest {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.lab-box.is-picked {
+  background: var(--success-soft);
+}
+
+.lab-tag-pick {
+  background: var(--primary-soft-2);
+  color: var(--primary-hover);
+}
+
+/* เม็ดยาสีเดียวกับพื้นกล่องที่เลือกไว้ ป้ายกับกล่องจึงเป็นเรื่องเดียวกัน ไม่ใช่สองสัญญาณ */
+.lab-tag-ok {
+  background: var(--success);
+  color: #fff;
+}
+
+.lab-warn {
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2);
+  border-left: 3px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  border-radius: 0;
+}
+
+@media (max-width: 480px) {
+  .lab-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* จอแคบ รูปกับหัวเรื่องเรียงลงมา ไม่บีบรูปจนดูไม่ออกว่ามิเตอร์ตัวไหน */
+  .lab-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lab-sec {
+    padding: var(--sp-2);
+  }
+}
+
+/* เทียบรูปมิเตอร์สองตัวในกล่องค่าทดลอง (batch-scan)
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+
+   สองรูปวางเรียงตามตำแหน่งจริงที่พิกัดบอก มีลูกศรคั่นกลางบอกแกน — คนยืนหน้ากำแพง
+   กวาดตาเทียบกับของจริงได้ทันที ไม่ต้องแปลป้ายข้อความในหัวอีกชั้น */
+.lab-pair {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.lab-pair-side {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lab-pair-side img {
+  width: 100%;
+  max-width: 190px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+/* ช่องว่างต้องสูงเท่ารูป ไม่งั้นสองฝั่งเบี้ยวกันจนดูเหมือนวางผิดตำแหน่ง */
+.lab-pair-empty {
+  width: 100%;
+  max-width: 190px;
+  aspect-ratio: 1 / 1;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--sp-2);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.lab-pair-side figcaption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+
+.lab-pair-side figcaption span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.lab-pair-arrow {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.lab-pair-sentence {
+  margin: var(--sp-2) 0 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  /* จอแคบ: เรียงลงมาเป็นแถว แต่ยังคงลำดับซ้าย→ขวาเดิมจากบนลงล่าง */
+  .lab-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-pair-arrow {
+    transform: rotate(90deg);
+  }
+}
+
+/* พิกัดดิบบนหัวแถวในหน้าสแกนมิเตอร์ (batch-scan)
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+   ใช้ฟอนต์ตัวเลขความกว้างเท่ากัน เพื่อให้กวาดตาลงมาแล้วเห็นว่าหลักไหนของแต่ละแถวต่างกัน */
+.row-coords {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}

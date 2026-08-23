@@ -93,6 +93,37 @@ describe('BatchScanComponent — ด่านความชัดของก�
     return component.rows[0] as any;
   };
 
+  describe('ด่านตาย: ต่ำกว่า 80% ห้ามออกบิลด้วยเลขของ AI', () => {
+    it('อ่านได้ 74% แล้วเลขในช่องยังเป็นของ AI → บล็อก ไม่มีปุ่มยืนยันให้ข้าม', () => {
+      const target = row({ confidence: 74, unit: 1250, ocrUnit: 1250 }) as any;
+      component.rows = [target];
+
+      expect(component.blockingIssue(target)).toContain('80%');
+      expect(component.savableRows).toEqual([]);
+    });
+
+    it('คนพิมพ์เลขเองทับ → ผ่านทันที คะแนนเป็นของเลขตัวเก่า ไม่ใช่ของเลขที่จะส่งขึ้นไป', () => {
+      const target = row({ confidence: 43, unit: 1258, ocrUnit: 1250 }) as any;
+      component.rows = [target];
+
+      expect(component.blockingIssue(target)).toBeNull();
+    });
+
+    it('80% พอดีผ่าน — เกณฑ์คือ "ต่ำกว่า 80" ไม่ใช่ "ไม่ถึง 81"', () => {
+      const target = row({ confidence: 80 }) as any;
+      component.rows = [target];
+
+      expect(component.blockingIssue(target)).toBeNull();
+    });
+
+    it('ยังไม่ได้อ่านเลข (confidence null) → ไม่ใช่ด่านนี้ ปล่อยให้ด่านอื่นว่ากัน', () => {
+      const target = row({ confidence: null, ocrConfidence: null, unit: 1250, ocrUnit: null }) as any;
+      component.rows = [target];
+
+      expect(component.blockingIssue(target)).toBeNull();
+    });
+  });
+
   describe('ค่าที่ส่งขึ้นไป', () => {
     it('เก็บค่าดิบ 0–1 จากผลอ่าน แล้วส่งไปกับตอนออกบิล (ไม่ใช่เปอร์เซ็นต์บนจอ)', () => {
       component.rows = [row({ unit: null, ocrUnit: null, ocrConfidence: null, status: 'pending' })] as any;

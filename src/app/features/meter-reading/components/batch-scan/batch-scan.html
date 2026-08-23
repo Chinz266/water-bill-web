@@ -2,7 +2,7 @@
   <div class="page-head">
     <h1 class="page-title">สแกนมิเตอร์น้ำ</h1>
     <p class="page-subtitle">
-      เลือกรูปแล้วปล่อยได้เลย — ระบบอ่านเลขและออกบิลให้เองเฉพาะใบที่ยืนยันบ้านได้ครับ
+      เลือกรูปแล้วปล่อยได้เลย — ระบบออกบิลเองเฉพาะใบที่ยืนยันบ้านได้ครับ
     </p>
   </div>
 
@@ -12,8 +12,8 @@
       <h2 class="step-title">มีคิวค้างจากครั้งที่แล้วครับ</h2>
       <!-- ต้องบอกว่าไม่มีรูปให้เทียบแล้ว ไม่งั้นคนกดทำต่อโดยคิดว่ายังตรวจหน้าปัดซ้ำได้ -->
       <p class="restore-text">
-        ค้างอีก <strong>{{ pendingRestoreLeft }}</strong> ใบ ทำต่อได้เลย
-        แต่<strong>ไม่ได้เก็บรูปไว้</strong> เทียบหน้าปัดด้วยตาไม่ได้แล้วครับ
+        ค้างอีก <strong>{{ pendingRestoreLeft }}</strong> ใบ ทำต่อได้เลย —
+        แต่<strong>ไม่ได้เก็บรูปไว้</strong> เทียบหน้าปัดไม่ได้แล้วครับ
       </p>
       <div class="restore-actions">
         <button type="button" class="btn btn-primary" (click)="resumeQueue()">ทำต่อจากที่ค้างไว้</button>
@@ -86,6 +86,11 @@
       <input id="batch-folder" type="file" accept="image/*" multiple webkitdirectory (change)="onFilesPicked($event)" hidden />
 
       @if (rows.length) {
+        <!-- ทั้งกองทีเดียว — การทดลองมี 200 รูป คัดลอกทีละใบคือจุดที่คนจะเลิกทำกลางคัน
+             เว้นบรรทัดว่างไว้ให้รูปที่ไม่มีพิกัด แถวจึงตรงกับลำดับบนจอเสมอ -->
+        <button type="button" class="btn btn-ghost" (click)="copyAllPhotoCoords()">
+          📋 คัดลอกพิกัดทั้งกอง ({{ rows.length }} รูป)
+        </button>
         <button type="button" class="btn btn-ghost" (click)="clearAll()" [disabled]="isBusy">ล้างทั้งหมด</button>
       }
     </div>
@@ -95,7 +100,7 @@
     @if (membersFailed) {
       <div class="alert alert-danger">
         <span>⚠️</span>
-        <span>โหลดรายชื่อบ้านไม่สำเร็จ ตอนนี้ยังเลือกบ้านให้แต่ละรูปไม่ได้ครับ</span>
+        <span>โหลดรายชื่อบ้านไม่สำเร็จ ยังเลือกบ้านให้รูปไม่ได้ครับ</span>
       </div>
       <button type="button" class="btn btn-secondary btn-sm" (click)="loadMembers()" [disabled]="isLoadingMembers">
         ลองโหลดรายชื่อบ้านใหม่
@@ -158,7 +163,7 @@
           </div>
           <p class="field-hint">กำลังออกบิล {{ progress.done }} / {{ progress.total }} ใบ — อย่าเพิ่งปิดหน้านี้ครับ</p>
           <button type="button" class="btn btn-secondary btn-sm" (click)="stopQueue()">
-            หยุดคิว (ทำใบที่ค้างให้จบก่อน)
+            หยุดคิว (ทำใบที่ค้างให้จบ)
           </button>
         </div>
       }
@@ -253,8 +258,18 @@
                   <span class="row-date warn">📸 ไม่มีวันถ่าย — จะลงเป็นวันนี้</span>
                 }
 
-                @if (row.latitude !== null) {
-                  <span class="row-date">📍 {{ row.latitude | number: '1.5-5' }}, {{ row.longitude | number: '1.5-5' }}</span>
+                @if (photoCoordsLabel(row); as coords) {
+                  <!-- ค่าดิบต้องเห็นตั้งแต่หัวแถว เพราะแถวที่ยังไม่ได้เลือกบ้าน (หรือเลือกแล้วแต่หมุด
+                       ใกล้เกินจะบอกทิศ) ไม่มีป้าย 🧭 ให้ดูเลย — ก่อนหน้านี้หัวแถวจึงเงียบสนิท
+                       ทั้งที่รูปมีพิกัดติดมา คนเลยแยกไม่ออกว่ารูปไม่มีพิกัด หรือมีแต่ยังจับคู่ไม่ได้ -->
+                  <span class="row-date row-coords">📍 {{ coords }}</span>
+
+                  <!-- ทิศกับระยะคือคำตอบที่คนหน้างานใช้จริง จึงยังอยู่คู่กับค่าดิบเหมือนเดิม -->
+                  @if (photoSideForRow(row); as side) {
+                    <span class="row-date">
+                      🧭 อยู่ทาง<strong>{{ side.label }}</strong> {{ side.meters | number: '1.0-0' }} ม.@if (!side.certain) { · ยังไม่ยืนยัน }
+                    </span>
+                  }
                 } @else {
                   <span class="row-date warn">📍 ไม่มีพิกัดในรูป</span>
                 }
@@ -380,9 +395,8 @@
                      เพราะไม่มีข้อมูลอะไรเลยที่แยกตัวซ้าย/ตัวขวาออกจากกันได้นอกจากลำดับนี้ -->
                 @if (nextInCluster(row); as next) {
                   <p class="row-issue">
-                    🧱 มิเตอร์กลุ่มนี้ติดกัน (ห่างกันราว 30 ซม. — พิกัดแยกไม่ได้)
-                    ตัวถัดไปที่ต้องจดคือ <strong>บ้าน {{ next.house_no }}</strong>
-                    (ตำแหน่ง: {{ positionLabel(next) }})
+                    🧱 มิเตอร์กลุ่มนี้ติดกัน พิกัดแยกไม่ได้ — ตัวถัดไปคือ
+                    <strong>บ้าน {{ next.house_no }}</strong> ({{ positionLabel(next) }})
                   </p>
                 }
 
@@ -391,10 +405,10 @@
                     <span class="row-cap">
                       @if (!hasPhoto(row)) {
                         <!-- ไม่มีรูปให้เทียบแล้ว เหลือเลขสะสมของแต่ละหลังเป็นตัวชี้ขาดว่าจดของหลังไหน -->
-                        ไม่มีรูปให้เทียบแล้ว — เทียบ<strong>เลขเดือนที่แล้ว</strong>ของแต่ละหลัง
-                        กับเลขที่กรอกไว้ แล้วเลือกหลังที่หน่วยน้ำสมเหตุสมผลครับ
+                        ไม่มีรูปให้เทียบแล้ว — ดู<strong>เลขเดือนที่แล้ว</strong>ของแต่ละหลัง
+                        แล้วเลือกหลังที่หน่วยสมเหตุสมผลครับ
                       } @else if (row.memberId) {
-                        มิเตอร์แถวนี้ใกล้กันหลายหลัง เทียบรูปแล้วเลือกหลังที่ถ่ายจริงครับ
+                        ใกล้กันหลายหลัง เทียบรูปแล้วเลือกหลังที่ถ่ายจริงครับ
                       } @else if (freeNearbyCount(row) === 1) {
                         <!-- หลังอื่นถูกรูปใบอื่นในกองใช้ไปแล้ว (บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว)
                              เหลือทางเดียวก็จริง แต่ยังต้องให้คนกดเอง เผื่อรูปใบที่ไปจองไว้เลือกผิด -->
@@ -424,10 +438,26 @@
                           <!-- หลังนี้วางตัวทางไหนของหลังอ้างอิง ตามหมุดที่ลงทะเบียนไว้ —
                                ไม่ได้มาจากพิกัดในรูป จึงไม่แกว่งตามสัญญาณตอนถ่าย -->
                           @if (near.sideLabel && near.sideRef) {
-                            <span class="nearby-side">อยู่ทาง{{ near.sideLabel }}ของ {{ near.sideRef }}</span>
+                            @if (near.sideCertain) {
+                              <span class="nearby-side">อยู่ทาง{{ near.sideLabel }}ของ {{ near.sideRef }}</span>
+                            } @else {
+                              <!-- หมุดใกล้กันเกินเกณฑ์ของคู่นี้ — ตอบให้ แต่ต้องเขียนให้คนรู้ว่าเดา
+                                   ไม่งั้นคนจะกดตามโดยไม่หันไปดูของจริงตรงหน้า -->
+                              <span class="nearby-side">
+                                อยู่ทาง{{ near.sideLabel }}ของ {{ near.sideRef }} · ยังไม่ยืนยัน
+                              </span>
+                            }
                           }
                           <!-- เลขมิเตอร์ของหลังนั้นเทียบกับเลขในช่อง — ตัวเดียวที่แยกบ้านออกจากกัน
                                ได้จริงตอนที่ทุกหลังขึ้น "ห่าง 3 ม." พอ ๆ กันจนระยะบอกอะไรไม่ได้ -->
+                          <!-- คำถามที่คนโยนรูปเข้ามาถามจริง ๆ: มิเตอร์ในรูปนี้อยู่ทางไหนของหลังนั้น
+                               เทียบพิกัดในรูปกับหมุดที่ลงทะเบียนไว้ ไม่ใช่หมุดเทียบหมุด -->
+                          @if (photoSide(row, near.member); as side) {
+                            <span class="nearby-side">
+                              รูปอยู่ทาง<strong>{{ side.label }}</strong>ของหมุด
+                              {{ side.meters | number: '1.0-0' }} ม.@if (!side.certain) { · ยังไม่ยืนยัน }
+                            </span>
+                          }
                           @if (near.previousUnit !== null) {
                             <span class="nearby-prev">
                               เดือนที่แล้ว {{ near.previousUnit | number: '1.0-0' }}
@@ -452,6 +482,149 @@
                       }
                     </div>
                   </div>
+                }
+
+                <!-- ค่าที่ต้องเอาไปกรอกตารางทดลอง — หน้าจอคิดไว้ครบแล้วแต่กระจายอยู่คนละที่
+                     กล่องนี้รวบมาเรียงตามคอลัมน์ในไฟล์ Excel พร้อมรูปให้เทียบว่าใบไหน -->
+                @if (labValues(row); as lab) {
+                  <button type="button" class="btn btn-sm btn-ghost lab-toggle" (click)="toggleLab(row)">
+                    🧪 ค่าสำหรับกรอกตารางทดลอง
+                    <span class="lab-caret">{{ isLabOpen(row) ? '▲' : '▼' }}</span>
+                  </button>
+
+                  @if (isLabOpen(row)) {
+                    <!-- แบ่งเป็น 3 ส่วนตามลำดับที่ต้องกรอกจริง ไม่ได้เรียงตามว่าค่าไหนคำนวณง่าย
+                         หัวข้อแต่ละส่วนบอกตรง ๆ ว่าไปลงแผ่นไหนตารางไหน คนจะได้ไม่ต้องจำ -->
+                    <div class="lab">
+                      <div class="lab-head">
+                        @if (row.previewUrl) {
+                          <img class="lab-thumb" [src]="row.previewUrl" alt="รูปมิเตอร์ใบที่ {{ row.seq }}" />
+                        }
+                        <div class="lab-head-text">
+                          <strong>รูปที่ {{ row.seq }}</strong>
+                          <span class="lab-key">ตัวเลขทั้งหมดข้างล่างเป็นของรูปใบนี้ใบเดียว</span>
+                        </div>
+                      </div>
+
+                      <section class="lab-sec">
+                        <h4 class="lab-sec-title"><span class="lab-num">1</span> กรอกลงแผ่น Photos</h4>
+                        <div class="lab-row">
+                          <div class="lab-box">
+                            <span class="lab-key">ละติจูด</span>
+                            <span class="lab-val lab-mono">{{ lab.lat | number: '1.6-6' }}</span>
+                          </div>
+                          <div class="lab-box">
+                            <span class="lab-key">ลองจิจูด</span>
+                            <span class="lab-val lab-mono">{{ lab.lng | number: '1.6-6' }}</span>
+                          </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-secondary lab-copy" (click)="copyPhotoCoords(row)">
+                          📋 คัดลอกสองค่านี้ (วางทีเดียวได้ทั้งสองช่อง)
+                        </button>
+                      </section>
+
+                      <section class="lab-sec">
+                        <h4 class="lab-sec-title"><span class="lab-num">2</span> ตาราง A — รูป x มิเตอร์</h4>
+                        <div class="lab-row">
+                          @for (m of lab.meters; track m.houseNo) {
+                            <div class="lab-box" [class.is-nearest]="m.isNearest" [class.is-picked]="m.isPicked">
+                              <span class="lab-key">ระยะถึงมิเตอร์ {{ m.houseNo }}</span>
+                              <span class="lab-val">{{ m.distance | number: '1.1-1' }} <small>ม.</small></span>
+                              @if (m.isNearest) { <span class="lab-tag lab-tag-pick">ระบบแนะนำตัวนี้</span> }
+                              @if (m.isPicked) { <span class="lab-tag lab-tag-ok">เลือกไว้ตอนนี้</span> }
+                            </div>
+                          }
+                        </div>
+                        <div class="lab-row">
+                          <div class="lab-box lab-box-wide">
+                            <span class="lab-key">ความคลาดเคลื่อน — ระยะจากรูปถึงมิเตอร์ตัวที่เลือกไว้</span>
+                            @if (lab.errorMeters !== null) {
+                              <span class="lab-val">{{ lab.errorMeters | number: '1.1-1' }} <small>ม.</small></span>
+                            } @else {
+                              <span class="lab-val lab-muted">ยังไม่ได้เลือกบ้าน — กดเลือกก่อนถึงจะวัดได้</span>
+                            }
+                          </div>
+                        </div>
+                      </section>
+
+                      <!-- เอารูปมิเตอร์สองตัวมาวางเรียงตามตำแหน่งที่พิกัดบอก คนยืนหน้ากำแพง
+                           เทียบกับของจริงได้ด้วยตา ไม่ต้องแปลป้ายข้อความในหัวอีกชั้น -->
+                      @if (pairPhotos(row); as pair) {
+                        <section class="lab-sec">
+                          <h4 class="lab-sec-title">
+                            <span class="lab-num">3</span> เทียบรูปมิเตอร์สองตัว ({{ pair.axis }})
+                          </h4>
+
+                          <div class="lab-pair">
+                            <figure class="lab-pair-side">
+                              @if (pair.first.previewUrl) {
+                                <img [src]="pair.first.previewUrl" alt="มิเตอร์ {{ pair.first.houseNo }}" />
+                              } @else {
+                                <div class="lab-pair-empty">ยังไม่มีรูปของหลังนี้ในกอง</div>
+                              }
+                              <figcaption>
+                                <strong>{{ pair.first.houseNo }}</strong>
+                                @if (pair.first.seq !== null) { <span>รูป #{{ pair.first.seq }}</span> }
+                              </figcaption>
+                            </figure>
+
+                            <div class="lab-pair-arrow" aria-hidden="true">
+                              {{ pair.axis === 'ซ้าย-ขวา' ? '◀ ซ้าย | ขวา ▶' : '▲ บน | ล่าง ▼' }}
+                            </div>
+
+                            <figure class="lab-pair-side">
+                              @if (pair.second.previewUrl) {
+                                <img [src]="pair.second.previewUrl" alt="มิเตอร์ {{ pair.second.houseNo }}" />
+                              } @else {
+                                <div class="lab-pair-empty">ยังไม่มีรูปของหลังนี้ในกอง</div>
+                              }
+                              <figcaption>
+                                <strong>{{ pair.second.houseNo }}</strong>
+                                @if (pair.second.seq !== null) { <span>รูป #{{ pair.second.seq }}</span> }
+                              </figcaption>
+                            </figure>
+                          </div>
+
+                          <p class="lab-pair-sentence">{{ pair.sentence }}</p>
+                          @if (!pair.certain) {
+                            <p class="lab-warn">
+                              ⚠️ ลำดับซ้าย-ขวาที่เห็นนี้ยังยืนยันไม่ได้ — มิเตอร์สองตัวใกล้กันกว่าเขตที่ GPS
+                              บอกทิศได้ ตัวที่ตอบได้จริงคือลำดับตำแหน่งบนกำแพงที่จดไว้ล่วงหน้าครับ
+                            </p>
+                          }
+                        </section>
+                      }
+
+                      <section class="lab-sec">
+                        <h4 class="lab-sec-title"><span class="lab-num">4</span> ตาราง B — มิเตอร์ x มิเตอร์</h4>
+                        <div class="lab-row">
+                          <div class="lab-box">
+                            <span class="lab-key">ระยะระหว่างมิเตอร์ 2 ตัว</span>
+                            @if (lab.pinGap !== null) {
+                              <span class="lab-val">{{ lab.pinGap | number: '1.1-1' }} <small>ม.</small></span>
+                              <span class="lab-tag">ตัวหารของ % คลาดเคลื่อน</span>
+                            } @else {
+                              <span class="lab-val lab-muted">มีมิเตอร์เดียวในรัศมี</span>
+                            }
+                          </div>
+                          <div class="lab-box">
+                            <span class="lab-key">ทิศ — ตัวที่ไกลกว่าอยู่ทางไหน</span>
+                            @if (lab.pinSide) {
+                              <span class="lab-val">{{ lab.pinSide }}</span>
+                            } @else {
+                              <span class="lab-val lab-muted">บอกทิศไม่ได้</span>
+                            }
+                          </div>
+                        </div>
+                        @if (lab.pinSide && !lab.pinSideCertain) {
+                          <p class="lab-warn">
+                            ⚠️ ทิศนี้ยังยืนยันไม่ได้ — มิเตอร์สองตัวใกล้กันกว่าเขตที่ GPS บอกได้
+                            กรอกลงไฟล์ได้ตามปกติ แต่นี่คือคำตอบของการทดลอง ไม่ใช่ความผิดพลาด
+                          </p>
+                        }
+                      </section>
+                    </div>
+                  }
                 }
 
                 <!-- ทางกลับไปใช้วิธีที่แม่นกว่าเฉพาะใบที่อ่านมาไม่ดี — รูปเต็มใบ AI ต้องหา
@@ -575,8 +748,21 @@
                   </button>
                 }
 
-                @for (note of notes(row); track note) {
-                  <p class="row-note">· {{ note }}</p>
+                <!-- ข้อสังเกตมาทีละ 5-6 ข้อและมักซ้ำใจความกัน กองรวมกันแล้วบังหัวข้อที่ต้อง
+                     ลงมือทำจริง — ข้อเดียวโชว์เลย มากกว่านั้นยุบไว้หลังปุ่ม -->
+                @if (notes(row); as noteList) {
+                  @if (noteList.length === 1) {
+                    <p class="row-note">· {{ noteList[0] }}</p>
+                  } @else if (noteList.length > 1) {
+                    <button type="button" class="row-more" (click)="toggleNotes(row)">
+                      {{ areNotesOpen(row) ? '▾ ซ่อนข้อสังเกต' : '▸ ดูข้อสังเกต ' + noteList.length + ' ข้อ' }}
+                    </button>
+                    @if (areNotesOpen(row)) {
+                      @for (note of noteList; track note) {
+                        <p class="row-note">· {{ note }}</p>
+                      }
+                    }
+                  }
                 }
               }
             </div>

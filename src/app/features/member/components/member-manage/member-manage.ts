@@ -40,6 +40,7 @@ export class MemberManageComponent implements OnInit {
 
   readonly membersId = signal<number | null>(null);
   readonly member = signal<any>(null);
+  readonly allMembers = signal<any[]>([]);
   readonly meters = signal<Meter[]>([]);
   readonly tenancies = signal<Tenancy[]>([]);
   readonly isLoading = signal(true);
@@ -66,8 +67,21 @@ export class MemberManageComponent implements OnInit {
     // ไม่มี endpoint ดึงบ้านทีละหลัง — โหลดทั้งหมดแล้วหยิบเอา
     // (หมู่บ้านเดียวมีหลักร้อยหลัง หน้ารายชื่อก็โหลดทั้งกองอยู่แล้ว ไม่ได้แพงขึ้น)
     this.memberService.getMembers().subscribe({
-      next: (members: any[]) => this.member.set(members?.find((m) => m.id === id) ?? null),
-      error: () => this.member.set(null)
+      next: (members: any[]) => {
+        // เก็บทั้งกองไว้ด้วย — หน้านี้ต้องรู้ว่าใครอยู่กลุ่มมิเตอร์เดียวกันบ้าง
+        // เพื่อบอกว่าตำแหน่งไหนถูกจองแล้ว โดยไม่ต้องยิง endpoint เพิ่ม
+        this.allMembers.set(members ?? []);
+        const found = members?.find((m) => m.id === id) ?? null;
+        this.member.set(found);
+        this.clusterForm = {
+          cluster_group_id: found?.cluster_group_id ?? '',
+          sequence_index: found?.sequence_index ?? null
+        };
+      },
+      error: () => {
+        this.allMembers.set([]);
+        this.member.set(null);
+      }
     });
 
     this.metersService.getByMember(id).subscribe({
@@ -180,6 +194,106 @@ export class MemberManageComponent implements OnInit {
         toast.error(extractErrorMessage(err, 'บันทึกทะเบียนมิเตอร์ไม่สำเร็จ'), { id: 'meter-error' });
       }
     });
+  }
+
+  // ==========================================
+  // 📍 ตำแหน่งมิเตอร์ในกลุ่มที่ติดกัน
+  // ==========================================
+
+  /**
+   * มิเตอร์ที่ติดเรียงกันบนกำแพงเดียวกันห่างกันราว 30 ซม. ขณะที่พิกัดจากมือถือ
+   * คลาดเคลื่อนหลายเมตร — วัดแล้วเทียบยังไงก็แยกตัวซ้าย/ตัวขวาไม่ได้
+   *
+   * ตัวเลขที่จดตรงนี้จึงเป็นข้อมูลชิ้นเดียวที่ตอบได้ว่ามิเตอร์ตัวไหนของบ้านไหน
+   * และเป็นสิ่งที่หน้าสแกนใช้พาไล่จดเมื่อระบบเจอว่ารูปตกอยู่ในกลุ่ม
+   */
+  readonly isSavingCluster = signal(false);
+
+  clusterForm = {
+    cluster_group_id: '',
+    sequence_index: null as number | null
+  };
+
+  /** บ้านอื่นที่อยู่กลุ่มเดียวกับที่กรอกอยู่ตอนนี้ เรียงตามตำแหน่ง */
+  get groupMates(): any[] {
+    const group = this.clusterForm.cluster_group_id.trim();
+    if (!group) return [];
+
+    return this.allMembers()
+      .filter((m) => m.cluster_group_id === group)
+      .sort((a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0));
+  }
+
+  /** ตำแหน่งที่บ้านหลังอื่นจองไว้แล้ว — กรอกทับจะโดนหลังบ้านตีกลับ */
+  get takenByOther(): any | null {
+    const seq = Number(this.clusterForm.sequence_index);
+    if (!Number.isInteger(seq) || seq < 1) return null;
+
+    return this.groupMates.find((m) => m.sequence_index === seq && m.id !== this.membersId()) ?? null;
+  }
+
+  /**
+   * ลำดับในกลุ่มข้ามเลข เช่นมี 1, 2, 4 — แปลว่ามีมิเตอร์ที่ยังไม่ได้ลงทะเบียนคั่นอยู่
+   * ไม่ใช่ error เพราะลงทะเบียนยังไม่ครบเป็นสภาพปกติระหว่างทาง แต่ต้องเห็น
+   */
+  get sequenceGap(): number | null {
+    const used = this.groupMates
+      .map((m) => Number(m.sequence_index))
+      .filter((n) => Number.isInteger(n) && n > 0)
+      .sort((a, b) => a - b);
+    if (used.length === 0) return null;
+
+    for (let want = 1; want < used[used.length - 1]; want++) {
+      if (!used.includes(want)) return want;
+    }
+    return null;
+  }
+
+  saveCluster(): void {
+    const id = this.membersId();
+    if (!id || this.isSavingCluster()) return;
+
+    const group = this.clusterForm.cluster_group_id.trim();
+    const seq = this.clusterForm.sequence_index;
+
+    // ดักคู่ที่กรอกไม่ครบตั้งแต่หน้าเว็บ — ข้อความเดียวกับหลังบ้าน แค่ไม่ต้องรอ round trip
+    if (group && (seq === null || `${seq}` === '')) {
+      toast.error('อยู่ในกลุ่มมิเตอร์แล้วต้องระบุตำแหน่งด้วยครับ — พิกัดแยกตัวซ้าย/ขวาไม่ได้', {
+        id: 'cluster-need-seq'
+      });
+      return;
+    }
+    if (!group && seq !== null && `${seq}` !== '') {
+      toast.error('กรอกตำแหน่งแล้วแต่ยังไม่ได้ระบุกลุ่มมิเตอร์ครับ', { id: 'cluster-need-group' });
+      return;
+    }
+
+    this.isSavingCluster.set(true);
+
+    // ส่งเฉพาะสองฟิลด์นี้ + id — หลังบ้าน merge ทับของเดิม จึงไม่ต้องยกทั้งก้อนมาเสี่ยงเขียนทับ
+    this.memberService
+      .updateMember({
+        id,
+        cluster_group_id: group || null,
+        sequence_index: group ? Number(seq) : null,
+        modify_by: this.auth.admin()?.id
+      })
+      .subscribe({
+        next: () => {
+          this.isSavingCluster.set(false);
+          toast.success(
+            group
+              ? `บันทึกแล้ว — บ้านหลังนี้คือตัวที่ ${seq} จากซ้ายของกลุ่ม ${group} ครับ`
+              : 'ล้างข้อมูลกลุ่มมิเตอร์แล้ว — บ้านหลังนี้กลับไปใช้พิกัดตามปกติครับ',
+            { id: 'cluster-saved' }
+          );
+          this.reload();
+        },
+        error: (err) => {
+          this.isSavingCluster.set(false);
+          toast.error(extractErrorMessage(err, 'บันทึกตำแหน่งมิเตอร์ไม่สำเร็จ'), { id: 'cluster-error' });
+        }
+      });
   }
 
   // ==========================================
