@@ -338,3 +338,122 @@ describe('BatchScanComponent — เทียบรูปมิเตอร์�
     expect(component.pairPhotos(component.rows[0] as any)).toBeNull();
   });
 });
+
+/**
+ * ค่าสำหรับแผ่น Photos — สิ่งที่ล็อกไว้คือ "แถวต้องตรงกับลำดับรูปบนจอเสมอ"
+ *
+ * รูปที่ไม่มีพิกัด/ไม่มีวันถ่าย ยังต้องมีบรรทัดของตัวเอง (เว้นช่องว่างไว้) ไม่งั้นเวลาวางลง
+ * Excel รูปที่เหลือจะเลื่อนขึ้นไปนั่งแถวของใบอื่นทั้งกองโดยที่หน้าตาดูปกติดี
+ */
+describe('BatchScanComponent — ค่าสำหรับแผ่น Photos', () => {
+  let component: BatchScanComponent;
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [BatchScanComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])]
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(BatchScanComponent);
+    component = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/member/all')).flush([]);
+    http.expectOne(r => r.url.endsWith('/villages')).flush([]);
+  });
+
+  afterEach(() => localStorage.clear());
+
+  const at = (iso: string) => new Date(iso);
+
+  it('คอลัมน์ต้องตรงกับที่ไฟล์ใช้ — พิกัด 6 ตำแหน่ง วันเวลาแบบ 2026-08-21 09:15', () => {
+    component.rows = [
+      row({
+        seq: 1,
+        fileName: 'P01_L_01.jpg',
+        capturedAt: at('2026-08-21T09:15:00'),
+        latitude: 13.736717,
+        longitude: 100.523186,
+        ocrUnit: 25,
+        ocrConfidence: 0.87
+      })
+    ] as any;
+
+    expect(component.labPhotoRows()[0]).toEqual({
+      seq: 1,
+      fileName: 'P01_L_01.jpg',
+      capturedAt: '2026-08-21 09:15',
+      lat: '13.736717',
+      lng: '100.523186',
+      readUnit: '25',
+      confidence: '0.87'
+    });
+  });
+
+  it('รูปที่ไม่มีพิกัด/ไม่มีวันถ่าย ยังต้องมีบรรทัด แต่ช่องนั้นว่าง', () => {
+    component.rows = [
+      row({ seq: 1, capturedAt: null, latitude: null, longitude: null, ocrUnit: null, ocrConfidence: null })
+    ] as any;
+    const p = component.labPhotoRows()[0];
+
+    expect(p.capturedAt).toBe('');
+    expect(p.lat).toBe('');
+    expect(p.lng).toBe('');
+    expect(p.readUnit).toBe('');
+    expect(p.confidence).toBe('');
+  });
+
+  it('จำนวนบรรทัดต้องเท่าจำนวนรูปในกองเสมอ ไม่คัดรูปที่ข้อมูลไม่ครบทิ้ง', () => {
+    component.rows = [
+      row({ seq: 1 }),
+      row({ seq: 2, latitude: null, longitude: null }),
+      row({ seq: 3 })
+    ] as any;
+
+    expect(component.labPhotoRows().map(p => p.seq)).toEqual([1, 2, 3]);
+  });
+
+  describe('คัดลอกทีละบล็อก', () => {
+    let written: string[];
+
+    beforeEach(() => {
+      written = [];
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: (t: string) => { written.push(t); return Promise.resolve(); } }
+      });
+      component.rows = [
+        row({ seq: 1, fileName: 'a.jpg', capturedAt: at('2026-08-21T09:15:00'),
+              latitude: 13.75, longitude: 100.5, ocrUnit: 25, ocrConfidence: 0.87 }),
+        row({ seq: 2, fileName: 'b.jpg', capturedAt: null,
+              latitude: null, longitude: null, ocrUnit: null, ocrConfidence: null })
+      ] as any;
+    });
+
+    it('บล็อก D:G — 4 คอลัมน์คั่นด้วยแท็บ บรรทัดละรูป', () => {
+      component.copyPhotosBlock('coords');
+
+      expect(written[0]).toBe(
+        'a.jpg\t2026-08-21 09:15\t13.750000\t100.500000\n' +
+        'b.jpg\t\t\t'
+      );
+    });
+
+    it('บล็อก M กับ P แยกกัน — ห้ามรวบเป็นก้อนเดียวเพราะจะทับคอลัมน์ที่คนกรอกเอง', () => {
+      component.copyPhotosBlock('read');
+      component.copyPhotosBlock('conf');
+
+      expect(written[0]).toBe('25\n');
+      expect(written[1]).toBe('0.87\n');
+    });
+  });
+
+  it('ปุ่มกางตารางเริ่มต้นปิดไว้ และกดสลับได้', () => {
+    expect(component.labTablesOpen).toBe(false);
+    component.toggleLabTables();
+    expect(component.labTablesOpen).toBe(true);
+    component.toggleLabTables();
+    expect(component.labTablesOpen).toBe(false);
+  });
+});

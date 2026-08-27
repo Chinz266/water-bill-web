@@ -462,6 +462,58 @@
         }
       </div>
 
+      <!-- เลขตั้งต้นคือเส้นเริ่มต้นที่บิลใบแรกเอาไปลบ พิมพ์ผิดหลักเดียวทุกบิลผิดตามไปหมด
+           แยกปุ่มบันทึกของตัวเองเพราะไปคนละปลายทางและต้องกรอกเหตุผลทุกครั้ง -->
+      <div class="field initial-unit">
+        <label class="field-label" for="edit-initial-unit">เลขมิเตอร์ตั้งต้น</label>
+
+        @if (initialReading) {
+          <input
+            id="edit-initial-unit"
+            class="field-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="1"
+            [(ngModel)]="initialUnitInput"
+            [disabled]="isSavingInitialUnit"
+          />
+          <p class="field-hint">
+            ค่าที่บันทึกไว้ตอนนี้คือ <strong>{{ initialReading.unit | number: '1.0-0' }}</strong> —
+            แก้แล้วกระทบการคิดหน่วยน้ำของบ้านหลังนี้ทุกรอบครับ
+          </p>
+
+          @if (initialUnitChanged) {
+            <label class="field-label" for="edit-initial-reason">เหตุผลที่แก้</label>
+            <input
+              id="edit-initial-reason"
+              class="field-input"
+              type="text"
+              maxlength="500"
+              [(ngModel)]="initialReasonInput"
+              [disabled]="isSavingInitialUnit"
+              placeholder="เช่น ตอนลงทะเบียนพิมพ์เกินหนึ่งหลัก เทียบกับรูปหน้าปัดแล้วเป็น 1250"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              (click)="saveInitialUnit()"
+              [disabled]="isSavingInitialUnit"
+            >
+              {{ isSavingInitialUnit ? 'กำลังบันทึก...' : 'บันทึกเลขตั้งต้นใหม่' }}
+            </button>
+          }
+        } @else if (initialReadingError) {
+          <p class="field-error">{{ initialReadingError }}</p>
+        } @else {
+          <p class="field-hint">กำลังโหลดเลขมิเตอร์ตั้งต้น...</p>
+        }
+
+        @if (initialReading && initialReadingError) {
+          <p class="field-error">{{ initialReadingError }}</p>
+        }
+      </div>
+
       <!-- พิกัดคือสิ่งที่ระบบใช้จับคู่รูปมิเตอร์กับบ้าน วัดพลาดครั้งแรกต้องแก้ได้ -->
       <div class="field">
         <label class="field-label">พิกัดมิเตอร์</label>

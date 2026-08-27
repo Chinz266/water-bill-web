@@ -2063,6 +2063,88 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     };
   }
 
+  /** กางตารางค่าสำหรับแผ่น Photos ไว้ท้ายรายการรูป */
+  labTablesOpen = false;
+
+  toggleLabTables(): void {
+    this.labTablesOpen = !this.labTablesOpen;
+  }
+
+
+  /**
+   * ค่าที่ต้องเอาไปใส่ในแผ่น Photos ของไฟล์ Excel — เรียงคอลัมน์ตามไฟล์เป๊ะ
+   *
+   * ═══ ทำไมไม่โชว์ทุกคอลัมน์ของแผ่น Photos ═══
+   *
+   * แผ่นนั้นมี 18 คอลัมน์ แต่หน้าเว็บรู้จริงแค่ 6 ตัว (ชื่อไฟล์ · วันเวลา · พิกัด · เลขที่ OCR
+   * อ่านได้ · confidence) ที่เหลือเป็นสิ่งที่คนต้องไปวัด/ตัดสินเอง เช่น ระยะถ่าย มุม สภาพแสง
+   * เลขจริงบนหน้าปัด — เอามาโชว์เป็นช่องว่างก็ไม่ได้ช่วยอะไร มีแต่ทำให้ตารางกว้างจนหาไม่เจอ
+   *
+   * ⚠️ **แถวต้องตรงกับลำดับรูปบนจอเสมอ** รวมถึงรูปที่ไม่มีพิกัด ซึ่งยังต้องมีบรรทัดของตัวเอง
+   *    ไม่งั้นเวลาวางลง Excel รูปที่เหลือจะเลื่อนขึ้นไปนั่งแถวของใบอื่นทั้งกองโดยไม่มีใครทัก
+   */
+  labPhotoRows(): {
+    seq: number;
+    fileName: string;
+    capturedAt: string;
+    lat: string;
+    lng: string;
+    readUnit: string;
+    confidence: string;
+  }[] {
+    return this.rows.map((row) => {
+      const c = toCoords(row?.latitude, row?.longitude);
+      const unit = this.toNumberOrNull(row?.ocrUnit);
+      const conf = this.toNumberOrNull(row?.ocrConfidence);
+
+      return {
+        seq: Number(row?.seq),
+        fileName: String(row?.fileName ?? ''),
+        capturedAt: this.excelDateTime(row?.capturedAt),
+        lat: c ? c.lat.toFixed(6) : '',
+        lng: c ? c.lng.toFixed(6) : '',
+        readUnit: unit === null ? '' : String(unit),
+        confidence: conf === null ? '' : conf.toFixed(2)
+      };
+    });
+  }
+
+  /**
+   * คัดลอกทีละบล็อกคอลัมน์ที่ติดกันในไฟล์ ไม่รวบเป็นก้อนเดียว
+   *
+   * ระหว่าง G (ลองจิจูด) กับ M (read_unit) มีคอลัมน์ที่คนกรอกเองคั่นอยู่ (ระยะถ่าย มุม
+   * สภาพแสง คุณภาพรูป) ถ้าคัดลอกรวบเป็นก้อนเดียวแล้ววาง ช่องว่างจะไปทับของที่คนกรอกไว้แล้ว
+   * — เสียงานที่ทำมาโดยไม่มีคำเตือน จึงแยกปุ่มตามบล็อกที่หน้าเว็บเติมได้ครบจริง ๆ
+   */
+  copyPhotosBlock(block: 'coords' | 'read' | 'conf'): void {
+    const rows = this.labPhotoRows();
+    if (!rows.length) return;
+
+    const pick = {
+      coords: { cell: 'D4', label: 'ชื่อไฟล์ ถึง ลองจิจูด (D:G)',
+                line: (r: any) => [r.fileName, r.capturedAt, r.lat, r.lng].join('\t') },
+      read: { cell: 'M4', label: 'read_unit (M)', line: (r: any) => r.readUnit },
+      conf: { cell: 'P4', label: 'confidence (P)', line: (r: any) => r.confidence }
+    }[block];
+
+    this.writeClipboard(
+      rows.map(pick.line).join('\n'),
+      'คัดลอก ' + pick.label + ' ของ ' + rows.length + ' รูปแล้ว วางที่ช่อง ' + pick.cell + ' ได้เลยครับ'
+    );
+  }
+
+  /** รูปแบบวันเวลาที่แผ่น Photos ใช้ (2026-08-21 09:15) — ว่างเมื่อรูปไม่มีวันถ่าย */
+  private excelDateTime(value: unknown): string {
+    const d = value instanceof Date ? value : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return (
+      d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+    );
+  }
+
   /**
    * คัดลอกพิกัดของรูปใบนี้เป็น "ละติจูด<แท็บ>ลองจิจูด" — วางลงแผ่น Photos ช่อง F ได้ตรง ๆ
    *

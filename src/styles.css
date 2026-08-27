@@ -2169,3 +2169,75 @@ button.chip:hover {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.2px;
 }
+
+/* ตารางค่าสำหรับแผ่น Photos ในหน้าสแกนมิเตอร์
+   วางที่ global เพราะ batch-scan.css ชนเพดาน budget ต่อ component แล้ว
+
+   หัวคอลัมน์ใช้ชื่อเดียวกับในไฟล์ Excel พร้อมตัวอักษรคอลัมน์ (D · ชื่อไฟล์) คนจะได้
+   กวาดตาเทียบกับไฟล์ได้โดยไม่ต้องแปลชื่อในหัว */
+.lab-sec-plain {
+  background: var(--card);
+}
+
+.lab-table-wrap {
+  overflow-x: auto;
+  margin-top: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.lab-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lab-table th,
+.lab-table td {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 8px 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.lab-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--line-soft);
+  font-weight: 500;
+  text-align: right;
+}
+
+/* หัวแถวค้างไว้ตอนเลื่อนแนวนอน ไม่งั้นเลื่อนไปแล้วไม่รู้ว่าบรรทัดไหนของรูปใบไหน */
+.lab-table tbody th[scope='row'] {
+  position: sticky;
+  left: 0;
+  background: var(--card);
+  text-align: left;
+  font-weight: 500;
+  border-right: 1px solid var(--line);
+}
+
+.lab-table tbody tr:last-child th,
+.lab-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ชื่อไฟล์เป็นข้อความ ชิดซ้ายอ่านง่ายกว่า ต่างจากตัวเลขที่ชิดขวาเพื่อเทียบหลัก */
+.lab-cell-text {
+  text-align: left;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.lab-copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.lab-foot {
+  padding: 0 var(--sp-3) var(--sp-3);
+}

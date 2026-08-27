@@ -497,6 +497,101 @@ export class MemberListComponent implements OnInit {
     this.editErrors = { house_no: '', fname: '', phone: '' };
     this.editLocationError = null;
     this.showEditModal = true;
+    this.loadInitialReading(member?.id);
+  }
+
+  // ==========================================
+  // เลขมิเตอร์ตั้งต้น — เส้นเริ่มต้นที่บิลใบแรกเอาไปลบ
+  //
+  // ของเดิมกรอกได้ครั้งเดียวตอนลงทะเบียนแล้วแก้ไม่ได้อีกเลย พิมพ์เกินหนึ่งหลัก
+  // (1250 เป็น 12500) ทุกบิลของบ้านหลังนั้นผิดตามไปตลอด ทางแก้เดิมคือลบบ้านทิ้ง
+  // แล้วลงใหม่ ซึ่งพาบิลกับประวัติการจดหายไปด้วยทั้งหมด
+  // ==========================================
+
+  /** เลขตั้งต้นปัจจุบันของบ้านที่กำลังแก้ — null = ยังโหลดไม่เสร็จ หรือบ้านนี้ยังไม่เคยจด */
+  initialReading: { id: number; unit: number } | null = null;
+  initialUnitInput: number | string = '';
+  initialReasonInput = '';
+  initialReadingError: string | null = null;
+  isSavingInitialUnit = false;
+
+  private loadInitialReading(memberId: unknown): void {
+    this.initialReading = null;
+    this.initialUnitInput = '';
+    this.initialReasonInput = '';
+    this.initialReadingError = null;
+
+    const id = Number(memberId);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    this.memberService.getInitialReading(id).subscribe({
+      next: (readings: any) => {
+        const list = Array.isArray(readings) ? readings : [];
+        // หลังบ้านเรียงใหม่สุดขึ้นก่อน และ reading_date เป็น date ล้วน วันเดียวกันเรียงไม่ออก
+        // จึงต้องหาตัว id น้อยที่สุดเอง ให้ตรงกับที่หลังบ้านถือว่าเป็น "การจดครั้งแรก"
+        const first = list.reduce(
+          (a: any, b: any) => (a === null || Number(b?.id) < Number(a?.id) ? b : a),
+          null as any
+        );
+
+        this.initialReading = first
+          ? { id: Number(first.id), unit: Number(first.meter_unit) }
+          : null;
+        this.initialUnitInput = this.initialReading ? this.initialReading.unit : '';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('โหลดเลขมิเตอร์ตั้งต้นไม่สำเร็จ:', err);
+        this.initialReadingError = extractErrorMessage(err, 'โหลดเลขมิเตอร์ตั้งต้นไม่สำเร็จ');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** เลขบนฟอร์มต่างจากของเดิมไหม — ไม่ต่างก็ไม่ต้องให้กดบันทึก */
+  get initialUnitChanged(): boolean {
+    if (!this.initialReading) return false;
+    const value = Number(this.initialUnitInput);
+    return Number.isInteger(value) && value >= 0 && value !== this.initialReading.unit;
+  }
+
+  saveInitialUnit(): void {
+    if (this.isSavingInitialUnit || !this.editingMember || !this.initialReading) return;
+
+    const unit = Number(this.initialUnitInput);
+    if (!Number.isInteger(unit) || unit < 0) {
+      this.initialReadingError = 'เลขมิเตอร์ตั้งต้นต้องเป็นจำนวนเต็มไม่ติดลบครับ';
+      return;
+    }
+
+    const reason = this.initialReasonInput.trim();
+    if (!reason) {
+      // หลังบ้านก็ตีกลับถ้าไม่มีเหตุผล แต่บอกตั้งแต่ตรงนี้ดีกว่าให้ยิงไปแล้วค่อยเด้งกลับ
+      this.initialReadingError = 'กรุณากรอกเหตุผลที่แก้ครับ — การแก้นี้กระทบทุกบิลของบ้านหลังนี้';
+      return;
+    }
+
+    this.isSavingInitialUnit = true;
+    this.initialReadingError = null;
+
+    this.memberService
+      .updateInitialReading({ id: Number(this.editingMember.id), initial_meter_unit: unit, reason })
+      .subscribe({
+        next: () => {
+          this.isSavingInitialUnit = false;
+          this.initialReading = { ...this.initialReading!, unit };
+          this.initialReasonInput = '';
+          this.cdr.detectChanges();
+          toast.success('แก้เลขมิเตอร์ตั้งต้นเรียบร้อยแล้ว', { id: 'initial-unit-saved' });
+        },
+        error: (err) => {
+          this.isSavingInitialUnit = false;
+          console.error('แก้เลขมิเตอร์ตั้งต้นไม่สำเร็จ:', err);
+          // ข้อความจากหลังบ้านบอกเหตุผลจริง (เช่น มากกว่าการจดครั้งถัดไป) ต้องโชว์ตรง ๆ
+          this.initialReadingError = extractErrorMessage(err, 'แก้เลขมิเตอร์ตั้งต้นไม่สำเร็จ');
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   closeEditModal(): void {

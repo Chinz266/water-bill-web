@@ -770,6 +770,91 @@
         }
       </div>
 
+      <!-- ค่าที่ต้องเอาไปใส่แผ่น Photos ของไฟล์ Excel — เรียงคอลัมน์ตามไฟล์เป๊ะ
+           คนทำการทดลองจะได้กวาดตาเทียบทีละคอลัมน์ได้โดยไม่ต้องแปลชื่อในหัว -->
+      @if (labPhotoRows().length) {
+        <button type="button" class="btn btn-sm btn-ghost lab-toggle" (click)="toggleLabTables()">
+          🧪 ค่าสำหรับแผ่น Photos ในไฟล์ Excel
+          <span class="lab-caret">{{ labTablesOpen ? '▲' : '▼' }}</span>
+        </button>
+
+        @if (labTablesOpen) {
+          <div class="lab">
+            <section class="lab-sec lab-sec-plain">
+              <h4 class="lab-sec-title">
+                <span class="lab-num">D</span> ชื่อไฟล์ ถึง ลองจิจูด — วางที่ช่อง D4
+              </h4>
+              <div class="lab-table-wrap">
+                <table class="lab-table">
+                  <thead>
+                    <tr>
+                      <th>รูป</th>
+                      <th>D · ชื่อไฟล์</th>
+                      <th>E · วัน-เวลาที่ถ่าย</th>
+                      <th>F · ละติจูด</th>
+                      <th>G · ลองจิจูด</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of labPhotoRows(); track p.seq) {
+                      <tr>
+                        <th scope="row">#{{ p.seq }}</th>
+                        <td class="lab-cell-text">{{ p.fileName }}</td>
+                        <td>{{ p.capturedAt || '—' }}</td>
+                        <td>{{ p.lat || '—' }}</td>
+                        <td>{{ p.lng || '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" class="btn btn-sm btn-primary lab-copy" (click)="copyPhotosBlock('coords')">
+                📋 คัดลอก 4 คอลัมน์นี้ (D:G)
+              </button>
+            </section>
+
+            <section class="lab-sec lab-sec-plain">
+              <h4 class="lab-sec-title">
+                <span class="lab-num">M</span> ผลอ่านเลขจาก AI — วางทีละคอลัมน์
+              </h4>
+              <p class="lab-key">
+                ระหว่าง G กับ M มีคอลัมน์ที่คุณกรอกเอง (ระยะถ่าย · มุม · สภาพแสง · คุณภาพรูป)
+                คั่นอยู่ ถ้าคัดลอกรวบเป็นก้อนเดียวช่องว่างจะไปทับของที่กรอกไว้แล้ว จึงแยกปุ่มครับ
+              </p>
+              <div class="lab-table-wrap">
+                <table class="lab-table">
+                  <thead>
+                    <tr><th>รูป</th><th>M · read_unit</th><th>P · confidence</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (p of labPhotoRows(); track p.seq) {
+                      <tr>
+                        <th scope="row">#{{ p.seq }}</th>
+                        <td>{{ p.readUnit || '—' }}</td>
+                        <td>{{ p.confidence || '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <div class="lab-copy-row">
+                <button type="button" class="btn btn-sm btn-secondary" (click)="copyPhotosBlock('read')">
+                  📋 คัดลอก read_unit (M4)
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" (click)="copyPhotosBlock('conf')">
+                  📋 คัดลอก confidence (P4)
+                </button>
+              </div>
+            </section>
+
+            <p class="lab-key lab-foot">
+              คอลัมน์ที่เหลือในแผ่น Photos (รหัสคู่ · ด้าน · รหัสรูป · ระยะถ่าย · มุม · สภาพแสง ·
+              คุณภาพรูป · full_reading · เลขจริงบนหน้าปัด · อ่านถูก? 1/0) หน้าเว็บไม่รู้ ต้องกรอกเองครับ
+            </p>
+          </div>
+        }
+      }
+
       <label class="replace-toggle">
         <input type="checkbox" [(ngModel)]="replaceExisting" [disabled]="isBusy" />
         <span>
