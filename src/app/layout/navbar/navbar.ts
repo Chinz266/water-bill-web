@@ -16,7 +16,8 @@ export class Navbar {
   private router = inject(Router);
 
   readonly displayName = this.auth.displayName;
-  readonly photo = this.auth.user; // เอา user มาอ่าน .photo ในเทมเพลต
+  // ชี้ signal ตัวเดียวกับที่ทั้งแอปใช้ (เดิมมี alias ชื่อ user ซ้อนอีกชื่อ ไม่มีใครเรียก)
+  readonly photo = this.auth.admin;
 
   onLogout(): void {
     this.auth.logout();

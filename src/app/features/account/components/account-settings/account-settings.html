@@ -100,6 +100,13 @@
     </button>
   </form>
 
+  <!-- เปิดบัญชีผู้ดูแลใหม่ — ย้ายมาจากหน้า login (เดิมเป็นหน้าสมัครสาธารณะ
+       ซึ่งแปลว่าใครก็เปิดบัญชีแอดมินให้ตัวเองได้) -->
+  <a class="btn btn-ghost btn-block add-admin-btn" routerLink="/register">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M18 8v6"/><path d="M15 11h6"/></svg>
+    เพิ่มผู้ดูแลคนใหม่
+  </a>
+
   <!-- ออกจากระบบ -->
   <button type="button" class="btn btn-danger-soft btn-block logout-block" (click)="onLogout()">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>

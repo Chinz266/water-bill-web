@@ -67,8 +67,6 @@ export class AuthService {
   private currentToken = signal<string | null>(this.readStoredToken());
 
   readonly admin = this.currentAdmin.asReadonly();
-  /** ชื่อที่สื่อความหมายกว่าเมื่อผู้ใช้อาจเป็นลูกบ้าน — ชี้ข้อมูลก้อนเดียวกับ admin */
-  readonly user = this.currentAdmin.asReadonly();
 
   // ต้องมีทั้งข้อมูลผู้ใช้ "และ" token ถึงจะถือว่าล็อกอินอยู่จริง
   // ถ้าเช็คแค่ข้อมูลผู้ใช้ เซสชันเก่าที่ไม่มี token จะทำให้เข้าหน้าได้แต่กดอะไรก็ 401
@@ -124,13 +122,6 @@ export class AuthService {
   loginMember(payload: MemberAuthPayload): Observable<AuthResult> {
     return this.http
       .post<AuthResult>(`${this.baseUrl}/member/login`, payload)
-      .pipe(tap((result) => this.storeSession(result)));
-  }
-
-  // POST /auth/member/register — หลังบ้านจะยอมให้สมัครเฉพาะเบอร์ที่มีบ้านลงทะเบียนไว้แล้ว
-  registerMember(payload: MemberAuthPayload): Observable<AuthResult> {
-    return this.http
-      .post<AuthResult>(`${this.baseUrl}/member/register`, payload)
       .pipe(tap((result) => this.storeSession(result)));
   }
 

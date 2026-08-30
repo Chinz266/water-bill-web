@@ -19,9 +19,12 @@ export const routes: Routes = [
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/components/login/login').then(m => m.LoginComponent),
   },
+  // 🔐 เปิดบัญชีผู้ดูแลใหม่ = งานของแอดมินที่ล็อกอินอยู่ ไม่ใช่หน้าสมัครสาธารณะ
+  //    (หลังบ้านถอด @Public() ออกจาก POST /auth/register แล้ว — ของเดิมใครก็สมัคร
+  //     เป็นแอดมินเองได้แล้วเข้าหลังบ้านได้ทันที) เข้าได้จากหน้าตั้งค่าผู้ดูแล
   {
     path: 'register',
-    canActivate: [guestGuard],
+    canActivate: [authGuard],
     loadComponent: () => import('./features/auth/components/register/register').then(m => m.RegisterComponent),
   },
 

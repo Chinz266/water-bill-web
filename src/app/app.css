@@ -6,7 +6,9 @@
   padding: 24px 24px 40px;
 }
 
-@media (max-width: 900px) {
+/* ⚠️ ต้องตรงกับ breakpoint ของ .tabbar ใน layout/navbar/navbar.css
+   แถบเมนูล่างเริ่มโผล่ที่ความกว้างนี้ ถ้าสองไฟล์ไม่ตรงกัน เนื้อหาท้ายหน้าจะโดนแถบบัง */
+@media (max-width: 1200px) {
   .main-content {
     padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
   }

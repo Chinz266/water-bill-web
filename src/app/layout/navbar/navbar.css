@@ -61,25 +61,38 @@ svg {
   color: var(--text-muted);
 }
 
-/* ---------- เมนูจอใหญ่ ---------- */
+/* ---------- เมนูจอใหญ่ ----------
+ * 8 เมนู + ชื่อระบบ + กล่องผู้ใช้ ต้องการ ~1,430px ถึงอยู่บรรทัดเดียวได้
+ * จอ 1280–1366 จึงไม่พอ วัดจริงได้สามชั้น:
+ *   ≥1440 เต็มรูปแบบ · 1200–1440 ซ่อนคำโปรย (~1,185px) · <1200 ลงแถบล่าง
+ */
 .desk-menu {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin-left: auto;
 }
 
 .desk-menu a {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 48px;
-  padding: 0 16px;
-  font-size: 16px;
+  padding: 0 12px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-muted);
   text-decoration: none;
   border-radius: 12px;
+  /* 🌟 กันคำไทยตัดกลางคำ ("หน้า/แรก") ห้ามเอาออก — ไม่มีสองบรรทัดนี้
+     เมนูจะถูกบีบจนแคบกว่าตัวหนังสือ แล้วแถบสูงจาก 73px เป็น 125px */
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
+}
+
+.desk-menu svg {
+  width: 20px;
+  height: 20px;
 }
 
 .desk-menu a:hover {
@@ -165,12 +178,32 @@ svg {
   height: 20px;
 }
 
-/* ---------- แถบเมนูล่าง (มือถือ) ---------- */
+/* 1200–1440: ตัดส่วนที่เป็นคำอธิบายออกก่อน เพราะคำกำกับเมนูมีค่ากว่า
+   (รูปกลม ๆ ยังกดเข้าหน้าตั้งค่าผู้ดูแลได้เหมือนเดิม) */
+@media (max-width: 1440px) {
+  .topbar {
+    gap: 16px;
+    padding: 12px 16px;
+  }
+
+  .brand-sub,
+  .user-text,
+  .logout-text {
+    display: none;
+  }
+
+  .topbar-user {
+    padding-left: 16px;
+  }
+}
+
+/* ---------- แถบเมนูล่าง (มือถือ/แท็บเล็ต) ---------- */
 .tabbar {
   display: none;
 }
 
-@media (max-width: 900px) {
+/* ⚠️ ต้องตรงกับ .main-content ใน app.css ที่เว้นที่ให้แถบนี้ ไม่งั้นเนื้อหาท้ายหน้าโดนบัง */
+@media (max-width: 1200px) {
   .topbar {
     gap: 12px;
     padding: 10px 16px;
@@ -200,8 +233,10 @@ svg {
     right: 0;
     z-index: 100;
     display: grid;
-    /* จำนวนช่องต้องตามจำนวนเมนูจริง ไม่งั้นเมนูสุดท้ายตกไปแถวสอง */
-    grid-template-columns: repeat(6, 1fr);
+    /* แบ่งช่องตามจำนวนลิงก์จริงเอง — ของเดิมตรึง 6 ช่องทั้งที่มี 8 เมนู
+       สองอันท้ายเลยตกไปแถวสอง แบบนี้เพิ่มเมนูใหม่ก็ไม่พัง */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     background: #fff;
     border-top: 1px solid var(--line);
@@ -214,16 +249,21 @@ svg {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    min-height: 60px;
+    min-height: 56px;
     padding: 6px 2px;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-muted);
     text-decoration: none;
     border-radius: 12px;
-    /* 5 เมนูบนจอแคบ — ห้ามตัดคำขึ้นบรรทัดใหม่ ไม่งั้นแถบสูงไม่เท่ากัน */
+    /* 8 เมนูบนจอแคบ — ห้ามตัดคำขึ้นบรรทัดใหม่ ไม่งั้นแถบสูงไม่เท่ากัน */
     white-space: nowrap;
     overflow: hidden;
+  }
+
+  .tabbar svg {
+    width: 20px;
+    height: 20px;
   }
 
   .tabbar a.is-active {
@@ -232,8 +272,10 @@ svg {
   }
 }
 
-@media (max-width: 380px) {
-  .logout-text {
-    display: none;
+/* ≤420px: 8 ช่องเหลือช่องละ ~45px ซึ่งพอดีเป๊ะกับ "แจ้งเรื่อง" ที่ 12px จนโดนตัดหาง */
+@media (max-width: 420px) {
+  .tabbar a {
+    font-size: 10px;
+    gap: 2px;
   }
 }
