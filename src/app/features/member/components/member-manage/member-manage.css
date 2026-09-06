@@ -15,15 +15,6 @@
   color: var(--text-muted);
 }
 
-/* ปุ่มสองอันนี้ทำคนละเรื่องกันมาก (บันทึกคนเข้า vs ปิดยอดคนออก)
-   จึงต้องแยกให้เห็นชัด ไม่ใช่วางติดกันแบบปุ่มพี่น้อง */
-.action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 12px;
-}
-
 .page-head .btn {
   margin-top: 8px;
 }

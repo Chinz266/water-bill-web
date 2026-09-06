@@ -57,8 +57,8 @@ export const routes: Routes = [
     loadComponent: () => import('./features/member/components/batch-register/batch-register').then(m => m.BatchRegisterComponent),
   },
   {
-    // มิเตอร์ + ผู้อยู่อาศัยของบ้านหลังเดียว — สองเรื่องที่เกิดกลางรอบบิล
-    // และถ้าไม่บันทึกตอนเกิด ข้อมูลจะหายถาวร (เลขปิดมิเตอร์เก่า / เลข ณ วันย้ายออก)
+    // ทะเบียนมิเตอร์ของบ้านหลังเดียว — เรื่องที่เกิดกลางรอบบิล และถ้าไม่บันทึก
+    // ตอนเกิด ข้อมูลจะหายถาวร (เลขปิดของมิเตอร์ตัวเก่าอยู่บนหน้าปัดที่ถอดไปแล้ว)
     path: 'members/:membersId/manage',
     canActivate: [authGuard],
     loadComponent: () =>
@@ -84,7 +84,7 @@ export const routes: Routes = [
       ),
   },
   {
-    // ธงที่ระบบติดไว้ตอนมีคนกดข้ามด่านตรวจ + งานเก็บกวาดข้อมูลที่หมดอายุ
+    // ข้อตรวจพบตอนออกบิล (และใบที่เจ้าหน้าที่ยืนยันผ่าน) + การลบข้อมูลที่พ้นกำหนดจัดเก็บ
     path: 'audit',
     canActivate: [authGuard],
     loadComponent: () =>

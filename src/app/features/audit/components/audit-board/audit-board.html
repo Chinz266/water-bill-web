@@ -1,12 +1,12 @@
 <div class="page-head">
-  <h1 class="page-title">สอบทานและเก็บกวาดระบบ</h1>
-  <p class="page-subtitle">ดูว่ามีการกดข้ามด่านตรวจตรงไหนบ้าง และเคลียร์ข้อมูลที่หมดอายุ</p>
+  <h1 class="page-title">ตรวจสอบย้อนหลังและจัดการข้อมูล</h1>
+  <p class="page-subtitle">รายการที่ระบบตรวจพบระหว่างออกบิล ใบที่เจ้าหน้าที่ยืนยันผ่าน และการลบภาพที่พ้นกำหนดจัดเก็บ</p>
 </div>
 
-<!-- 📊 สรุป 30 วัน — ตัวเลขที่บอกว่าด่านไหนเริ่มไร้ความหมาย -->
+<!-- 📊 สรุป 30 วัน — ตัวเลขที่บอกว่าข้อตรวจพบข้อไหนขึ้นถี่จนคนเลิกอ่าน -->
 @if (summary(); as sum) {
   <div class="card">
-    <h2 class="section-heading">ธงในรอบ {{ sum.days }} วันที่ผ่านมา</h2>
+    <h2 class="section-heading">สรุปข้อตรวจพบ ในรอบ {{ sum.days }} วันที่ผ่านมา</h2>
 
     @if (sum.flags.length) {
       <div class="summary-grid">
@@ -18,7 +18,7 @@
               <span class="value-unit">ครั้ง</span>
             </p>
             @if (item.confirmed_by_person > 0) {
-              <span class="chip chip-warning">คนกดข้ามด่าน {{ item.confirmed_by_person }} ครั้ง</span>
+              <span class="chip chip-warning">เจ้าหน้าที่ยืนยันผ่าน {{ item.confirmed_by_person }} ครั้ง</span>
             }
           </div>
         }
@@ -27,74 +27,75 @@
       <div class="alert alert-info">
         <span>💡</span>
         <span>
-          ธงใบเดียวแทบไม่ได้แปลว่ามีอะไรผิด — สิ่งที่บอกอะไรจริงคือ<strong>ความถี่</strong>
-          ถ้าธงชนิดไหนขึ้นเกือบทุกใบ แปลว่าเกณฑ์ตั้งแน่นเกินของจริง
-          ให้ไปปรับที่<a routerLink="/village-settings">หน้าตั้งค่าหมู่บ้าน</a>
-          ไม่ใช่ปล่อยให้กดผ่านต่อไป เพราะนิสัยกดผ่านจะลามไปถึงใบที่ผิดจริงครับ
+          ข้อตรวจพบเพียงครั้งเดียวไม่ถือว่าผิดปกติ สิ่งที่ต้องพิจารณาคือ<strong>ความถี่</strong>
+          หากข้อใดปรากฏเกือบทุกใบ แสดงว่าเกณฑ์ที่กำหนดไว้เข้มกว่าสภาพการใช้งานจริง
+          ควรปรับเกณฑ์ที่<a routerLink="/village-settings">หน้าตั้งค่าหมู่บ้าน</a>
+          มิใช่ยืนยันผ่านต่อเนื่อง เพราะการยืนยันผ่านจนเคยชิน
+          จะทำให้ใบที่ผิดจริงผ่านไปด้วยครับ
         </span>
       </div>
     } @else {
-      <p class="text-muted">ยังไม่มีธงในช่วงนี้ครับ</p>
+      <p class="text-muted">ไม่มีข้อตรวจพบในช่วงเวลานี้ครับ</p>
     }
   </div>
 }
 
-<!-- 🧹 งานเก็บกวาด -->
+<!-- 🧹 การจัดการข้อมูลที่พ้นกำหนดจัดเก็บ -->
 @if (housekeeping(); as hk) {
   <div class="card">
-    <h2 class="section-heading">งานเก็บกวาด</h2>
+    <h2 class="section-heading">ข้อมูลที่พ้นกำหนดจัดเก็บ</h2>
 
     <dl class="detail-list">
       <div class="detail-row">
-        <dt>บิลที่จ่ายแล้วและเก่าเกิน {{ hk.photo_retention_days }} วัน</dt>
+        <dt>บิลที่ชำระแล้วเกิน {{ hk.photo_retention_days }} วัน (ลบภาพได้)</dt>
         <dd class="cell-strong">{{ hk.purgeable_paid_bills }} ใบ</dd>
       </div>
       <div class="detail-row">
-        <dt>รูปที่รอจับคู่กับบ้าน</dt>
+        <dt>ภาพที่รอจับคู่กับบ้าน</dt>
         <dd class="cell-strong">
-          <a routerLink="/unassigned">{{ hk.pending_unassigned }} รูป</a>
+          <a routerLink="/unassigned">{{ hk.pending_unassigned }} ภาพ</a>
         </dd>
       </div>
       <div class="detail-row">
-        <dt>รูปที่ค้างคิวนานจนจะถูกตีทิ้งอัตโนมัติ</dt>
-        <dd class="cell-strong">{{ hk.stale_unassigned }} รูป</dd>
+        <dt>ภาพค้างในคิวจนถึงกำหนดที่ระบบจะลบอัตโนมัติ</dt>
+        <dd class="cell-strong">{{ hk.stale_unassigned }} ภาพ</dd>
       </div>
     </dl>
 
     <p class="field-hint">
-      งานพวกนี้รันเองทุกคืนอยู่แล้ว ปุ่มนี้มีไว้สั่งเดี๋ยวนี้เวลาพื้นที่ใกล้เต็ม
+      ระบบดำเนินการให้อัตโนมัติทุกคืนอยู่แล้ว ปุ่มนี้ใช้สั่งดำเนินการทันทีเมื่อพื้นที่จัดเก็บใกล้เต็มครับ
     </p>
 
     <button type="button" class="btn btn-danger-soft" (click)="askCleanup.set(true)">
-      สั่งเก็บกวาดเดี๋ยวนี้
+      ลบภาพที่พ้นกำหนดจัดเก็บ
     </button>
   </div>
 }
 
-<!-- 🚩 รายการธง -->
+<!-- 🚩 ข้อตรวจพบรายใบ -->
 <div class="card">
   <div class="flags-head">
-    <h2 class="section-heading">รายการธง</h2>
+    <h2 class="section-heading">รายการข้อตรวจพบ</h2>
 
     <div class="field">
-      <label class="field-label" for="flag-filter">กรองตามชนิด</label>
+      <label class="field-label" for="flag-filter">กรองตามประเภท</label>
       <select
         id="flag-filter"
         class="field-input"
         [(ngModel)]="selectedType"
         (ngModelChange)="onFilterChange()"
       >
-        <option value="">ทุกชนิด</option>
-        <option value="high_usage">หน่วยน้ำสูงผิดปกติ (กดยืนยันผ่าน)</option>
-        <option value="usage_warning">หน่วยน้ำขยับจากปกติ</option>
-        <option value="duplicate_location">พิกัดซ้ำ</option>
-        <option value="burst_photo">ถ่ายรัวจากจุดเดิม</option>
-        <option value="manual_entry">กรอกเลขเอง</option>
-        <option value="low_confidence">AI อ่านไม่ชัด</option>
-        <option value="digit_change">จำนวนหลักเปลี่ยน</option>
-        <option value="meter_reset">เปลี่ยนมิเตอร์</option>
-        <option value="stale_photo">รูปเก่า</option>
-        <option value="offline_sync">ซิงก์จากออฟไลน์</option>
+        <option value="">ทุกประเภท</option>
+        <option value="high_usage">ปริมาณการใช้น้ำสูงผิดปกติ</option>
+        <option value="usage_warning">ปริมาณการใช้น้ำเบี่ยงเบนจากค่าเฉลี่ย</option>
+        <option value="duplicate_location">พิกัดซ้ำกับการบันทึกครั้งก่อน</option>
+        <option value="burst_photo">ถ่ายภาพต่อเนื่องจากจุดเดิม</option>
+        <option value="manual_entry">เจ้าหน้าที่บันทึกตัวเลขเอง</option>
+        <option value="low_confidence">ระบบ AI อ่านตัวเลขไม่ชัดเจน</option>
+        <option value="digit_change">จำนวนหลักบนหน้าปัดไม่ตรงกับที่บันทึกไว้</option>
+        <option value="meter_reset">เลขมิเตอร์ลดลงจากครั้งก่อน</option>
+        <option value="stale_photo">ภาพถ่ายก่อนรอบบิลที่ออก</option>
+        <option value="offline_sync">บันทึกขณะไม่มีสัญญาณ แล้วส่งเข้าระบบภายหลัง</option>
       </select>
     </div>
   </div>
@@ -102,7 +103,7 @@
   @if (isLoading()) {
     <p class="text-muted">กำลังโหลด...</p>
   } @else if (!flags().length) {
-    <p class="text-muted">ไม่มีธงที่ตรงกับเงื่อนไขครับ</p>
+    <p class="text-muted">ไม่มีรายการตรงตามเงื่อนไขที่เลือกครับ</p>
   } @else {
     <ul class="flag-list">
       @for (flag of flags(); track flag.id) {
@@ -112,9 +113,9 @@
               {{ flagLabel(flag.flag_type) }}
             </span>
             @if (wasConfirmedByPerson(flag)) {
-              <span class="flag-by">คนกดยืนยันข้ามด่าน</span>
+              <span class="flag-by">เจ้าหน้าที่ยืนยันผ่าน</span>
             } @else {
-              <span class="flag-by text-muted">ระบบติดไว้เอง</span>
+              <span class="flag-by text-muted">ระบบบันทึกไว้เอง ไม่มีผู้ยืนยัน</span>
             }
           </div>
 
@@ -127,7 +128,7 @@
           </p>
 
           @if (flag.detail) {
-            <p class="flag-detail text-muted">{{ flag.detail }}</p>
+            <p class="flag-detail text-muted">{{ flagDetail(flag.detail) }}</p>
           }
 
           <p class="flag-date text-muted">{{ flag.create_date | date:'d MMM y HH:mm' }}</p>
@@ -137,33 +138,33 @@
   }
 </div>
 
-<!-- ⚠️ ยืนยันก่อนเก็บกวาด — ลบไฟล์รูปแล้วกู้คืนไม่ได้ -->
+<!-- ⚠️ ยืนยันก่อนลบ — ไฟล์ภาพที่ลบแล้วกู้คืนไม่ได้ -->
 @if (askCleanup()) {
   <div class="modal-overlay" (click)="askCleanup.set(false)">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">สั่งเก็บกวาดเดี๋ยวนี้ใช่ไหมครับ?</h2>
+        <h2 class="modal-title">ยืนยันการลบภาพที่พ้นกำหนดจัดเก็บ</h2>
         <button type="button" class="modal-close" (click)="askCleanup.set(false)" aria-label="ปิด">✕</button>
       </div>
 
       <div class="alert alert-warning">
         <span>⚠️</span>
         <span>
-          จะ<strong>ลบไฟล์รูปมิเตอร์</strong>ของบิลที่ชำระแล้วและเก่าเกิน 1 ปีทิ้ง
-          <strong>กู้คืนไม่ได้</strong> — ข้อมูลการจด (เลขมิเตอร์ วันที่ พิกัด) ยังอยู่ครบ
-          หายไปเฉพาะตัวรูปครับ
+          ระบบจะ<strong>ลบไฟล์ภาพมิเตอร์</strong>ของบิลที่ชำระแล้วและมีอายุเกิน 1 ปี
+          และ<strong>ไม่สามารถกู้คืนได้</strong> — ข้อมูลการบันทึก (เลขมิเตอร์ วันที่ พิกัด)
+          ยังคงอยู่ครบถ้วน ลบเฉพาะไฟล์ภาพเท่านั้นครับ
         </span>
       </div>
 
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" (click)="askCleanup.set(false)" [disabled]="isCleaning()">
-          ยังไม่ทำ
+          ยกเลิก
         </button>
         <button type="button" class="btn btn-danger" (click)="confirmCleanup()" [disabled]="isCleaning()">
           @if (isCleaning()) {
-            <span class="btn-spinner"></span> กำลังเก็บกวาด...
+            <span class="btn-spinner"></span> กำลังดำเนินการ...
           } @else {
-            เก็บกวาดเลย
+            ยืนยันการลบ
           }
         </button>
       </div>
