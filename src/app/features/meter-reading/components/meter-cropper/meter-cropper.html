@@ -198,7 +198,27 @@
           <span class="conf-fill" [style.width.%]="confidencePercent ?? 100"></span>
         </div>
         <p class="conf-text">{{ confidenceLabel }}</p>
+        <!-- ความแม่นยำที่วัดได้จริงจากการทดลอง 200 ภาพ ให้เจ้าหน้าที่รู้ว่าควรเชื่อแค่ไหน -->
+        <p class="conf-evidence">
+          จากการทดสอบภาคสนาม ผลอ่านในระดับความชัดนี้ถูกต้องราว {{ expectedAccuracyPercent }}%
+        </p>
       </div>
+
+      <!-- ค่าความเชื่อมั่นไม่ผ่านเกณฑ์ = บังคับให้ตรวจด้วยตาก่อน ถึงจะกดบันทึกได้ -->
+      @if (needsManualVerify) {
+        <div class="verify-gate">
+          <p class="verify-gate-title">ต้องตรวจสอบด้วยตาก่อนบันทึก</p>
+          <ul class="verify-gate-tips">
+            @for (tip of captureTips; track tip) {
+              <li>{{ tip }}</li>
+            }
+          </ul>
+          <label class="verify-gate-check">
+            <input type="checkbox" [(ngModel)]="verifiedByStaff" [disabled]="saveSuccess" />
+            <span>ตรวจสอบแล้วว่าเลขในช่องตรงกับหน้าปัดในรูป</span>
+          </label>
+        </div>
+      }
 
       <!-- รูปที่ถ่ายวางคู่ช่องกรอก ให้เทียบเลขกับหน้าปัดด้วยตาได้ทันที -->
       <div class="verify">
@@ -297,7 +317,7 @@
           type="button"
           class="btn btn-primary btn-block main-action"
           (click)="confirmAndSave()"
-          [disabled]="isSaving || !aiResult.read_unit || !selectedMemberId || isBelowPrevious"
+          [disabled]="!canSave"
         >
           @if (isSaving) {
             <span class="btn-spinner"></span>

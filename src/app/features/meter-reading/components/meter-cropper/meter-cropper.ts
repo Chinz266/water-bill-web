@@ -9,6 +9,11 @@ import { MeterReadingService } from '../../services/meter-reading.service';
 import { MemberService } from '../../../member/services/member.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
+import {
+  CAPTURE_TIPS,
+  OCR_ACCURACY_BY_CONFIDENCE,
+  OCR_CONFIDENCE_THRESHOLD
+} from '../../../../core/measurement.constants';
 
 @Component({
   selector: 'app-meter-cropper',
@@ -48,6 +53,12 @@ export class MeterCropperComponent implements OnInit {
   // บิลที่เพิ่งสร้าง — เก็บไว้ให้กด "ยกเลิก" ย้อนได้ทันทีถ้าบันทึกผิด
   savedBill: any = null;
   isUndoing = false;
+
+  // จากการทดลอง: ภาพที่ค่าความเชื่อมั่นต่ำกว่าเกณฑ์อ่านถูกเพียง 30.5% และภาพที่ระบบ
+  // ไม่ให้ค่าความเชื่อมั่นเลยอ่านถูก 0% — สองกลุ่มนี้จึงต้องให้เจ้าหน้าที่ติ๊กยืนยัน
+  // ว่าเทียบเลขกับหน้าปัดแล้ว ก่อนจะกดบันทึกได้
+  verifiedByStaff = false;
+  readonly captureTips = CAPTURE_TIPS;
 
   private auth = inject(AuthService);
 
@@ -186,17 +197,53 @@ export class MeterCropperComponent implements OnInit {
     return Math.max(0, Math.min(100, Math.round(percent)));
   }
 
+  /**
+   * ผ่านเกณฑ์บันทึกอัตโนมัติไหม — หลังบ้านตัดสินมาให้แล้วใน auto_savable
+   * (ถ้า API เวอร์ชันเก่ายังไม่ส่งฟิลด์นี้ ค่อยเทียบกับเกณฑ์เองเป็นตัวสำรอง)
+   */
+  get autoSavable(): boolean {
+    if (typeof this.aiResult?.auto_savable === 'boolean') {
+      return this.aiResult.auto_savable;
+    }
+    const percent = this.confidencePercent;
+    return percent !== null && percent >= OCR_CONFIDENCE_THRESHOLD * 100;
+  }
+
   // ชัดเจน = เขียว, ที่เหลือ (รวมถึงกรณีไม่รู้ค่า) = เหลือง ให้เจ้าหน้าที่ตรวจซ้ำ
   get isConfident(): boolean {
-    const percent = this.confidencePercent;
-    return percent !== null && percent >= 85;
+    return this.autoSavable;
   }
 
   get confidenceLabel(): string {
     const percent = this.confidencePercent;
-    if (percent === null) return 'โปรดตรวจสอบตัวเลขอีกครั้ง';
-    if (percent >= 85) return `อ่านได้ชัดเจน (${percent}%)`;
+    if (percent === null) return 'ระบบไม่ได้ให้ค่าความเชื่อมั่น โปรดตรวจสอบตัวเลขกับหน้าปัด';
+    if (this.autoSavable) return `อ่านได้ชัดเจน (${percent}%)`;
     return `อ่านได้ไม่ค่อยชัด (${percent}%) โปรดตรวจสอบ`;
+  }
+
+  /** ความแม่นยำที่วัดได้จริงของกลุ่มนี้ ใช้บอกเจ้าหน้าที่ว่าควรเชื่อผลแค่ไหน */
+  get expectedAccuracyPercent(): number {
+    const fromApi = this.aiResult?.expected_accuracy;
+    if (typeof fromApi === 'number' && !isNaN(fromApi)) return Math.round(fromApi * 100);
+    if (this.autoSavable) return Math.round(OCR_ACCURACY_BY_CONFIDENCE.atOrAboveThreshold * 100);
+    if (this.confidencePercent === null) {
+      return Math.round(OCR_ACCURACY_BY_CONFIDENCE.withoutConfidence * 100);
+    }
+    return Math.round(OCR_ACCURACY_BY_CONFIDENCE.belowThreshold * 100);
+  }
+
+  /** ต้องให้เจ้าหน้าที่ติ๊กยืนยันก่อนบันทึกไหม */
+  get needsManualVerify(): boolean {
+    return !this.autoSavable;
+  }
+
+  /** เงื่อนไขครบพร้อมบันทึกหรือยัง (ใช้ทั้งปุ่มและตอนกดจริง ให้ตรงกันเสมอ) */
+  get canSave(): boolean {
+    if (this.isSaving) return false;
+    if (!this.aiResult?.read_unit || !this.selectedMemberId) return false;
+    if (this.isBelowPrevious) return false;
+    if (this.needsManualVerify && !this.verifiedByStaff) return false;
+    return true;
   }
 
   // ==========================================
@@ -238,6 +285,8 @@ export class MeterCropperComponent implements OnInit {
     this.isLoading = true;
     this.aiResult = null;
     this.saveSuccess = false;
+    // สแกนรูปใหม่ = ต้องยืนยันใหม่ ห้ามให้การติ๊กครั้งก่อนค้างมาใช้กับเลขชุดใหม่
+    this.verifiedByStaff = false;
 
     const formData = new FormData();
     // ตั้งชื่อไฟล์จำลองให้ NestJS รับไปใช้งาน
@@ -268,6 +317,13 @@ export class MeterCropperComponent implements OnInit {
 
     if (!this.selectedMemberId) {
       toast.error('กรุณาเลือกบ้านเลขที่ก่อนบันทึกนะครับ', { id: 'need-member' });
+      return;
+    }
+
+    if (this.needsManualVerify && !this.verifiedByStaff) {
+      toast.error('ค่าความเชื่อมั่นต่ำกว่าเกณฑ์ กรุณาเทียบเลขกับหน้าปัดแล้วติ๊กยืนยันก่อนบันทึก', {
+        id: 'need-verify'
+      });
       return;
     }
 

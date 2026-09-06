@@ -307,3 +307,52 @@ input[type='file'] {
     font-size: 36px;
   }
 }
+
+/* หลักฐานจากการทดสอบภาคสนาม — บอกว่าผลอ่านระดับความชัดนี้ถูกจริงกี่ % */
+.conf-evidence {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+}
+
+/* ด่านตรวจด้วยตา: โผล่เฉพาะตอนค่าความเชื่อมั่นไม่ผ่านเกณฑ์ 0.85 */
+.verify-gate {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--warning, #f59e0b);
+  border-radius: 12px;
+  background: #fffbeb;
+}
+
+.verify-gate-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.verify-gate-tips {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #92400e;
+}
+
+.verify-gate-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  font-weight: 600;
+  color: #78350f;
+  cursor: pointer;
+}
+
+.verify-gate-check input {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex: none;
+  accent-color: var(--warning, #f59e0b);
+}
