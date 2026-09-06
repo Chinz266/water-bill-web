@@ -299,8 +299,13 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private print = inject(BillPrintService);
   private cdr = inject(ChangeDetectorRef);
 
-  /** เพดานของหลังบ้าน (ScanBatchService.MAX_FILES) — ส่งเกินนี้โดนตีกลับทั้งชุด */
-  readonly maxFiles = 30;
+  /**
+   * เพดานของหลังบ้าน (ScanBatchService.MAX_FILES) — ส่งเกินนี้โดนตีกลับทั้งชุด
+   *
+   * ⚠️ ต้องเท่ากับค่าฝั่งหลังบ้านเสมอ ตั้งไว้สูงกว่าแล้วกองที่เกินจะเด้งกลับมาทั้งชุด
+   *    หลังคนยืนรอ AI อ่านจนครบแล้ว ซึ่งเสียเวลากว่าการห้ามตั้งแต่ตอนเลือกรูป
+   */
+  readonly maxFiles = 200;
 
   members: any[] = [];
   villages: Village[] = [];
@@ -718,7 +723,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
    * รูปที่ระบบชี้ขาดไม่ได้ ปล่อยลง terminal ใบละครั้ง
    *
    * matchByCoords ถูกไล่ซ้ำทั้งกองหลายรอบ (รายชื่อบ้านมาถึง · เลือกรูปเพิ่ม · หลังบ้านตอบ)
-   * ถ้าไม่กันไว้ กองละ 30 รูปจะได้ log เป็นร้อยบรรทัดจนอ่านไม่ออกว่าจุดไหนซ้ำจริง
+   * ถ้าไม่กันไว้ กองใหญ่ ๆ จะได้ log เป็นพันบรรทัดจนอ่านไม่ออกว่าจุดไหนซ้ำจริง
    */
   private readonly loggedAmbiguous = new Set<string>();
 
@@ -2555,7 +2560,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   /**
    * ใบที่ยังไม่เสร็จลอยขึ้นบนสุด ใบที่ออกบิลแล้วจมลงล่าง
    *
-   * กองหนึ่งมีได้ถึง 30 ใบ ถ้าเรียงตามลำดับรูปเฉย ๆ ใบที่ติดด่านจะกระจายแทรกอยู่กลาง
+   * กองหนึ่งมีได้ถึง 200 ใบ ถ้าเรียงตามลำดับรูปเฉย ๆ ใบที่ติดด่านจะกระจายแทรกอยู่กลาง
    * กองใบที่เขียวหมดแล้ว คนต้องเลื่อนไล่ดูทีละใบว่าเหลืออะไรต้องแก้ — ซึ่งจุดนี้แหละที่คนเลิกไล่
    * แล้วปิดหน้าไปทั้งที่ยังมีใบค้าง
    *
