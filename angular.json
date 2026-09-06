@@ -47,7 +47,7 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
+                  "maximumWarning": "5kB",
                   "maximumError": "8kB"
                 }
               ],
@@ -65,7 +65,7 @@
           "builder": "@angular/build:dev-server",
           "options": {
             "host": "0.0.0.0",
-            "allowedHosts": ["192.168.1.174", "localhost"]
+            "allowedHosts": ["localhost", "127.0.0.1", "192.168.1.35", "192.168.1.174"]
           },
           "configurations": {
             "production": {

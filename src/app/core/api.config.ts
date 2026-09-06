@@ -9,12 +9,41 @@
  */
 const BACKEND_PORT = 3000;
 
-function resolveApiBaseUrl(): string {
-  // ตอน SSR/prerender ไม่มี window — ใช้ localhost ไปก่อน แล้วฝั่ง browser จะคำนวณใหม่เอง
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:${BACKEND_PORT}`;
+/**
+ * หา URL ของ Backend ให้เหมาะกับสภาพแวดล้อมที่เปิดหน้าเว็บ
+ *
+ * - โหมดพัฒนา HTTP ใช้ hostname เดียวกันที่พอร์ต 3000
+ * - เว็บจริง HTTPS ใช้ reverse proxy ที่ /api เพื่อไม่ให้เบราว์เซอร์บล็อก mixed content
+ * - override ใช้ได้ทั้ง URL เต็มและ path ภายในโดเมนเดียวกัน
+ */
+export function resolveApiBaseUrl(
+  currentUrl?: string,
+  override?: string,
+): string {
+  const pageUrl = new URL(
+    currentUrl ??
+      (typeof window !== 'undefined' ? window.location.href : 'http://localhost:4200'),
+  );
+
+  if (override?.trim()) {
+    const apiUrl = new URL(override.trim(), pageUrl.origin);
+    if (!['http:', 'https:'].includes(apiUrl.protocol)) {
+      throw new Error('API URL ต้องใช้ http หรือ https เท่านั้น');
+    }
+    if (apiUrl.username || apiUrl.password || apiUrl.search || apiUrl.hash) {
+      throw new Error('API URL ห้ามมีข้อมูลล็อกอิน query string หรือ fragment');
+    }
+    if (pageUrl.protocol === 'https:' && apiUrl.protocol !== 'https:') {
+      throw new Error('หน้าเว็บ HTTPS ต้องเชื่อมต่อ API ผ่าน HTTPS');
+    }
+    return apiUrl.href.replace(/\/$/, '');
   }
-  return `http://localhost:${BACKEND_PORT}`;
+
+  if (pageUrl.protocol === 'https:') {
+    return `${pageUrl.origin}/api`;
+  }
+
+  return `http://${pageUrl.hostname}:${BACKEND_PORT}`;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
