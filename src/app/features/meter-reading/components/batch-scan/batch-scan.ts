@@ -29,6 +29,7 @@ import { Village, VillageService } from '../../../village/services/village.servi
 import { StoredQueue, StoredRow, clearQueue, loadQueue, saveQueue } from '../../services/batch-queue.store';
 import { DeviceLocationComponent } from '../device-location/device-location';
 import { PHOTO_COORDS_HINT } from '../../services/photo-coords-help';
+import { OCR_CONFIDENCE_PERCENT } from '../../../../core/measurement.constants';
 
 /**
  * สถานะของแต่ละแถว — แยก "อ่านไม่ผ่าน" กับ "ออกบิลไม่ผ่าน" ออกจากกัน
@@ -300,10 +301,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
 
   /**
-   * เพดานของหลังบ้าน (ScanBatchService.MAX_FILES) — ส่งเกินนี้โดนตีกลับทั้งชุด
+   * เพดานภาพต่อหนึ่งชุด
    *
-   * ⚠️ ต้องเท่ากับค่าฝั่งหลังบ้านเสมอ ตั้งไว้สูงกว่าแล้วกองที่เกินจะเด้งกลับมาทั้งชุด
-   *    หลังคนยืนรอ AI อ่านจนครบแล้ว ซึ่งเสียเวลากว่าการห้ามตั้งแต่ตอนเลือกรูป
+   * ⚠️ ห้ามเกิน ScanBatchService.MAX_FILES ของหลังบ้าน (ตอนนี้ 300) เพราะชุดที่เกิน
+   *    จะถูกตีกลับทั้งชุดหลังจากคนยืนรอระบบอ่านจนครบแล้ว ซึ่งเสียเวลากว่าการ
+   *    ห้ามตั้งแต่ตอนเลือกภาพ — ตั้งต่ำกว่าได้ (ค่านี้คือเพดานที่หน้างานใช้จริง)
    */
   readonly maxFiles = 200;
 
@@ -344,8 +346,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
    */
   private readonly conflictMeters = 50;
 
-  /** ต่ำกว่านี้ถือว่า AI ยังอ่านเลขไม่ชัดพอจะปล่อยผ่านโดยไม่มีคนดู */
-  private readonly trustedConfidence = 85;
+  /** ต่ำกว่านี้ถือว่าระบบยังอ่านเลขไม่ชัดพอจะปล่อยผ่านโดยไม่มีคนดู */
+  readonly trustedConfidence = OCR_CONFIDENCE_PERCENT;
 
   /**
    * ต่ำกว่านี้ห้ามออกบิลด้วยเลขที่ AI อ่านมา — **ด่านตาย ไม่มีปุ่มยืนยันให้กดผ่าน**
@@ -885,6 +887,16 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return this.rows.filter((row) => !!row.file && (row.status === 'pending' || row.status === 'read_failed'));
   }
 
+  /**
+   * จำนวนภาพต่อหนึ่งคำขอตอนอ่านเลข
+   *
+   * ⚠️ ห้ามส่งทั้งกองในคำขอเดียว — กองเต็ม 200 ภาพจากมือถือคือหลายร้อยเมกะไบต์
+   *    ในคำขอเดียว เน็ตหมู่บ้านหลุดกลางทางทีเดียวคือ "ล้มทั้งกอง" ต้องเริ่มใหม่หมด
+   *    ทั้งที่ภาพที่อ่านไปแล้วไม่ได้ผิดอะไร แบ่งเป็นชุดย่อยแล้วชุดที่ล้มจะเสียแค่ชุดนั้น
+   *    และแถบความคืบหน้าก็ขยับจริงระหว่างรอ ไม่ใช่ค้างที่ 0 จนจบ
+   */
+  private readonly analyzeChunkSize = 20;
+
   analyze(): void {
     if (this.isBusy) return;
 
@@ -896,53 +908,107 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const queue = this.analyzableRows;
     if (!queue.length) {
-      toast.success('ไม่มีรูปที่ต้องอ่านเลขแล้วครับ', { id: 'batch-read-none' });
+      toast.success('ไม่มีภาพที่ต้องอ่านตัวเลขแล้วครับ', { id: 'batch-read-none' });
       return;
     }
-
-    const billing = this.selectedBilling;
-    const form = new FormData();
-    // ชื่อ field ต้องเป็น 'files' ให้ตรงกับ FilesInterceptor ของหลังบ้าน
-    queue.forEach((row) => form.append('files', row.file!, row.fileName));
-    form.append('billing_month', billing.month);
-    form.append('billing_year', billing.year);
-    if (this.villagesId) form.append('villages_id', String(this.villagesId));
 
     this.isAnalyzing = true;
     this.progress = { done: 0, total: queue.length };
     this.cdr.detectChanges();
 
+    this.analyzeChunk(queue, 0, { failed: 0, lastError: null, high: 0, review: 0 });
+  }
+
+  /**
+   * ยิงชุดย่อยทีละชุดแบบต่อคิวกัน (ชุดถัดไปเริ่มเมื่อชุดก่อนหน้าจบ ไม่ว่าจะสำเร็จหรือล้ม)
+   *
+   * ไล่ทีละชุดแทนการยิงพร้อมกัน เพราะ vision service อ่านทีละภาพอยู่แล้ว ยิงพร้อมกัน
+   * หลายชุดมีแต่จะไปแย่งคิวกันเองแล้วช้ากว่าเดิม
+   */
+  private analyzeChunk(
+    queue: ScanRow[],
+    start: number,
+    acc: { failed: number; lastError: unknown; high: number; review: number }
+  ): void {
+    if (start >= queue.length) {
+      this.finishAnalyze(queue.length, acc);
+      return;
+    }
+
+    const chunk = queue.slice(start, start + this.analyzeChunkSize);
+    const billing = this.selectedBilling;
+
+    const form = new FormData();
+    // ชื่อ field ต้องเป็น 'files' ให้ตรงกับ FilesInterceptor ของหลังบ้าน
+    chunk.forEach((row) => form.append('files', row.file!, row.fileName));
+    form.append('billing_month', billing.month);
+    form.append('billing_year', billing.year);
+    if (this.villagesId) form.append('villages_id', String(this.villagesId));
+
+    const next = () => {
+      this.progress.done = Math.min(queue.length, start + chunk.length);
+      this.persist();
+      this.cdr.detectChanges();
+      this.analyzeChunk(queue, start + chunk.length, acc);
+    };
+
     this.meterReadingService.scanBatch(form).subscribe({
       next: (res: any) => {
-        this.isAnalyzing = false;
-        this.applyResults(queue, res?.results ?? []);
-        this.progress.done = queue.length;
-        this.persist();
-        this.cdr.detectChanges();
+        // index ที่หลังบ้านคืนมาเป็นลำดับ "ในคำขอนั้น" จึงต้องแมปกับชุดย่อยนี้เท่านั้น
+        this.applyResults(chunk, res?.results ?? []);
 
         const summary = res?.summary;
-        toast.success(
-          summary
-            ? `อ่านครบ ${queue.length} รูป — มั่นใจสูง ${summary.high} · ต้องตรวจ ${summary.medium + summary.ambiguous + summary.none}`
-            : `อ่านครบ ${queue.length} รูปแล้วครับ`,
-          { id: 'batch-read-done' }
-        );
-
-        // อ่านเลขเสร็จ → ยิงใบที่พิกัดตรงแปะเลย ที่เหลือค่อยขึ้นกล่องถาม
-        this.runAfterAnalyze();
+        if (summary) {
+          acc.high += Number(summary.high ?? 0);
+          acc.review +=
+            Number(summary.medium ?? 0) + Number(summary.ambiguous ?? 0) + Number(summary.none ?? 0);
+        }
+        next();
       },
       error: (err) => {
-        this.isAnalyzing = false;
-        console.error('วิเคราะห์รูปไม่สำเร็จ:', err);
-        // ทั้งชุดล้มพร้อมกัน (คนละแบบกับตอนออกบิลที่ล้มทีละใบ) เพราะยิงไปครั้งเดียว
-        queue.forEach((row) => {
+        acc.lastError = err;
+        acc.failed += chunk.length;
+        console.error('วิเคราะห์ภาพไม่สำเร็จ:', err);
+        // ล้มเฉพาะชุดย่อยนี้ ชุดอื่นเดินต่อ — ภาพที่อ่านได้แล้วต้องไม่ถูกทิ้งเพราะชุดหลังล้ม
+        chunk.forEach((row) => {
           row.status = 'read_failed';
-          row.error = 'อ่านเลขไม่สำเร็จ ลองใหม่หรือกรอกเลขเองได้ครับ';
+          row.error = 'อ่านตัวเลขไม่สำเร็จ กรุณาลองใหม่ หรือบันทึกตัวเลขเองได้ครับ';
         });
-        this.cdr.detectChanges();
-        toast.error(extractErrorMessage(err, 'อ่านรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'batch-read-error' });
+        next();
       }
     });
+  }
+
+  private finishAnalyze(
+    total: number,
+    acc: { failed: number; lastError: unknown; high: number; review: number }
+  ): void {
+    this.isAnalyzing = false;
+    this.cdr.detectChanges();
+
+    const read = total - acc.failed;
+
+    if (acc.failed && !read) {
+      toast.error(extractErrorMessage(acc.lastError, 'อ่านภาพไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
+        id: 'batch-read-error'
+      });
+    } else if (acc.failed) {
+      // อ่านได้บางส่วนคือผลปกติของการแบ่งชุด ต้องบอกจำนวนตรง ๆ ว่าเหลือกี่ภาพที่ต้องกดใหม่
+      toast.warning(
+        `อ่านสำเร็จ ${read} ภาพ · ไม่สำเร็จ ${acc.failed} ภาพ — กดอ่านอีกครั้งเฉพาะภาพที่เหลือได้ครับ`,
+        { id: 'batch-read-partial' }
+      );
+    } else {
+      toast.success(
+        acc.high || acc.review
+          ? `อ่านครบ ${read} ภาพ — ความเชื่อมั่นสูง ${acc.high} · ต้องตรวจสอบ ${acc.review}`
+          : `อ่านครบ ${read} ภาพแล้วครับ`,
+        { id: 'batch-read-done' }
+      );
+    }
+
+    // อ่านเลขเสร็จ → ยิงใบที่พิกัดตรงแปะเลย ที่เหลือค่อยขึ้นกล่องถาม
+    if (read) this.runAfterAnalyze();
   }
 
   /** ผลลัพธ์อ้างอิงด้วย index ของไฟล์ที่ส่งไป ไม่ใช่ลำดับแถวบนจอ */
@@ -1121,7 +1187,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   shouldReread(row: ScanRow): boolean {
     if (row.status === 'saved' || !row.file) return false;
     if (row.status === 'read_failed') return true;
-    return row.confidence !== null && row.confidence < 85;
+    return row.confidence !== null && row.confidence < this.trustedConfidence;
   }
 
   openCrop(row: ScanRow): void {
@@ -1492,7 +1558,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     }
 
     // ไม่มีรูปแล้วห้ามพูดถึงเปอร์เซ็นต์ที่ AI เคยอ่านได้เลย (ดู showConfidence)
-    if (this.showConfidence(row) && (row.confidence ?? 100) < 85) {
+    if (this.showConfidence(row) && (row.confidence ?? 100) < this.trustedConfidence) {
       notes.push(`ระบบอ่านตัวเลขได้ไม่ชัดเจน (${row.confidence}%) การครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นยำขึ้นครับ`);
     }
     return notes;

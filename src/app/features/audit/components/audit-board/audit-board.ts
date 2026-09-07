@@ -64,6 +64,12 @@ export class AuditBoardComponent implements OnInit {
   readonly summary = signal<FlagSummary | null>(null);
   readonly housekeeping = signal<HousekeepingStatus | null>(null);
 
+  /**
+   * ตัวเลือกในช่องกรอง — มาจาก FLAG_LABELS ตรง ๆ จะได้ไม่มีชนิดไหนตกหล่น
+   * (เรียงตามลำดับที่ประกาศไว้ ซึ่งไล่จากเรื่องที่คนต้องตามดูบ่อยสุดลงไป)
+   */
+  readonly flagTypeOptions = Object.entries(FLAG_LABELS).map(([type, label]) => ({ type, label }));
+
   /** ประเภทข้อตรวจพบที่กำลังกรองอยู่ ('' = ทุกประเภท) */
   selectedType = '';
 

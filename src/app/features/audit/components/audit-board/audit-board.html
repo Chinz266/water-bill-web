@@ -86,16 +86,11 @@
         (ngModelChange)="onFilterChange()"
       >
         <option value="">ทุกประเภท</option>
-        <option value="high_usage">ปริมาณการใช้น้ำสูงผิดปกติ</option>
-        <option value="usage_warning">ปริมาณการใช้น้ำเบี่ยงเบนจากค่าเฉลี่ย</option>
-        <option value="duplicate_location">พิกัดซ้ำกับการบันทึกครั้งก่อน</option>
-        <option value="burst_photo">ถ่ายภาพต่อเนื่องจากจุดเดิม</option>
-        <option value="manual_entry">เจ้าหน้าที่บันทึกตัวเลขเอง</option>
-        <option value="low_confidence">ระบบอ่านตัวเลขได้ไม่ชัดเจน</option>
-        <option value="digit_change">จำนวนหลักบนหน้าปัดไม่ตรงกับที่บันทึกไว้</option>
-        <option value="meter_reset">เลขมิเตอร์ลดลงจากครั้งก่อน</option>
-        <option value="stale_photo">ภาพถ่ายก่อนรอบบิลที่ออก</option>
-        <option value="offline_sync">บันทึกขณะไม่มีสัญญาณ แล้วส่งเข้าระบบภายหลัง</option>
+        <!-- สร้างจาก FLAG_LABELS ตัวเดียวกับที่ใช้ตั้งชื่อในรายการข้างล่าง — เขียนรายการ
+             ซ้ำสองที่แล้วมันเคยหลุดกันจริง (future_timestamp มีชื่อแต่ไม่มีให้เลือกกรอง) -->
+        @for (option of flagTypeOptions; track option.type) {
+          <option [value]="option.type">{{ option.label }}</option>
+        }
       </select>
     </div>
   </div>

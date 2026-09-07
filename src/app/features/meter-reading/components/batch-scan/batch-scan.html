@@ -300,8 +300,8 @@
                 @if (row.confidence !== null && showConfidence(row)) {
                   <span
                     class="chip"
-                    [class.chip-success]="row.confidence >= 85"
-                    [class.chip-warning]="row.confidence < 85"
+                    [class.chip-success]="row.confidence >= trustedConfidence"
+                    [class.chip-warning]="row.confidence < trustedConfidence"
                   >อ่านเลข {{ row.confidence }}%</span>
                 }
 

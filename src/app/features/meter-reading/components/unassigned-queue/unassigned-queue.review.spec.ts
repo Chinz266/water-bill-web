@@ -60,13 +60,38 @@ describe('UnassignedQueueComponent — ใบที่รอการตรว�
 
   afterEach(() => http.verify());
 
-  it('ป้ายบนรายการบอกว่าติดด่านอะไร — คนตรวจจะได้รู้ว่าต้องใช้เวลาแบบไหนก่อนเปิด', () => {
-    expect(component.blockedLabel('HIGH_USAGE')).toBe('หน่วยน้ำสูงผิดปกติ');
-    expect(component.blockedLabel('CLUSTER_SEQUENCE_MISMATCH')).toBe('อาจจดสลับตัวในกลุ่มมิเตอร์');
-    // รหัสที่ยังไม่รู้จักต้องไม่หายไปเงียบ ๆ — ยังต้องบอกว่าใบนี้ติดด่านอยู่
-    expect(component.blockedLabel('SOMETHING_NEW')).toBe('ด่านตีกลับ');
+  it('ป้ายบนรายการบอกว่าระบบระงับไว้ด้วยเรื่องอะไร — คนตรวจจะได้รู้ว่าต้องใช้เวลาแบบไหนก่อนเปิด', () => {
+    expect(component.blockedLabel('HIGH_USAGE')).toBe('ปริมาณการใช้น้ำสูงผิดปกติ');
+    expect(component.blockedLabel('CLUSTER_SEQUENCE_MISMATCH')).toBe('อาจบันทึกสลับตัวในกลุ่มมิเตอร์');
+    // รหัสที่ยังไม่รู้จักต้องไม่หายไปเงียบ ๆ — ยังต้องบอกว่าใบนี้ถูกระงับอยู่
+    expect(component.blockedLabel('SOMETHING_NEW')).toBe('ระบบระงับไว้ กรุณาเปิดดูรายละเอียด');
     // ใบกำพร้าไม่มีป้ายอะไรเลย
     expect(component.blockedLabel(null)).toBeNull();
+  });
+
+  /**
+   * รหัสพวกนี้หลังบ้านตีกลับจริงแต่ป้ายเคยตกหล่น คนตรวจเลยเห็นข้อความกลาง ๆ
+   * ทั้งที่ระบบรู้สาเหตุอยู่แล้ว — ล็อกไว้กันหล่นอีกรอบตอนเพิ่มรหัสใหม่
+   */
+  it('รหัสที่หลังบ้านตีกลับต้องมีป้ายของตัวเองครบทุกตัว', () => {
+    const codes = [
+      'BILL_EXISTS',
+      'BILL_PAID',
+      'LATER_BILL_EXISTS',
+      'FUTURE_TIMESTAMP',
+      'BURST_PHOTO',
+      'PHOTO_REUSED',
+      'MANUAL_PHOTO_REQUIRED',
+      'STALE_PHOTO',
+      'DIGIT_CHANGE',
+      'LOW_CONFIDENCE',
+      'METER_ROLLBACK',
+    ];
+
+    for (const code of codes) {
+      expect(component.blockedLabel(code)).not.toBe('ระบบระงับไว้ กรุณาเปิดดูรายละเอียด');
+      expect(component.blockedLabel(code)).toBeTruthy();
+    }
   });
 
   it('เปิดใบที่ติดด่าน → ได้บ้านที่คนหน้างานเลือกไว้ พร้อมตำแหน่งในกลุ่มมิเตอร์', () => {

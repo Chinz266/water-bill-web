@@ -171,6 +171,48 @@ describe('BatchScanComponent', () => {
       expect(component.isAnalyzing).toBe(false);
     });
 
+    /**
+     * กองเต็มคือหลักร้อยภาพ ยิงทีเดียวคือหลายร้อยเมกะไบต์ในคำขอเดียว — เน็ตหมู่บ้าน
+     * หลุดทีเดียวเคยหมายถึงล้มทั้งกอง ต้องแบ่งเป็นชุดย่อยและชุดที่ล้มต้องเสียแค่ชุดนั้น
+     */
+    it('กองใหญ่ต้องถูกแบ่งยิงทีละชุด ไม่ใช่ยัดทั้งกองในคำขอเดียว', () => {
+      component.rows = Array.from({ length: 25 }, (_, i) => row({ seq: i + 1 })) as any;
+      component.analyze();
+
+      // ชุดแรก 20 ภาพ — ชุดที่สองต้องยังไม่ถูกยิงจนกว่าชุดแรกจะจบ
+      const first = http.expectOne(r => r.url.endsWith('/bills/scan-batch'));
+      expect((first.request.body as FormData).getAll('files').length).toBe(20);
+      first.flush({ results: [], summary: { high: 0, medium: 0, ambiguous: 0, none: 0 } });
+
+      const second = http.expectOne(r => r.url.endsWith('/bills/scan-batch'));
+      expect((second.request.body as FormData).getAll('files').length).toBe(5);
+      second.flush({ results: [], summary: { high: 0, medium: 0, ambiguous: 0, none: 0 } });
+
+      expect(component.isAnalyzing).toBe(false);
+      expect(component.progress).toEqual({ done: 25, total: 25 });
+    });
+
+    it('ชุดแรกล้ม → เสียแค่ 20 ภาพนั้น ชุดที่เหลือยังอ่านต่อจนจบ', () => {
+      component.rows = Array.from({ length: 25 }, (_, i) => row({ seq: i + 1 })) as any;
+      component.analyze();
+
+      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush(
+        { message: 'ล่ม' },
+        { status: 500, statusText: 'Server Error' }
+      );
+
+      // ชุดที่สองต้องถูกยิงต่อ ไม่ใช่หยุดทั้งกองเพราะชุดแรกล้ม
+      http.expectOne(r => r.url.endsWith('/bills/scan-batch')).flush({
+        results: [{ index: 0, reading: { meter_unit: 120, read_confidence: 0.95 } }],
+        summary: { high: 1, medium: 0, ambiguous: 0, none: 0 }
+      });
+
+      const failed = component.rows.filter(r => r.status === 'read_failed');
+      expect(failed.length).toBe(20);
+      expect(component.rows[20].status).not.toBe('read_failed');
+      expect(component.rows[20].unit).toBe(120);
+    });
+
     it('แถวที่กู้มาจากคิวเก่า (ไม่มีไฟล์) ต้องไม่ถูกส่งไปอ่าน', () => {
       component.rows = [row({ seq: 1, file: null, status: 'ready', unit: 100, memberId: 1 })] as any;
 

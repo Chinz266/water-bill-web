@@ -338,8 +338,8 @@
                 <dd>
                   <span
                     class="chip"
-                    [class.chip-success]="detail.confidence >= 85"
-                    [class.chip-warning]="detail.confidence < 85"
+                    [class.chip-success]="detail.confidence >= trustedConfidence"
+                    [class.chip-warning]="detail.confidence < trustedConfidence"
                   >{{ detail.confidence }}%</span>
                 </dd>
               </div>

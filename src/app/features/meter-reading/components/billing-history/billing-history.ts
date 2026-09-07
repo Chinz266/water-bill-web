@@ -11,6 +11,7 @@ import { photoBlob } from '../../services/photo-file';
 import { AuthService } from '../../../auth/services/auth.service';
 import { AuditService, ReadingLog } from '../../../audit/services/audit.service';
 import { API_BASE_URL } from '../../../../core/api.config';
+import { OCR_CONFIDENCE_PERCENT } from '../../../../core/measurement.constants';
 
 @Component({
   selector: 'app-billing-history',
@@ -20,6 +21,9 @@ import { API_BASE_URL } from '../../../../core/api.config';
   styleUrls: ['./billing-history.css']
 })
 export class BillingHistoryComponent implements OnInit {
+  /** เกณฑ์เดียวกับหน้าสแกน — ป้ายเขียว/เหลืองของสองหน้าต้องตัดที่เลขเดียวกัน */
+  readonly trustedConfidence = OCR_CONFIDENCE_PERCENT;
+
   private print = inject(BillPrintService);
   private auth = inject(AuthService);
   private audit = inject(AuditService);

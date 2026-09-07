@@ -85,29 +85,44 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
   billingYear = String(new Date().getFullYear());
 
   /**
-   * ป้ายสั้น ๆ ของด่านที่ตีกลับ — ใช้บนรายการคิว ให้เห็นตั้งแต่ยังไม่เปิด
-   * ว่าใบนี้เป็น "ไม่รู้บ้าน" หรือ "รู้บ้านแล้วแต่ตัวเลขน่าสงสัย" ซึ่งใช้เวลาตรวจคนละแบบ
+   * ป้ายสั้น ๆ ของสาเหตุที่ระบบระงับไว้ — ใช้บนรายการคิว ให้เห็นตั้งแต่ยังไม่เปิด
+   * ว่าใบนี้เป็น "ไม่ทราบบ้าน" หรือ "ทราบบ้านแล้วแต่ตัวเลขผิดปกติ" ซึ่งใช้เวลาตรวจคนละแบบ
+   *
+   * ⚠️ รายการนี้ต้องครบทุกรหัสที่หลังบ้านตีกลับ (ดู BillsService/ScanBatchService)
+   *    รหัสที่ตกหล่นจะขึ้นเป็นข้อความกลาง ๆ ซึ่งบอกไม่ได้ว่าต้องตรวจอะไร คนก็ต้อง
+   *    เปิดดูทีละใบทั้งที่ป้ายมีหน้าที่ตัดงานนั้นออกไป
    */
   blockedLabel(code: string | null): string | null {
     switch (code) {
       case 'HIGH_USAGE':
-        return 'หน่วยน้ำสูงผิดปกติ';
+        return 'ปริมาณการใช้น้ำสูงผิดปกติ';
       case 'METER_ROLLBACK':
-        return 'เลขต่ำกว่าเดือนก่อน';
+        return 'เลขมิเตอร์ต่ำกว่าเดือนก่อน';
       case 'CLUSTER_SEQUENCE_MISMATCH':
-        return 'อาจจดสลับตัวในกลุ่มมิเตอร์';
+        return 'อาจบันทึกสลับตัวในกลุ่มมิเตอร์';
       case 'DIGIT_CHANGE':
-        return 'จำนวนหลักเปลี่ยน';
+        return 'จำนวนหลักบนหน้าปัดไม่ตรงกับที่บันทึกไว้';
       case 'LOW_CONFIDENCE':
         return 'ระบบอ่านตัวเลขได้ไม่ชัดเจน';
-      case 'DUPLICATE_LOCATION':
-        return 'พิกัดซ้ำกับครั้งก่อน';
       case 'STALE_PHOTO':
-        return 'รูปเก่ากว่ารอบนี้';
+        return 'ภาพถ่ายก่อนรอบบิลที่ออก';
       case 'BILL_EXISTS':
-        return 'มีบิลรอบนี้แล้ว';
+        return 'มีบิลของรอบนี้แล้ว';
+      // ─── รหัสที่เดิมตกหล่น ทั้งที่หลังบ้านตีกลับด้วยรหัสเหล่านี้จริง ───
+      case 'BILL_PAID':
+        return 'บิลรอบนี้ชำระแล้ว';
+      case 'LATER_BILL_EXISTS':
+        return 'มีบิลรอบใหม่กว่าอยู่แล้ว';
+      case 'FUTURE_TIMESTAMP':
+        return 'เวลาถ่ายภาพล่วงหน้าเกินวันปัจจุบัน';
+      case 'BURST_PHOTO':
+        return 'ถ่ายภาพต่อเนื่องจากจุดเดิม';
+      case 'PHOTO_REUSED':
+        return 'ภาพนี้ถูกใช้ออกบิลไปแล้ว';
+      case 'MANUAL_PHOTO_REQUIRED':
+        return 'บันทึกตัวเลขเองต้องแนบภาพถ่าย';
       default:
-        return code ? 'ด่านตีกลับ' : null;
+        return code ? 'ระบบระงับไว้ กรุณาเปิดดูรายละเอียด' : null;
     }
   }
 
