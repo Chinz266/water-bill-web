@@ -99,7 +99,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       case 'DIGIT_CHANGE':
         return 'จำนวนหลักเปลี่ยน';
       case 'LOW_CONFIDENCE':
-        return 'AI อ่านได้ไม่ชัด';
+        return 'ระบบอ่านตัวเลขได้ไม่ชัดเจน';
       case 'DUPLICATE_LOCATION':
         return 'พิกัดซ้ำกับครั้งก่อน';
       case 'STALE_PHOTO':

@@ -1444,8 +1444,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (row.ocrUnit === null || row.unit !== row.ocrUnit) return null;
 
     return (
-      `AI อ่านเลขได้ไม่ชัดพอ (${row.confidence}% ต่ำกว่าเกณฑ์ ${this.minBillConfidence}%) ` +
-      'ออกบิลด้วยเลขนี้ไม่ได้ครับ — กรุณาดูรูปแล้วพิมพ์เลขเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
+      `ระบบอ่านตัวเลขได้ไม่ชัดเจนพอ (${row.confidence}% ต่ำกว่าเกณฑ์ ${this.minBillConfidence}%) ` +
+      'จึงออกบิลด้วยตัวเลขนี้ไม่ได้ครับ — กรุณาตรวจสอบจากภาพถ่ายแล้วบันทึกตัวเลขเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
     );
   }
 
@@ -1493,7 +1493,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     // ไม่มีรูปแล้วห้ามพูดถึงเปอร์เซ็นต์ที่ AI เคยอ่านได้เลย (ดู showConfidence)
     if (this.showConfidence(row) && (row.confidence ?? 100) < 85) {
-      notes.push(`AI อ่านได้ไม่ค่อยชัด (${row.confidence}%) ครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นขึ้นครับ`);
+      notes.push(`ระบบอ่านตัวเลขได้ไม่ชัดเจน (${row.confidence}%) การครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นยำขึ้นครับ`);
     }
     return notes;
   }

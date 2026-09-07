@@ -243,7 +243,7 @@ describe('MeterCropperComponent', () => {
       const box = component.cropBox()!;
       expect((box.y1 + box.y2) / 2).toBeLessThan(250);
       expect(component.usedFallback()).toBe(true);
-      expect(component.autoBoxNote()).toContain('เหนือกลางภาพ');
+      expect(component.autoBoxNote()).toContain('เหนือกึ่งกลางภาพ');
       expect(component.loadFailed()).toBe(false);
     });
 
