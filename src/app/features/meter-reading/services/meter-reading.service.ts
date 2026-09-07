@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api.config';
 
 // เรทค่าน้ำที่ใช้อยู่จริงในระบบ (หลังบ้านคืน price_per_unit มาเป็น string เช่น '15.00')
@@ -9,6 +9,25 @@ export interface WaterRate {
   price_per_unit: string | number;
   status: string;
   create_date?: string;
+}
+
+/**
+ * กรอบที่โมเดลชี้ว่าแถวตัวเลขอยู่ตรงไหน — **สัดส่วน 0-1 ของภาพ ไม่ใช่พิกเซล**
+ *
+ * เป็นสัดส่วนเพราะกรอบครอปทำงานบนภาพที่ย่อแล้ว (ขนาดต่างกันทุกเครื่อง/ทุกการหมุนจอ)
+ * ตัวเลขพิกเซลของภาพต้นฉบับจึงใช้ตรง ๆ ไม่ได้ ต้องคูณกับขนาดที่แสดงจริงเสมอ
+ *
+ * ⚠️ เป็นพิกัดของภาพ "ตามที่เก็บในไฟล์" ยังไม่หมุนตาม EXIF Orientation
+ *    ต้องผ่าน mapBoxThroughExif() ก่อนเอาไปวางบนกรอบครอป ไม่งั้นรูปแนวตั้งจากมือถือ
+ *    จะได้กรอบไปโผล่คนละมุมของภาพ
+ */
+export interface MeterCropBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** 'digits' = กรอบของเลขสีดำล้วน (ที่ต้องการจริง), 'border' = ทั้งแถบ ยังไม่ตัดเลขแดงออก */
+  source: 'digits' | 'border';
 }
 
 // การจดมิเตอร์ 1 ครั้งของบ้าน 1 หลัง
@@ -32,6 +51,48 @@ export class MeterReadingService {
     return this.http.post(`${this.apiUrl}/meter-readings/ocr-upload`, formData);
   }
 
+  /**
+   * ถามโมเดลว่า "แถวตัวเลขอยู่ตรงไหนของรูป" เพื่อตั้งกรอบครอปให้ล่วงหน้า
+   *
+   * ═══ ทำไมต้องยิงก่อนครอป ทั้งที่เดี๋ยวก็ต้องยิงอ่านเลขอีกรอบ ═══
+   *
+   * คนที่ยืนจดกลางแดดต้องลากกรอบเองทุกใบ ใบละหลายวินาที แล้วกรอบที่ลากเร็ว ๆ
+   * มักกินเลขทศนิยมสีแดงเข้ามาด้วย ซึ่งทำให้ยอดคลาด 1,000 เท่า
+   * ให้โมเดลตั้งกรอบให้ก่อนแล้วคนแค่ดูว่าตรงไหม เป็นการแลกเวลาเครื่อง 1 รอบ
+   * กับความผิดพลาดที่ปลายทางเป็นยอดเงินของลูกบ้าน
+   *
+   * ล้มเหลวแล้ว **เงียบ** — คืน null ให้กรอบครอปใช้กรอบกลางภาพตามเดิม
+   * เพราะนี่เป็นแค่ตัวช่วย ไม่ใช่ขั้นตอนที่ขาดไม่ได้ ขึ้น error ตรงนี้มีแต่ทำให้คนหยุดทำงาน
+   */
+  detectCropBox(file: File): Observable<MeterCropBox | null> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+
+    return this.http
+      .post<{ crop_box?: MeterCropBox | null }>(
+        `${this.apiUrl}/meter-readings/ocr-upload`,
+        form
+      )
+      .pipe(
+        map((result) => result?.crop_box ?? null),
+        catchError(() => of(null))
+      );
+  }
+
+  /**
+   * อ่านรูปหลายใบพร้อมกันแล้วให้หลังบ้านเดาว่ารูปไหนเป็นของบ้านหลังไหน
+   *
+   * หลังบ้านจับคู่จาก **เลขมิเตอร์** ไม่ใช่ GPS — เลขมิเตอร์เป็นยอดสะสมที่แต่ละบ้าน
+   * ห่างกันมาก จึงชี้กลับไปหาบ้านต้นทางได้เอง ส่วน GPS มือถือคลาดเคลื่อน 10–30 ม.
+   * ขณะที่บ้านห่างกันแค่ 8–20 ม. จึงใช้เป็นแค่ตัวช่วยตัดสินตอนเลขแยกไม่ออก
+   *
+   * ⚠️ endpoint นี้ไม่เขียนอะไรลงฐานข้อมูล คืนแค่ข้อเสนอให้คนตรวจ
+   *    ออกบิลจริงต้องยิง /bills/scan ทีละหลัง เพราะด่านกันข้อมูลผิดอยู่ที่นั่น
+   */
+  scanBatch(formData: FormData): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bills/scan-batch`, formData);
+  }
+
   // 🌟 2. ดึงเรทค่าน้ำที่ใช้งานอยู่ตอนนี้ (ห้าม hardcode id เพราะเรทเปลี่ยนได้ทุกปี)
   getActiveWaterRate(): Observable<WaterRate> {
     return this.http.get<WaterRate>(`${this.apiUrl}/water-rates/active`);
@@ -51,37 +112,152 @@ export class MeterReadingService {
     });
   }
 
-  // 🌟 3. ดึงประวัติการจดมิเตอร์ของบ้านหลังหนึ่ง (เรียงใหม่สุดมาก่อน) เอาไว้หาเลขมิเตอร์เดือนที่แล้ว
-  getReadingsByMember(memberId: number): Observable<MeterReading[]> {
-    return this.http.get<MeterReading[]>(`${this.apiUrl}/meter-readings/member/${memberId}`);
+  /** บิลของบ้านหลังนี้ในเดือน/ปีที่ระบุ — null ถ้ายังไม่เคยออกบิล (1 บ้านมีบิลได้เดือนละใบ) */
+  getBillForMonth(memberId: number, month: string, year: string): Observable<any> {
+    return this.http.get(
+      `${this.apiUrl}/bills/member/${memberId}/month?month=${month}&year=${year}`
+    );
   }
 
-  // 🌟 4. บันทึกการจดมิเตอร์ลงฐานข้อมูล — ต้องทำก่อนสร้างบิลเสมอ เพราะบิลอ้างถึง meter_readings_id
-  createMeterReading(payload: {
-    reading_date: string;
-    meter_unit: number;
+  /**
+   * เลขตั้งต้นที่หลังบ้านจะใช้คิดหน่วยน้ำของเดือนนั้นจริง ๆ
+   * คืน { previous_unit, source, bill } — source บอกว่ามาจากบิลเดือนก่อนหรือเลขตอนลงทะเบียนบ้าน
+   * ต้องถามหลังบ้าน ไม่ใช่เดาเองจาก "การจดครั้งล่าสุด" ไม่งั้นเลขบนจอกับยอดที่ออกจะคนละตัว
+   */
+  getPreviousUnit(memberId: number, month: string, year: string): Observable<any> {
+    return this.http.get(
+      `${this.apiUrl}/bills/member/${memberId}/previous?month=${month}&year=${year}`
+    );
+  }
+
+  /**
+   * 5. จดมิเตอร์ + ออกบิล ในคำสั่งเดียว
+   *
+   * เดิมยิงสองรอบ (สร้าง meter_reading → สร้างบิล) ซึ่งถ้ารอบสองล้ม เช่นโดนด่าน
+   * กันบิลซ้ำเดือนหรือด่านหน่วยน้ำผิดปกติ แถวที่จดไปแล้วจะค้างเป็นขยะในตาราง
+   * ตอนนี้หลังบ้านตรวจให้ผ่านก่อนแล้วค่อยเขียนทั้งคู่ในทรานแซกชันเดียว
+   *
+   * ไม่มี previous_unit / usage_unit / total_amount ใน payload โดยตั้งใจ — หลังบ้านคิดเองทั้งหมด
+   */
+  saveBillFromScan(payload: {
     members_id: number;
+    water_rates_id: number;
+    current_unit: number;
+    reading_date?: string;
     create_by?: number;
-  }): Observable<MeterReading> {
-    return this.http.post<MeterReading>(`${this.apiUrl}/meter-readings`, payload);
+    /** true = ลบบิลเดือนเดียวกันใบเดิมทิ้งแล้วออกใหม่ */
+    replace?: boolean;
+    /** true = ยืนยันว่าหน่วยน้ำที่สูงผิดปกตินั้นถูกต้อง (หลังบ้านบล็อกไว้จนกว่าจะยืนยัน) */
+    confirm_high_usage?: boolean;
+    /** เดือนบิลแบบ 2 หลัก ('01'-'12') — มาจากที่เจ้าหน้าที่เลือก ไม่ใช่วันที่กดบันทึก */
+    billing_month: string;
+    billing_year: string;
+    /**
+     * พิกัดจุดที่ยืนถ่ายรูป (จาก EXIF) — หลังบ้านเก็บไว้เรียนรู้ตำแหน่งมิเตอร์ของบ้านหลังนี้
+     * EXIF ไม่มีค่าความคลาดเคลื่อนติดมา จึงไม่มี gps_accuracy_m ให้ส่ง
+     */
+    latitude?: number;
+    longitude?: number;
+    /** วันเวลาที่กดชัตเตอร์จริง (ISO) เก็บเป็นหลักฐานคู่กับรูป */
+    captured_at?: string;
+    /** รูปหน้าปัดเป็น data URL — หลังบ้านเก็บเป็นไฟล์แล้วบันทึก path ไว้ */
+    meter_photo?: string;
+    /** ยืนยันว่าเลขที่ต่ำลงเกิดจากเปลี่ยนมิเตอร์/มิเตอร์ครบรอบ ไม่ใช่จดผิด */
+    confirm_meter_reset?: boolean;
+    /** เลขปิดของมิเตอร์ตัวเก่า (ใช้คู่กับ confirm_meter_reset) */
+    old_meter_final_unit?: number;
+    /**
+     * จำนวนหลักบนหน้าปัดที่ AI อ่านได้ — หลังบ้านเอาไปเทียบกับที่บ้านหลังนี้เคยอ่านได้
+     * เพื่อจับเคส "อ่านหลักหาย/หลักเกิน" ซึ่งทำให้ยอดคลาดสิบเท่าในครั้งเดียว
+     *
+     * ⚠️ ส่งเฉพาะตอนที่เลขยังเป็นค่าที่ AI อ่านมาเป๊ะ ๆ — คนแก้เลขเองเมื่อไหร่ต้องไม่ส่ง
+     * เพราะจำนวนหลักที่ AI นับไว้จะไม่ตรงกับเลขที่จะบันทึกจริง (หลังบ้านข้ามด่านนี้ให้เอง)
+     */
+    meter_digits?: number;
+    /** ยืนยันว่าจำนวนหลักที่เปลี่ยนไปถูกต้อง (เช่นเพิ่งเปลี่ยนมิเตอร์เป็นรุ่นคนละหลัก) */
+    confirm_digit_change?: boolean;
+    /**
+     * ความมั่นใจของ AI ตอนอ่านเลข เป็นค่าดิบ 0–1 (หลังบ้านตัดที่ 0.85)
+     *
+     * ด่านนี้จับเคสที่เลขคลาดไปหลักเดียว เช่น 1250 → 1258 ซึ่งลอดด่านหน่วยน้ำกับ
+     * ด่านจำนวนหลักไปได้สบาย เพราะยอดยังดูปกติทุกทาง
+     *
+     * ⚠️ ส่งเฉพาะตอนที่เลขยังเป็นค่าที่ AI อ่านมาเป๊ะ ๆ เงื่อนไขเดียวกับ meter_digits —
+     *    เลขที่คนเทียบกับหน้าปัดแล้วพิมพ์เองเชื่อได้กว่าค่าที่ AI เดา ไม่ควรโดนด่านนี้บล็อก
+     *    (ไม่ส่ง = หลังบ้านข้ามด่านให้ แล้วเก็บ read_confidence เป็น NULL ซึ่งถูกแล้ว)
+     */
+    read_confidence?: number;
+    /** ยืนยันว่าเทียบกับรูปแล้วเลขที่ AI อ่านมาไม่ชัดนั้นถูกต้อง */
+    confirm_low_confidence?: boolean;
+    /** ยืนยันว่าเป็นรูปที่ถ่ายใหม่จริง ไม่ใช่รูปเดิมที่ถูกส่งซ้ำ (พิกัดตรงกันเป๊ะทุกทศนิยม) */
+    confirm_duplicate_location?: boolean;
+    /** ยืนยันว่าใช้รูปถูกใบ ทั้งที่วันถ่ายเก่ากว่ารอบที่กำลังออก */
+    confirm_stale_photo?: boolean;
+    /**
+     * เลขนี้มาจากไหน — 'ocr' (AI อ่านล้วน ๆ) / 'manual' (คนพิมพ์เอง) /
+     * 'manual_after_ocr_fail' (AI อ่านไม่ออก คนพิมพ์แทน)
+     *
+     * ⚠️ ค่าที่ขึ้นต้นด้วย manual **หลังบ้านบังคับให้มี meter_photo เสมอ และบล็อกตาย**
+     *    ไม่มีปุ่มยืนยันให้ข้าม — เลขที่พิมพ์เองแล้วไม่มีรูปคือข้อมูลที่ตรวจย้อนหลังไม่ได้เลย
+     *    หน้าเว็บจึงควรกันตั้งแต่ก่อนกดส่ง ไม่ปล่อยให้ไปตกที่หลังบ้าน
+     */
+    entry_method?: 'ocr' | 'manual' | 'manual_after_ocr_fail';
+    /**
+     * **บ้าน**ของใบนี้ใครเป็นคนเลือก — ระบบจับคู่ให้ / คนกดเลือกเอง
+     *
+     * ⚠️ เป็นหลักฐานย้อนหลังล้วน ๆ **ไม่มีด่านไหนของหลังบ้านอ่านค่านี้** ส่งผิดก็ไม่ทำให้
+     *    บิลผ่านหรือไม่ผ่าน — มีไว้ตอบคำถามที่ตอบไม่ได้มาตลอดว่า "บิลที่ระบบเลือกบ้านเอง
+     *    ถูกลบทิ้งทีหลังกี่ใบ" ซึ่งต้องรู้ก่อนจะขยับเกณฑ์การออกบิลอัตโนมัติ
+     */
+    matched_by?: 'system' | 'manual' | 'none';
+    /** ความมั่นใจของการจับคู่บ้าน ณ ตอนกดออกบิล — หลักฐานย้อนหลังเหมือนกัน */
+    match_confidence?: 'high' | 'medium' | 'ambiguous' | 'none';
+    /**
+     * ความคลาดเคลื่อนของพิกัดเป็นเมตร (coords.accuracy ของ Geolocation API)
+     * EXIF ไม่มีค่านี้ติดมา ส่งได้เฉพาะตอนพิกัดมาจากเซนเซอร์ของเครื่องจริง ๆ
+     */
+    gps_accuracy_m?: number;
+    /**
+     * รหัสประจำการจดครั้งนี้ สร้างตอน **กดบันทึกครั้งแรก** (crypto.randomUUID)
+     *
+     * กันบิลซ้ำเวลายิงซ้ำ — "ยิงแล้วเน็ตหลุดก่อนได้คำตอบ" แยกไม่ออกจาก "ยิงไม่สำเร็จ"
+     * ยิงซ้ำด้วย uuid เดิมจะได้บิลใบเดิมกลับมา (200) ไม่ใช่ error
+     *
+     * ⚠️ ห้ามสร้างใหม่ตอนกำลังจะยิง — สร้างใหม่ทุกครั้งที่ retry = กันอะไรไม่ได้เลย
+     */
+    client_uuid?: string;
+  }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bills/scan`, payload);
   }
 
-  // 5. ฟังก์ชันสร้างบิลค่าน้ำ (ต้องใช้ id จริงจากขั้นตอนก่อนหน้าทั้งหมด)
-  saveBill(payload: {
-    meter_readings_id: number;
-    water_rates_id: number;
-    previous_unit: number;
+  /**
+   * แก้เลขมิเตอร์ของบิลที่ออกไปแล้ว — หลังบ้านคิดหน่วยน้ำกับยอดเงินใหม่ให้เองทั้งหมด
+   *
+   * ไม่ส่ง usage_unit / total_amount ไปด้วยโดยตั้งใจ เหมือน saveBillFromScan() —
+   * ยอดที่หน้าเว็บคิดเองกับที่หลังบ้านคิดเพี้ยนกันเมื่อไหร่ คนจะเชื่อตัวเลขบนจอที่ผิด
+   * และเรทที่ใช้คิดต้องเป็นเรทของบิลใบนั้นตอนออก ไม่ใช่เรท Active วันนี้ ซึ่งหน้าเว็บไม่รู้
+   *
+   * ส่งเป็น multipart เพราะมีไฟล์รูปติดไปด้วยได้ (ทาง JSON ติดเพดาน body-parser 100kb)
+   * ⚠️ รูปที่แนบตอนแก้ไขผ่านการครอปมาแล้ว = ไม่มี EXIF — ห้ามเอาไปอัปเดตพิกัดของบ้าน
+   */
+  editReading(billId: number, payload: {
     current_unit: number;
-    create_by?: number;
+    /** เหตุผลที่แก้ — หลังบ้านเก็บลง meter_reading_logs ไว้ตอบว่าทำไมยอดถึงเปลี่ยน */
+    reason: string;
+    photo?: Blob | null;
+    /** ยืนยันว่าหน่วยที่พุ่งสูงผิดปกติหลังแก้นั้นถูกต้อง */
+    confirm_high_usage?: boolean;
+    /** ยืนยันว่าเลขที่ต่ำลงเกิดจากเปลี่ยนมิเตอร์ ไม่ใช่แก้ผิด */
+    confirm_meter_reset?: boolean;
   }): Observable<any> {
-    const now = new Date();
-    const body = {
-      ...payload,
-      // หลังบ้านเก็บเดือน/ปีเป็น string และคาดหวังเดือนแบบ 2 หลัก ('01'-'12')
-      billing_month: String(now.getMonth() + 1).padStart(2, '0'),
-      billing_year: String(now.getFullYear())
-    };
-    return this.http.post(`${this.apiUrl}/bills`, body);
+    const form = new FormData();
+    form.append('current_unit', String(payload.current_unit));
+    form.append('reason', payload.reason);
+    if (payload.photo) form.append('photo', payload.photo, 'meter.jpg');
+    if (payload.confirm_high_usage) form.append('confirm_high_usage', 'true');
+    if (payload.confirm_meter_reset) form.append('confirm_meter_reset', 'true');
+
+    return this.http.patch(`${this.apiUrl}/bills/${billId}/reading`, form);
   }
 
   // 🌟 6. ฟังก์ชันสำหรับดึงประวัติบิลทั้งหมดจากฐานข้อมูล
@@ -89,7 +265,28 @@ export class MeterReadingService {
     return this.http.get(`${this.apiUrl}/bills`);
   }
 
-  // 🌟 ฟังก์ชันส่งคำสั่งเปลี่ยนสถานะ PENDING <-> PAID
+  /**
+   * 💰 รับชำระเงิน — ใช้ตัวนี้เท่านั้นเวลาลูกบ้านจ่ายเงิน
+   *
+   * ═══ ทำไมใช้ updatePaymentStatus('Paid') แทนไม่ได้ ═══
+   *
+   * ลูกบ้านจ่ายตามยอด `grand_total` ซึ่งรวม **ยอดค้างของบิลเก่า** ที่ถูกทบเข้ามาแล้ว
+   * ตัวนี้จึงปิดบิลเก่าที่ถูกทบให้เป็น Paid ทั้งชุดในทรานแซกชันเดียว
+   *
+   * ถ้าไปกดเปลี่ยนสถานะทีละใบแทน ใบเก่าจะยังค้างอยู่ แล้วบิลเดือนถัดไปจะทบยอดเดิม
+   * เข้าไปอีกรอบ = เก็บเงินซ้ำจากก้อนที่ลูกบ้านจ่ายไปแล้ว โดยไม่มีใครสังเกต
+   *
+   * คืน `{ paid_amount, settled_bill_ids }` — settled_bill_ids คือใบเก่าที่ถูกปิดไปด้วย
+   */
+  payBill(id: number, paidBy?: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bills/${id}/pay`, { paid_by: paidBy });
+  }
+
+  /**
+   * 🌟 เปลี่ยนสถานะการชำระด้วยมือ — ใช้เฉพาะตอน **แก้ที่กดผิด** (Paid → Pending)
+   *
+   * ⚠️ อย่าใช้ตัวนี้รับเงิน ให้ใช้ payBill() แทน (เหตุผลอยู่ข้างบน)
+   */
   updatePaymentStatus(id: number, status: string): Observable<any> {
     const payload = { payment_status: status };
     return this.http.patch(`${this.apiUrl}/bills/${id}/status`, payload);

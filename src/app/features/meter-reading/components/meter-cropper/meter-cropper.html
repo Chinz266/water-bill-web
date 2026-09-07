@@ -1,333 +1,122 @@
-<div class="scan">
-  <div class="page-head">
-    <h1 class="page-title">สแกนมิเตอร์น้ำ</h1>
-    <p class="page-subtitle">ถ่ายรูปหน้าปัดมิเตอร์ ครอบเฉพาะช่องตัวเลข แล้วให้ระบบอ่านให้ครับ</p>
-  </div>
+<section class="crop-shell">
+  <!-- ── เลือกรูป ── ผู้เรียกส่ง [file] มาแล้วก็ไม่ต้องขึ้นปุ่มนี้ให้รก -->
+  @if (!file()) {
+    <label class="crop-pick">
+      <input type="file" accept="image/*" capture="environment" (change)="pickFile($event)" [disabled]="busy()" />
+      <span class="crop-pick-icon">📷</span>
+      <span class="crop-pick-text">
+        <strong>ถ่ายรูปหน้าปัด หรือเลือกจากเครื่อง</strong>
+        <small>ถ่ายให้ตัวเลขเต็มจอที่สุด แล้วค่อยมาครอบในขั้นถัดไป</small>
+      </span>
+    </label>
+  }
 
-  <!-- ขั้นที่ 1: เลือกบ้าน -->
-  <section class="card step">
-    <div class="step-head">
-      <span class="step-no">1</span>
-      <h2 class="step-title">จดมิเตอร์ของบ้านหลังไหน</h2>
+  @if (loadFailed()) {
+    <div class="alert alert-danger">
+      <span>⚠️</span>
+      <span>เปิดไฟล์นี้ไม่ได้ครับ กรุณาเลือกไฟล์รูปภาพ (JPG / PNG) ใหม่อีกครั้ง</span>
+    </div>
+  }
+
+  @if (source(); as image) {
+    <p class="crop-guide">
+      กรุณาปรับกรอบให้พอดีกับ<strong>ตัวเลขสีดำเท่านั้น</strong> —
+      <strong>ไม่รวมทศนิยมสีแดง</strong> และไม่เอาขอบฝาครอบเข้ามาด้วย
+    </p>
+
+    <!-- ── สถานะกรอบอัตโนมัติ ── ต้องบอกให้รู้ว่ากรอบที่เห็นมาจากไหน
+         คนถึงจะรู้ว่าต้องตรวจอะไร ไม่ใช่กดยืนยันตามกรอบที่โผล่มาเฉย ๆ -->
+    @if (autoBoxNote(); as note) {
+      <p class="crop-auto" [class.is-busy]="detecting()">
+        <span>{{ detecting() ? '⏳' : '🤖' }}</span>
+        <span>{{ note }}</span>
+      </p>
+    }
+
+    <!-- ── กรอบครอป ── -->
+    <div class="crop-stage">
+      <image-cropper
+        [imageFile]="image"
+        [maintainAspectRatio]="true"
+        [aspectRatio]="ratio()"
+        [resetCropOnAspectRatioChange]="false"
+        [transform]="transform()"
+        [imageQuality]="quality"
+        [resizeToWidth]="maxWidth"
+        [onlyScaleDown]="true"
+        output="base64"
+        format="jpeg"
+        alignImage="center"
+        imageAltText="รูปหน้าปัดมิเตอร์ที่กำลังครอบ"
+        cropperFrameAriaLabel="กรอบเลือกเฉพาะแถวตัวเลข"
+        [cropper]="cropBox()"
+        (imageCropped)="onCropped($event)"
+        (imageLoaded)="onImageLoaded($event)"
+        (cropperReady)="onCropperReady($event)"
+        (loadImageFailed)="onLoadFailed()"
+      ></image-cropper>
     </div>
 
-    <label class="field-label" for="member-select">บ้านเลขที่ <span class="field-required">*</span></label>
-    <select
-      id="member-select"
-      class="field-input"
-      [(ngModel)]="selectedMemberId"
-      (ngModelChange)="onMemberChange()"
-    >
-      <option [ngValue]="null" disabled>— เลือกบ้านเลขที่ —</option>
-      @for (member of members; track member.id) {
-        <option [ngValue]="member.id">
-          {{ member.house_no }} — {{ member.fname }} {{ member.lname }}
-        </option>
-      }
-    </select>
-    @if (members.length === 0) {
-      <p class="field-hint">ยังไม่มีบ้านในระบบ กรุณาไปเพิ่มบ้านที่หน้า "ลูกบ้าน" ก่อนนะครับ</p>
-    } @else if (selectedMemberId && isLoadingPrevious) {
-      <p class="field-hint">
-        <span class="loading-dot"></span> กำลังดูเลขมิเตอร์ครั้งก่อน...
-      </p>
-    } @else if (selectedMemberId && previousReading !== null) {
-      <div class="prev-note">
-        เลขมิเตอร์ครั้งก่อนของบ้านนี้คือ
-        <strong>{{ previousReading | number }}</strong> หน่วย
-        @if (previousReading === 0) {
-          <span class="text-muted">(ยังไม่เคยจด ระบบจะคิดจาก 0)</span>
+    <!-- ── เครื่องมือ ── สัดส่วนกับการหมุน อยู่ติดกรอบเพราะใช้ระหว่างลาก -->
+    <div class="crop-tools">
+      <div class="crop-ratio" role="group" aria-label="สัดส่วนกรอบ">
+        @for (option of ratios; track option.value) {
+          <button
+            type="button"
+            class="crop-chip"
+            [class.is-active]="ratio() === option.value"
+            (click)="setRatio(option.value)"
+            [disabled]="busy()"
+          >
+            {{ option.label }}
+          </button>
         }
       </div>
-    } @else {
-      <p class="field-hint">ระบบจะคิดค่าน้ำจากเลขมิเตอร์ครั้งก่อนของบ้านหลังนี้ให้เอง</p>
-    }
-  </section>
 
-  <!-- ขั้นที่ 2: เลือกรูป -->
-  <section class="card step">
-    <div class="step-head">
-      <span class="step-no">2</span>
-      <h2 class="step-title">เลือกรูปมิเตอร์</h2>
+      <!-- ทางลัดกลับไปตำแหน่งมาตรฐาน สำหรับตอนที่กรอบไปผิดที่ (โมเดลจับโดนคราบโคลน
+           หรือลากจนหลง) — วางไว้ติดกรอบเพราะใช้ระหว่างลาก ไม่ใช่ตอนจะกดยืนยัน -->
+      <button type="button" class="btn btn-ghost btn-sm crop-snap" (click)="quickSnap()" [disabled]="busy()">
+        🎯 จัดกรอบไปที่แถบตัวเลข
+      </button>
+
+      <div class="crop-rotate">
+        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(-1)" [disabled]="busy()">↺ หมุนซ้าย</button>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(1)" [disabled]="busy()">↻ หมุนขวา</button>
+      </div>
     </div>
 
-    <!-- ปุ่มหลัก: เปิดกล้องถ่ายเลย (capture=environment = กล้องหลัง) -->
-    <label class="dropzone" [class.compact]="imageChangedEvent" for="camera-input">
-      <span class="dropzone-art">📷</span>
-      <span class="dropzone-title">{{ imageChangedEvent ? 'ถ่ายรูปใหม่' : 'แตะเพื่อเปิดกล้องถ่ายมิเตอร์' }}</span>
-      <span class="dropzone-hint">เล็งให้เห็นตัวเลขบนหน้าปัดชัด ๆ นะครับ</span>
-    </label>
-    <input
-      id="camera-input"
-      type="file"
-      (change)="fileChangeEvent($event)"
-      accept="image/*"
-      capture="environment"
-    />
-
-    <!-- ทางเลือก: ใช้รูปที่ถ่ายไว้แล้วในเครื่อง -->
-    <label class="gallery-link" for="gallery-input">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-      หรือเลือกรูปจากคลังภาพ
-    </label>
-    <input
-      id="gallery-input"
-      type="file"
-      (change)="fileChangeEvent($event)"
-      accept="image/*"
-    />
-  </section>
-
-  @if (imageChangedEvent) {
-    <!-- ขั้นที่ 3: ครอบตัดเฉพาะตัวเลข -->
-    <section class="card step">
-      <div class="step-head">
-        <span class="step-no">3</span>
-        <h2 class="step-title">ครอบเฉพาะช่องตัวเลข</h2>
+    <!-- ── พรีวิวสด ── คนตรวจต้องเห็นสิ่งที่โมเดลจะเห็นจริง ๆ ก่อนกดยืนยัน -->
+    <div class="crop-preview">
+      <div class="crop-preview-head">
+        <h3>ภาพที่โมเดลจะได้เห็น</h3>
+        @if (cropWidth()) {
+          <span class="crop-meta">{{ cropWidth() }}×{{ cropHeight() }} px · ~{{ previewKb() }} KB</span>
+        }
       </div>
 
-      <div class="crop-frame">
-        <image-cropper
-          [imageChangedEvent]="imageChangedEvent"
-          [maintainAspectRatio]="maintainAspectRatio"
-          [aspectRatio]="aspectRatio"
-          [transform]="transform"
-          format="jpeg"
-          (imageCropped)="imageCropped($event)"
-        ></image-cropper>
-      </div>
-
-      <div class="tool-label">รูปแบบกรอบ</div>
-      <div class="segmented">
-        <button type="button" [class.is-on]="!maintainAspectRatio" (click)="maintainAspectRatio = false">
-          ลากกรอบเอง
-        </button>
-        <button type="button" [class.is-on]="maintainAspectRatio" (click)="maintainAspectRatio = true">
-          กรอบมาตรฐาน 3:1
-        </button>
-      </div>
-
-      <div class="tool-label">ปรับรูป</div>
-      <div class="tools">
-        <button type="button" class="tool" (click)="rotateLeft()">
-          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
-          หมุนซ้าย
-        </button>
-        <button type="button" class="tool" (click)="rotateRight()">
-          <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><polyline points="21 3 21 8 16 8"/></svg>
-          หมุนขวา
-        </button>
-        <button type="button" class="tool" (click)="zoomIn()">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          ขยาย
-        </button>
-        <button type="button" class="tool" (click)="zoomOut()">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          ย่อ
-        </button>
-        <button type="button" class="tool" (click)="flipHorizontal()">
-          <svg viewBox="0 0 24 24"><path d="M22 12H2"/><path d="M10 2 2 12l8 10"/><path d="m14 2 8 10-8 10"/></svg>
-          พลิกซ้าย-ขวา
-        </button>
-        <button type="button" class="tool" (click)="flipVertical()">
-          <svg viewBox="0 0 24 24"><path d="M12 2v20"/><path d="m2 10 10-8 10 8"/><path d="m2 14 10 8 10-8"/></svg>
-          พลิกบน-ล่าง
-        </button>
-        <button type="button" class="tool" (click)="resetImage()">
-          <svg viewBox="0 0 24 24"><path d="M3 2v6h6"/><path d="M3.5 13a9 9 0 1 0 2.3-6.4L3 8"/></svg>
-          เริ่มปรับใหม่
-        </button>
-      </div>
-
-      @if (!aiResult) {
-        <button
-          type="button"
-          class="btn btn-primary btn-block main-action"
-          (click)="uploadToBackend()"
-          [disabled]="isLoading || !croppedBlob"
-        >
-          @if (isLoading) {
-            <span class="btn-spinner"></span>
-            กำลังอ่านตัวเลขจากรูป...
-          } @else {
-            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-            อ่านเลขมิเตอร์
-          }
-        </button>
+      @if (preview(); as dataUrl) {
+        <img class="crop-preview-img" [src]="dataUrl" alt="ตัวอย่างภาพที่ครอบแล้ว" />
       } @else {
-        <button
-          type="button"
-          class="btn btn-secondary btn-block main-action"
-          (click)="uploadToBackend()"
-          [disabled]="isLoading || !croppedBlob"
-        >
-          @if (isLoading) {
-            <span class="btn-spinner dark"></span>
-            กำลังอ่านตัวเลขจากรูป...
-          } @else {
-            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M3 2v6h6"/><path d="M3.5 13a9 9 0 1 0 2.3-6.4L3 8"/></svg>
-            อ่านเลขใหม่อีกครั้ง
-          }
-        </button>
-      }
-    </section>
-  }
-
-  <!-- ระหว่างรอผลอ่านตัวเลข -->
-  @if (isLoading) {
-    <section class="card step">
-      <p class="loading-note">
-        <span class="loading-dot"></span> กำลังอ่านตัวเลขจากรูป รอสักครู่นะครับ...
-      </p>
-      <div class="skeleton skel-bar"></div>
-      <div class="skeleton skel-number"></div>
-    </section>
-  }
-
-  <!-- ขั้นที่ 4: ตรวจสอบตัวเลขแล้วบันทึก -->
-  @if (aiResult && !isLoading) {
-    <section class="card step result">
-      <div class="step-head">
-        <span class="step-no">4</span>
-        <h2 class="step-title">ตรวจสอบตัวเลขแล้วบันทึก</h2>
-      </div>
-
-      <!-- แถบบอกว่าอ่านได้ชัดแค่ไหน -->
-      <div class="conf" [class.good]="isConfident">
-        <div class="conf-bar">
-          <span class="conf-fill" [style.width.%]="confidencePercent ?? 100"></span>
-        </div>
-        <p class="conf-text">{{ confidenceLabel }}</p>
-        <!-- ความแม่นยำที่วัดได้จริงจากการทดลอง 200 ภาพ ให้เจ้าหน้าที่รู้ว่าควรเชื่อแค่ไหน -->
-        <p class="conf-evidence">
-          จากการทดสอบภาคสนาม ผลอ่านในระดับความชัดนี้ถูกต้องราว {{ expectedAccuracyPercent }}%
-        </p>
-      </div>
-
-      <!-- ค่าความเชื่อมั่นไม่ผ่านเกณฑ์ = บังคับให้ตรวจด้วยตาก่อน ถึงจะกดบันทึกได้ -->
-      @if (needsManualVerify) {
-        <div class="verify-gate">
-          <p class="verify-gate-title">ต้องตรวจสอบด้วยตาก่อนบันทึก</p>
-          <ul class="verify-gate-tips">
-            @for (tip of captureTips; track tip) {
-              <li>{{ tip }}</li>
-            }
-          </ul>
-          <label class="verify-gate-check">
-            <input type="checkbox" [(ngModel)]="verifiedByStaff" [disabled]="saveSuccess" />
-            <span>ตรวจสอบแล้วว่าเลขในช่องตรงกับหน้าปัดในรูป</span>
-          </label>
-        </div>
+        <p class="field-hint">ลากกรอบบนรูปด้านบน แล้วภาพตัวอย่างจะขึ้นตรงนี้ทันที</p>
       }
 
-      <!-- รูปที่ถ่ายวางคู่ช่องกรอก ให้เทียบเลขกับหน้าปัดด้วยตาได้ทันที -->
-      <div class="verify">
-        <div class="verify-photo">
-          <span class="verify-cap">รูปที่ถ่าย</span>
-          <img [src]="croppedImage" alt="รูปมิเตอร์ที่ถ่าย" />
-        </div>
-
-        <div class="verify-input">
-          <label class="field-label meter-label" for="meter-value">เลขที่อ่านได้ (แก้ได้ถ้าไม่ตรง)</label>
-          <div class="meter-box">
-            <input
-              id="meter-value"
-              class="meter-input"
-              type="number"
-              inputmode="decimal"
-              [(ngModel)]="aiResult.read_unit"
-              [disabled]="saveSuccess"
-              placeholder="0"
-            />
-            <span class="meter-unit">หน่วย</span>
-          </div>
-          <p class="field-hint">ดูรูปทางซ้ายเทียบกับตัวเลขนี้นะครับ ถ้าไม่ตรงแก้ได้เลย</p>
-        </div>
-      </div>
-
-      <!-- สรุปการใช้น้ำสด ๆ ขณะแก้เลข -->
-      @if (previousReading !== null && usageUnit !== null && !isBelowPrevious) {
-        <div class="usage-summary">
-          <div class="usage-cell">
-            <span class="usage-cap">เดือนก่อน</span>
-            <span class="usage-val">{{ previousReading | number }}</span>
-          </div>
-          <span class="usage-op">→</span>
-          <div class="usage-cell">
-            <span class="usage-cap">เดือนนี้</span>
-            <span class="usage-val">{{ currentUnitValue | number }}</span>
-          </div>
-          <span class="usage-op">=</span>
-          <div class="usage-cell usage-total">
-            <span class="usage-cap">ใช้ไป</span>
-            <span class="usage-val">{{ usageUnit | number }} <small>หน่วย</small></span>
-          </div>
-        </div>
-      }
-
-      <!-- เตือนก่อนบันทึก: เลขถอยหลัง / ใช้น้ำพุ่งผิดปกติ -->
-      @if (isBelowPrevious) {
-        <div class="alert alert-danger save-alert">
-          <span>⚠️</span>
+      @if (tooSmall()) {
+        <div class="alert alert-warning">
+          <span>🔍</span>
           <span>
-            เลขที่กรอก (<strong>{{ currentUnitValue | number }}</strong>)
-            น้อยกว่าเลขเดือนก่อน (<strong>{{ previousReading | number }}</strong>)
-            มิเตอร์ไม่เดินถอยหลัง กรุณาตรวจสอบตัวเลขอีกครั้งนะครับ
-          </span>
-        </div>
-      } @else if (isAbnormalJump) {
-        <div class="alert alert-warning save-alert">
-          <span>⚠️</span>
-          <span>
-            เดือนนี้ใช้น้ำ <strong>{{ usageUnit | number }}</strong> หน่วย
-            มากกว่าปกติหลายเท่า ลองเทียบกับรูปอีกครั้งก่อนบันทึกนะครับ
+            กรอบเล็กเกินไป (กว้าง {{ cropWidth() }} px) ตัวเลขอาจเบลอจนอ่านไม่ออก —
+            ลองถ่ายใหม่ให้ใกล้ขึ้น หรือขยายกรอบให้กว้างกว่านี้ครับ
           </span>
         </div>
       }
+    </div>
 
-      @if (!selectedMemberId) {
-        <div class="alert alert-warning save-alert">
-          <span>⚠️</span>
-          <span>ยังไม่ได้เลือกบ้านเลขที่ กรุณาเลื่อนขึ้นไปเลือกบ้านในขั้นที่ 1 ก่อนบันทึกนะครับ</span>
-        </div>
-      }
-
-      <!-- บันทึกสำเร็จ + ปุ่มยกเลิก (undo) ภายในรอบบิล -->
-      @if (saveSuccess) {
-        <div class="alert alert-success save-alert">
-          <span>🎉</span>
-          <span>บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้วครับ</span>
-        </div>
-        <button
-          type="button"
-          class="btn btn-danger-soft btn-block main-action"
-          (click)="undoSave()"
-          [disabled]="isUndoing"
-        >
-          @if (isUndoing) {
-            <span class="btn-spinner dark"></span>
-            กำลังยกเลิก...
-          } @else {
-            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
-            บันทึกผิด? กดยกเลิกบิลนี้
-          }
-        </button>
-      } @else {
-        <button
-          type="button"
-          class="btn btn-primary btn-block main-action"
-          (click)="confirmAndSave()"
-          [disabled]="!canSave"
-        >
-          @if (isSaving) {
-            <span class="btn-spinner"></span>
-            กำลังบันทึก...
-          } @else {
-            <svg class="btn-icon" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>
-            บันทึกและสร้างบิลค่าน้ำ
-          }
-        </button>
-      }
-    </section>
+    <!-- ── ยืนยัน ── -->
+    <div class="crop-actions">
+      <button type="button" class="btn btn-ghost" (click)="cancel()" [disabled]="busy()">ยกเลิก</button>
+      <button type="button" class="btn btn-primary" (click)="confirm()" [disabled]="busy() || !preview()">
+        ✓ ยืนยันการครอบ
+      </button>
+    </div>
   }
-</div>
+</section>

@@ -152,7 +152,17 @@
   font-family: inherit;
 }
 
-/* ---------- แนบรูป ---------- */
+/* ---------- แนบรูป ----------
+   ห้ามซ่อน input ด้วย hidden / display:none — Safari บน iOS จะไม่ยอมเปิดตัวเลือกไฟล์
+   ให้เลยเวลากด label ต้องดันออกนอกสายตาแบบนี้แทน (แบบเดียวกับ meter-cropper.css) */
+input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .photo-picker {
   display: flex;
   flex-direction: column;

@@ -102,8 +102,13 @@
       <!-- เลือกบ้าน เฉพาะคนที่ดูแลหลายหลัง -->
       @if (houses.length > 1) {
         <div class="field">
-          <label class="field-label" for="report-house">แจ้งให้บ้านหลังไหน</label>
+          <label class="field-label" for="report-house">
+            แจ้งให้บ้านหลังไหน <span class="field-required">*</span>
+          </label>
           <select id="report-house" class="field-input" [(ngModel)]="form.members_id">
+            <!-- ต้องมีตัวเลือกว่างที่อ่านออก ไม่งั้นช่องจะโล่ง ๆ จนคนคิดว่าเลือกให้แล้ว
+                 กรอกจนเสร็จแล้วค่อยโดนเด้งว่ายังไม่ได้เลือกบ้าน -->
+            <option [ngValue]="null">— กรุณาเลือกบ้าน —</option>
             @for (house of houses; track house.id) {
               <option [ngValue]="house.id">
                 บ้านเลขที่ {{ house.house_no }} — {{ house.fname }} {{ house.lname }}
@@ -161,11 +166,31 @@
             </button>
           </div>
         } @else {
-          <label class="photo-picker">
-            <input type="file" accept="image/*" (change)="onPhotoSelected($event)" hidden />
+          <!-- แยกเป็นสองปุ่มแบบเดียวกับหน้าสแกนมิเตอร์ — ปุ่มถ่ายรูปใช้ capture="environment"
+               เปิดกล้องหลังให้เลย ไม่ต้องผ่านแผ่นให้เลือกว่าจะถ่ายหรือหยิบจากคลัง -->
+          <label class="photo-picker" for="report-camera">
             <span class="photo-picker-icon">📷</span>
-            <span>ถ่ายรูป หรือเลือกรูปจากเครื่อง</span>
+            <span>แตะเพื่อถ่ายรูป</span>
           </label>
+          <input
+            id="report-camera"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            (change)="onPhotoSelected($event)"
+          />
+
+          <label class="gallery-link" for="report-gallery">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            หรือเลือกรูปจากคลังภาพ
+          </label>
+          <input
+            id="report-gallery"
+            type="file"
+            accept="image/*"
+            (change)="onPhotoSelected($event)"
+          />
+
           <span class="field-hint">มีรูปประกอบจะช่วยให้ผู้ดูแลเห็นภาพและแก้ได้เร็วขึ้นครับ</span>
         }
       </div>

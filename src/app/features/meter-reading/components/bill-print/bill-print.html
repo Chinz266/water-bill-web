@@ -26,6 +26,13 @@
             <span>บ้านเลขที่</span>
             <span class="rc-strong">{{ bill.member?.house_no || '—' }}</span>
           </div>
+          <!-- ที่อยู่ขึ้นเฉพาะตอนตั้งค่าหมู่บ้านไว้แล้ว บิลเก่าที่ไม่มีข้อมูลจะไม่มีบรรทัดเปล่า -->
+          @if (print.villageAddress(bill); as address) {
+            <div class="rc-r">
+              <span>ที่อยู่</span>
+              <span>{{ address }}</span>
+            </div>
+          }
           <div class="rc-r">
             <span>ชื่อผู้ใช้น้ำ</span>
             <span>{{ print.ownerName(bill) }}</span>
@@ -59,6 +66,10 @@
         <div class="rc-readdate">
           วันที่จดมาตร
           {{ print.dateLabel(bill.meter_reading?.reading_date) }}
+          <!-- รอบจริงของบ้านหลังนี้ ไม่ใช่เดือนบนปฏิทิน — ใบแรกของบ้านยังไม่มีรอบให้เทียบ -->
+          @if (print.cycleLabel(bill); as cycle) {
+            · รอบ {{ cycle }}
+          }
         </div>
       </div>
 
@@ -83,9 +94,17 @@
             </tr>
           </tbody>
           <tfoot>
+            @if (print.hasArrears(bill)) {
+              <!-- ยอดค้างต้องเป็นบรรทัดของตัวเอง ไม่ยุบรวมกับค่าน้ำเดือนนี้
+                   ลูกบ้านที่เห็นแต่ยอดรวมจะทักว่าคิดค่าน้ำเกิน แล้วเถียงกันไม่จบ -->
+              <tr>
+                <td colspan="3" class="rc-right">ยอดค้างชำระยกมา</td>
+                <td class="rc-right">{{ print.arrears(bill) | number:'1.2-2' }}</td>
+              </tr>
+            }
             <tr>
               <td colspan="3" class="rc-right rc-strong">รวมเงินทั้งสิ้น</td>
-              <td class="rc-right rc-strong">{{ bill.total_amount | number:'1.2-2' }}</td>
+              <td class="rc-right rc-strong">{{ print.payable(bill) | number:'1.2-2' }}</td>
             </tr>
           </tfoot>
         </table>
@@ -94,8 +113,8 @@
       <!-- ยอดที่ต้องชำระ: ตัวใหญ่สุดของเอกสาร -->
       <div class="rc-grand">
         <div class="rc-grand-label">ยอดที่ต้องชำระ</div>
-        <div class="rc-grand-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</div>
-        <div class="rc-grand-words">({{ print.bahtText(bill.total_amount) }})</div>
+        <div class="rc-grand-amount">{{ print.payable(bill) | number:'1.2-2' }} บาท</div>
+        <div class="rc-grand-words">({{ print.bahtText(print.payable(bill)) }})</div>
       </div>
 
       <div class="rc-pay">
@@ -138,6 +157,12 @@
             <span>บ้านเลขที่</span>
             <span class="slip-strong">{{ bill.member?.house_no || '—' }}</span>
           </div>
+          @if (print.villageAddress(bill); as address) {
+            <div class="slip-r">
+              <span>ที่อยู่</span>
+              <span>{{ address }}</span>
+            </div>
+          }
           <div class="slip-r">
             <span>ชื่อผู้ใช้น้ำ</span>
             <span>{{ print.ownerName(bill) }}</span>
@@ -162,6 +187,13 @@
             <span>หน่วยที่ใช้</span>
             <span class="slip-strong">{{ bill.usage_unit }} ลบ.ม.</span>
           </div>
+          <!-- ช่วงวันจริงของรอบ ลูกบ้านจะได้เห็นว่าเดือนนี้นับกี่วัน -->
+          @if (print.cycleLabel(bill); as cycle) {
+            <div class="slip-r">
+              <span>รอบที่คิด</span>
+              <span>{{ cycle }}</span>
+            </div>
+          }
           @if (bill.price_per_unit) {
             <div class="slip-r">
               <span>อัตราค่าน้ำ</span>
@@ -173,9 +205,15 @@
         <!-- ยอดที่ต้องชำระ -->
         <div class="slip-total">
           <span class="slip-total-label">ยอดที่ต้องชำระ</span>
-          <span class="slip-amount">{{ bill.total_amount | number:'1.2-2' }} บาท</span>
+          <span class="slip-amount">{{ print.payable(bill) | number:'1.2-2' }} บาท</span>
         </div>
-        <div class="slip-words">({{ print.bahtText(bill.total_amount) }})</div>
+        <div class="slip-words">({{ print.bahtText(print.payable(bill)) }})</div>
+        @if (print.hasArrears(bill)) {
+          <div class="slip-words">
+            (ค่าน้ำเดือนนี้ {{ bill.total_amount | number:'1.2-2' }} + ค้างยกมา
+            {{ print.arrears(bill) | number:'1.2-2' }} บาท)
+          </div>
+        }
 
         <div class="slip-foot">
           <span>ชำระภายใน {{ print.dateLabel(print.dueDate(bill)) }} · {{ print.statusLabel(bill.payment_status) }}</span>

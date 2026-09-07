@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { toast } from 'ngx-sonner';
 import { MemberPortalService } from '../../services/member-portal.service';
 import { AuthService } from '../../../auth/services/auth.service';
@@ -9,14 +9,15 @@ import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
 
 /**
- * หน้าเดียวของฝั่งลูกบ้าน — ดูบิลบ้านตัวเอง (ทุกหลังที่บัญชีนี้ดูแล)
+ * หน้าแรกของฝั่งลูกบ้าน — ดูบิลบ้านตัวเอง (ทุกหลังที่บัญชีนี้ดูแล)
  * อ่านอย่างเดียว: เปลี่ยนสถานะ/ลบบิลทำไม่ได้ นั่นเป็นงานของเจ้าหน้าที่
  */
 @Component({
   selector: 'app-my-bills',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive],
   templateUrl: './my-bills.html',
+  // แถบบน (.portal-*) และแถบสลับหน้าใช้ร่วมกับหน้าแจ้งเรื่อง สองหน้าจะได้หน้าตาไม่เพี้ยนกัน
   styleUrls: ['../../portal-shared.css', './my-bills.css']
 })
 export class MyBillsComponent implements OnInit {
@@ -75,6 +76,8 @@ export class MyBillsComponent implements OnInit {
     this.portal.getMyBills().subscribe({
       next: (bills) => {
         this.bills = bills ?? [];
+        // รอบของบิลใบหนึ่งต้องรู้วันจดของใบก่อนหน้า จึงคิดได้เฉพาะตอนมีบิลครบทั้งกอง
+        this.print.indexCycles(this.bills);
         this.isLoading = false;
         this.cdr.detectChanges();
       },
@@ -123,15 +126,108 @@ export class MyBillsComponent implements OnInit {
     return this.visibleBills.find((bill) => bill.payment_status !== 'Paid') ?? null;
   }
 
-  /** ยอดค้างชำระรวมทุกใบของบ้านที่เลือกอยู่ */
+  /**
+   * ยอดค้างชำระรวมทุกใบของบ้านที่เลือกอยู่
+   *
+   * ⚠️ ต้องรวมจาก `total_amount` (ค่าน้ำของเดือนนั้นล้วน ๆ) **ห้ามใช้ grand_total**
+   *    เพราะ grand_total ของใบล่าสุดรวมยอดค้างของใบเก่าไว้อยู่แล้ว การเอามาบวกกับ
+   *    ใบเก่าที่ยังโชว์อยู่ในรายการอีกที = นับซ้ำ ยอดจะพองเป็นเท่าตัว
+   */
   get unpaidTotal(): number {
     return this.visibleBills
       .filter((bill) => bill.payment_status !== 'Paid')
       .reduce((sum, bill) => sum + (Number(bill.total_amount) || 0), 0);
   }
 
+  /** ใบนี้ทบยอดค้างของเดือนก่อนมาด้วยไหม — ใช้บอกลูกบ้านว่าจ่ายใบเดียวจบ */
+  hasArrears(bill: any): boolean {
+    const value = Number(bill?.arrears_amount);
+    return Number.isFinite(value) && value > 0;
+  }
+
+  /** ยอดค้างเก่าที่ทบมาในใบนี้ */
+  arrears(bill: any): number {
+    const value = Number(bill?.arrears_amount);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  /** ยอดที่ต้องจ่ายจริงของใบนี้ = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา */
+  payable(bill: any): number {
+    const grand = Number(bill?.grand_total);
+    return Number.isFinite(grand) && bill?.grand_total !== null && bill?.grand_total !== ''
+      ? grand
+      : Number(bill?.total_amount) || 0;
+  }
+
   get unpaidCount(): number {
     return this.visibleBills.filter((bill) => bill.payment_status !== 'Paid').length;
+  }
+
+  // ==========================================
+  // 📊 กราฟปริมาณการใช้น้ำย้อนหลัง (แท่งเดียวต่อเดือน)
+  // ==========================================
+  readonly chartW = 340;
+  readonly chartH = 184;
+  private readonly chartTop = 30;
+  private readonly chartBottom = 26;
+
+  private readonly shortMonths = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+
+  /** เส้นฐานของกราฟ (ล่างสุดของแท่ง) */
+  get chartBaseline(): number {
+    return this.chartH - this.chartBottom;
+  }
+
+  /**
+   * รวมปริมาณการใช้น้ำต่อเดือนจากบิลที่กำลังดูอยู่ เรียงเก่า→ใหม่ เอา 6 เดือนล่าสุด
+   * คืน geometry พร้อมใช้ (x, y, สูง, path มุมบนโค้ง, ตำแหน่ง label) ให้ template วาดได้เลย
+   */
+  get usageChart(): any[] {
+    const byMonth = new Map<string, { label: string; usage: number; order: number }>();
+    for (const bill of this.visibleBills) {
+      const key = this.monthKey(bill);
+      const order = Number(bill.billing_year) * 12 + Number(bill.billing_month);
+      const usage = Number(bill.usage_unit) || 0;
+      const existing = byMonth.get(key);
+      if (existing) {
+        existing.usage += usage;
+      } else {
+        const m = Number(bill.billing_month);
+        byMonth.set(key, { label: this.shortMonths[m - 1] ?? `เดือน${m}`, usage, order });
+      }
+    }
+
+    const rows = [...byMonth.values()].sort((a, b) => a.order - b.order).slice(-6);
+    if (rows.length === 0) return [];
+
+    const maxUsage = Math.max(1, ...rows.map((r) => r.usage));
+    const plot = this.chartH - this.chartTop - this.chartBottom;
+    const slot = this.chartW / rows.length;
+    const barW = Math.min(46, slot * 0.55);
+
+    return rows.map((row) => {
+      const cx = (rows.indexOf(row) + 0.5) * slot;
+      const h = (row.usage / maxUsage) * plot;
+      const x = cx - barW / 2;
+      const y = this.chartTop + (plot - h);
+      const r = Math.min(5, barW / 2, Math.max(0, h));
+      // path แท่งที่โค้งเฉพาะมุมบน (ปลายข้อมูล) ยึดกับเส้นฐาน
+      const d =
+        `M${x},${y + r} a${r},${r} 0 0 1 ${r},-${r}` +
+        ` h${barW - 2 * r} a${r},${r} 0 0 1 ${r},${r}` +
+        ` v${h - r} h-${barW} Z`;
+      return {
+        label: row.label,
+        usage: row.usage,
+        d,
+        cx,
+        valueY: y - 8,
+        monthY: this.chartH - 8
+      };
+    });
   }
 
   /**
@@ -186,6 +282,11 @@ export class MyBillsComponent implements OnInit {
 
   dateLabel(value: string | Date | null | undefined): string {
     return this.print.dateLabel(value);
+  }
+
+  /** ช่วงวันจริงที่บิลใบนี้คิดค่าน้ำ — ว่างเมื่อเป็นบิลใบแรกของบ้าน (ไม่มีรอบก่อนให้เทียบ) */
+  cycleLabel(bill: any): string {
+    return this.print.cycleLabel(bill);
   }
 
   dueDate(bill: any): Date | null {

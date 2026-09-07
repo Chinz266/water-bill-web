@@ -1,0 +1,314 @@
+<div class="page-head">
+  <h1 class="page-title">รูปที่รอตรวจสอบ</h1>
+  <p class="page-subtitle">
+    รูปที่คนเดินจดตัดสินหน้างานไม่ได้ — AI อ่านเลขไม่ออก · เข้าได้หลายบ้านพอ ๆ กัน ·
+    หรือรู้บ้านแล้วแต่ตัวเลขน่าสงสัยจนด่านตีกลับ
+  </p>
+</div>
+
+<div class="alert alert-info">
+  <span>⏳</span>
+  <span>
+    <strong>ของที่ค้างนานคือของที่ต้องรีบ</strong> — พอข้ามเดือนไปแล้วจะออกบิลย้อนหลังไม่ได้
+    (ติดด่าน "มีบิลใหม่กว่าอยู่") แล้วหน่วยน้ำของรูปใบนั้นจะไปรวมกับเดือนถัดไปแทน
+    ระบบตีทิ้งให้อัตโนมัติเมื่อค้างเกิน 90 วันครับ
+  </span>
+</div>
+
+<div class="card">
+  @if (isLoading()) {
+    <p class="text-muted">กำลังโหลด...</p>
+  } @else if (!rows().length) {
+    <p class="text-muted">ไม่มีรูปค้างในคิวครับ 🎉</p>
+  } @else {
+    <!-- ═══ virtual scroll ═══
+         คิวโตได้เป็นร้อยใบตอนต้นเดือน การ์ดทุกใบมีรูปของตัวเอง — เรนเดอร์ทั้งหมด
+         พร้อมกันแปลว่าหน้าเว็บกระตุกและมือถือกินแรมจนแอปโดนปิด
+         cdk เรนเดอร์เฉพาะการ์ดที่เห็นอยู่บนจอ (+ กันชนเล็กน้อย) เท่านั้น
+
+         ⚠️ [itemSize] ต้องตรงกับความสูงจริงของ .queue-item ใน CSS เป๊ะ ๆ
+            ไม่ตรงเมื่อไหร่การ์ดจะซ้อนกันหรือมีช่องโหว่ระหว่างใบ -->
+    <cdk-virtual-scroll-viewport class="queue-viewport" [itemSize]="itemSize">
+      <article
+        *cdkVirtualFor="let row of rows(); trackBy: trackById"
+        class="queue-item"
+        [attr.data-queue-id]="row.id"
+        [class.is-linked]="highlightedId() === row.id"
+      >
+        <button type="button" class="queue-photo" (click)="open(row)">
+          <!-- lazy: คิวยาว ๆ มีรูปเป็นร้อย โหลดเฉพาะที่เลื่อนมาถึงจริง -->
+          <img [src]="photoUrl(row)" [alt]="'รูปมิเตอร์รอตรวจ รหัส ' + row.id" loading="lazy" />
+        </button>
+
+        <div class="queue-body">
+          <p class="queue-unit queue-line">
+            @if (row.meter_unit !== null) {
+              เลขที่อ่านได้ <strong>{{ row.meter_unit }}</strong>
+            } @else {
+              <span class="chip chip-warning">AI อ่านเลขไม่ออก</span>
+            }
+            @if (blockedLabel(row.blocked_code); as label) {
+              <span class="chip chip-warning">{{ label }}</span>
+            }
+          </p>
+
+          <!-- ช่องนี้สูงคงที่เสมอ (มีของหรือไม่มีก็ตาม) เพราะ virtual scroll วางการ์ด
+               ด้วยความสูงคงที่ — บรรทัดที่โผล่มาบ้างไม่โผล่บ้างทำให้ตำแหน่งเพี้ยนทั้งคิว -->
+          <p class="queue-line queue-chain">
+            @if (chainLabel(row); as label) {
+              <span class="chain-badge">🔗 {{ label }}</span>
+            } @else if (row.note) {
+              <span class="text-muted">บันทึก: {{ row.note }}</span>
+            }
+          </p>
+
+          <p class="text-muted queue-line queue-meta">
+            ถ่ายเมื่อ {{ row.captured_at ? (row.captured_at | date: 'd MMM y HH:mm') : 'ไม่ทราบเวลา' }}
+            · เข้าคิวเมื่อ {{ row.create_date | date: 'd MMM y' }}
+          </p>
+
+          <div class="queue-actions">
+            <button type="button" class="btn btn-sm btn-primary" (click)="open(row)">
+              {{ row.members_id ? 'ตรวจแล้วอนุมัติ' : 'จับคู่กับบ้าน' }}
+            </button>
+
+            <!-- ปุ่มลัดของใบที่เป็นมิเตอร์ตัวเดียวกับใบที่รู้บ้านแล้ว — กดแล้วเปิดใบนี้
+                 พร้อมติ๊กบ้านนั้นไว้ให้ เหลือแค่ดูรูปกับตัวเลขแล้วกดออกบิล -->
+            @if (chainHouse(row); as house) {
+              <button type="button" class="btn btn-sm btn-secondary" (click)="openWithChain(row)">
+                ยืนยันบ้านเดียวกับคิว #{{ row.chain?.id }} ({{ house.house_no }})
+              </button>
+            }
+          </div>
+        </div>
+      </article>
+    </cdk-virtual-scroll-viewport>
+  }
+</div>
+
+<!-- 🔍 หน้าต่างจับคู่ -->
+@if (selected(); as row) {
+  <div class="modal-overlay" (click)="close()">
+    <div class="modal-card modal-wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">จับคู่รูปนี้กับบ้าน</h2>
+        <button type="button" class="modal-close" (click)="close()" aria-label="ปิด">✕</button>
+      </div>
+
+      <img class="detail-photo" [src]="photoUrl(row)" alt="รูปหน้าปัดมิเตอร์" />
+
+      <!-- ═══ ใบที่ถูกด่านตีกลับ ═══
+           ต้องเห็นทั้งเหตุผลและบ้านที่คนหน้างานเลือกไว้ ก่อนจะเริ่มดูตัวเลข
+           ไม่งั้นคนตรวจจะไม่รู้ว่ากำลังตรวจอะไรอยู่ แล้วก็กดอนุมัติผ่านไปเฉย ๆ -->
+      @if (row.blocked_reason) {
+        <div class="alert alert-warning">
+          <span>🔎</span>
+          <span>
+            <strong>ถูกตีกลับตอนอยู่หน้างาน:</strong> {{ row.blocked_reason }}
+          </span>
+        </div>
+      }
+
+      <!-- มิเตอร์ตัวเดียวกันที่ถ่ายไว้คนละวัน — ตัวเลขสองใบต้องอยู่ตรงหน้าคนตัดสิน -->
+      @if (chainLabel(row); as label) {
+        <div class="alert alert-info">
+          <span>🔗</span>
+          <span>
+            {{ label }}
+            @if (row.chain?.house_no) {
+              <br />ใบก่อนหน้าถูกจับคู่กับบ้าน <strong>{{ row.chain?.house_no }}</strong> ไปแล้ว
+            }
+            @if (row.chain?.cluster_group_id) {
+              <br />⚠️ มิเตอร์กลุ่มนี้ติดกันบนกำแพงเดียวกัน (ห่างกันราว 30 ซม.)
+              พิกัดแยกตัวซ้าย/ตัวขวาไม่ได้ — กรุณาเทียบเลขบนรูปกับเลขตั้งต้นให้แน่ใจก่อนครับ
+            }
+          </span>
+        </div>
+
+        @if (chainHouse(row); as house) {
+          <button type="button" class="btn btn-ghost btn-sm" (click)="selectedMemberId = house.members_id">
+            🔗 ใช้บ้านเดียวกับคิว #{{ row.chain?.id }} ({{ house.house_no }})
+          </button>
+        }
+      }
+
+      @if (suggested(); as house) {
+        <div class="alert alert-info">
+          <span>🏠</span>
+          <span>
+            <strong>คนหน้างานเลือกบ้าน {{ house.house_no }}</strong> ({{ house.name }})
+            @if (house.cluster_group_id) {
+              — มิเตอร์อยู่ในกลุ่มที่ติดกัน ({{ house.cluster_group_id }})
+              ตำแหน่งที่ {{ house.sequence_index }} จากซ้าย
+            }
+            <br />
+            เลขตั้งต้น {{ house.previous_unit }}
+            @if (house.usage_unit !== null) {
+              · ถ้าเป็นบ้านนี้จะใช้ไป <strong>{{ house.usage_unit }}</strong> หน่วย
+            }
+          </span>
+        </div>
+
+        <button type="button" class="btn btn-ghost btn-sm" (click)="useSuggested()">
+          ใช้บ้าน {{ house.house_no }} หลังนี้
+        </button>
+      }
+
+      <!-- รอบบิล: เปลี่ยนแล้วผู้สมัครต้องคิดใหม่ เพราะเลขตั้งต้นของแต่ละบ้านคนละค่ากันในแต่ละเดือน -->
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label" for="billing-month">บิลประจำเดือน</label>
+          <input
+            id="billing-month"
+            class="field-input"
+            type="text"
+            inputmode="numeric"
+            maxlength="2"
+            [(ngModel)]="billingMonth"
+            (ngModelChange)="onBillingChange()"
+          />
+        </div>
+        <div class="field">
+          <label class="field-label" for="billing-year">ปี (ค.ศ.)</label>
+          <input
+            id="billing-year"
+            class="field-input"
+            type="text"
+            inputmode="numeric"
+            maxlength="4"
+            [(ngModel)]="billingYear"
+            (ngModelChange)="onBillingChange()"
+          />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="manual-unit">
+          เลขมิเตอร์ที่อ่านได้จากรูป
+          @if (row.meter_unit !== null) {
+            <span class="text-muted">(AI อ่านได้ {{ row.meter_unit }} — พิมพ์ทับได้ถ้าไม่ตรง)</span>
+          }
+        </label>
+        <input
+          id="manual-unit"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [(ngModel)]="manualUnit"
+          [placeholder]="row.meter_unit !== null ? row.meter_unit : 'กรอกเลขที่เห็นบนหน้าปัด'"
+        />
+        <p class="field-hint">
+          กรอกเฉพาะ<strong>เลขสีดำ</strong> (ลูกบาศก์เมตร) ไม่ต้องใส่เลขแดงหลังจุดครับ
+        </p>
+      </div>
+
+      <h3 class="section-heading">บ้านที่เป็นไปได้</h3>
+
+      @if (isLoadingDetail()) {
+        <p class="text-muted">กำลังคิดรายชื่อบ้าน...</p>
+      } @else if (!candidates().length) {
+        <p class="text-muted">
+          ไม่มีบ้านที่เข้าเค้าเลย — มักแปลว่าเลขที่อ่านได้ยังไม่ถูก ลองพิมพ์เลขใหม่ดูครับ
+        </p>
+      } @else {
+        <ul class="candidate-list">
+          @for (candidate of candidates(); track candidate.members_id) {
+            <li>
+              <label class="candidate-item" [class.is-selected]="selectedMemberId === candidate.members_id">
+                <input type="radio" name="candidate" [value]="candidate.members_id" [(ngModel)]="selectedMemberId" />
+                <span class="candidate-body">
+                  <span class="candidate-house">
+                    บ้านเลขที่ <strong>{{ candidate.house_no }}</strong> · {{ candidate.name }}
+                  </span>
+                  <span class="text-muted candidate-meta">
+                    เลขตั้งต้น {{ candidate.previous_unit }} · ถ้าเป็นบ้านนี้จะใช้ไป
+                    <strong>{{ candidate.usage_unit }}</strong> หน่วย
+                    @if (candidate.typical_usage !== null) {
+                      (ปกติใช้ {{ candidate.typical_usage }} หน่วย)
+                    }
+                  </span>
+                  @if (candidate.already_billed) {
+                    <span class="chip chip-warning">บ้านนี้ออกบิลรอบนี้ไปแล้ว</span>
+                  }
+
+                  <!-- ทิศทางเทียบกับหมุดที่ลงทะเบียนไว้ — ช่วยให้เห็นภาพว่ายืนถ่ายตรงไหน
+                       ข้อความเตือนต่อท้ายมาจาก directionBadge() ไม่ใช่ของตกแต่ง:
+                       ระยะระดับเซนติเมตรอยู่ใต้ความคลาดเคลื่อนของ GPS หลายสิบเท่า -->
+                  @if (directionBadge(candidate); as badge) {
+                    <span class="candidate-direction">{{ badge }}</span>
+                  }
+                </span>
+              </label>
+            </li>
+          }
+        </ul>
+      }
+
+      <!-- ด่านของหลังบ้านที่ตีกลับมา -->
+      @if (blockedMessage(); as message) {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>{{ message }}</span>
+        </div>
+
+        @if (confirmFlagFor(blockedCode()); as step) {
+          <button type="button" class="btn btn-warning" (click)="confirmAndRetry(step.flag)">
+            {{ step.label }} แล้วลองใหม่
+          </button>
+        } @else {
+          <p class="field-hint">
+            ด่านนี้ข้ามไม่ได้ครับ ต้องแก้ที่ต้นเหตุก่อน (เช่น ถ่ายรูปใหม่ หรือปรับสถานะบิลใบเดิม)
+          </p>
+        }
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger-soft" (click)="rowToDiscard.set(row)">
+          ตีทิ้งรูปนี้
+        </button>
+        <button type="button" class="btn btn-ghost" (click)="close()" [disabled]="isAssigning()">ปิด</button>
+        <button type="button" class="btn btn-primary" (click)="assign()" [disabled]="!canAssign()">
+          @if (isAssigning()) {
+            <span class="btn-spinner"></span> กำลังออกบิล...
+          } @else {
+            จับคู่แล้วออกบิล
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- 🗑️ ยืนยันก่อนตีทิ้ง — ลบไฟล์รูปด้วย -->
+@if (rowToDiscard(); as row) {
+  <div class="modal-overlay" (click)="rowToDiscard.set(null)">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">ตีทิ้งรูปนี้ใช่ไหมครับ?</h2>
+        <button type="button" class="modal-close" (click)="rowToDiscard.set(null)" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>ไฟล์รูปจะถูก<strong>ลบทิ้งถาวร</strong> กู้คืนไม่ได้ครับ</span>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="discard-note">เหตุผล (ไม่บังคับ)</label>
+        <input
+          id="discard-note"
+          class="field-input"
+          type="text"
+          [(ngModel)]="discardNote"
+          placeholder="เช่น เบลอจนอ่านไม่ออก / ถ่ายผิดของ"
+        />
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="rowToDiscard.set(null)">ยังไม่ทิ้ง</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDiscard()">ตีทิ้งเลย</button>
+      </div>
+    </div>
+  </div>
+}

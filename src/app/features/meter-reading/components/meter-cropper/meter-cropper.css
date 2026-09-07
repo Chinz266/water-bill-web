@@ -1,358 +1,186 @@
-.scan {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ---------- โครงแต่ละขั้นตอน ---------- */
-.step + .step,
-.step + .card {
-  margin-top: 16px;
-}
-
-.step-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.step-no {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--primary-hover);
-  background: var(--primary-soft-2);
-  border-radius: 50%;
-}
-
-.step-title {
-  font-size: 19px;
-}
-
-/* ---------- ช่องเลือกรูป ---------- */
-input[type='file'] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.dropzone {
+/* จอมือถือคือหน้างานจริง — วางเป็นคอลัมน์เดียวเสมอ แล้วค่อยแตกสองคอลัมน์บนจอกว้าง */
+.crop-shell {
   display: flex;
   flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* ── ปุ่มเลือกรูป ── */
+.crop-pick {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 32px 24px;
-  text-align: center;
-  background: var(--primary-soft);
-  border: 2px dashed #bfdbfe;
-  border-radius: var(--radius-sm);
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
 }
 
-.dropzone:hover {
-  background: var(--primary-soft-2);
+.crop-pick:hover {
   border-color: var(--primary);
+  background: var(--primary-soft);
 }
 
-.dropzone.compact {
-  flex-direction: row;
-  justify-content: center;
-  padding: 16px;
-}
-
-.dropzone.compact .dropzone-hint {
+.crop-pick input {
   display: none;
 }
 
-.dropzone-art {
-  font-size: 40px;
-  line-height: 1;
+.crop-pick-icon {
+  font-size: 28px;
 }
 
-.dropzone.compact .dropzone-art {
-  font-size: 24px;
-}
-
-.dropzone-title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--primary-hover);
-}
-
-.dropzone-hint {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-/* (.gallery-link อยู่ใน styles.css กลาง เพราะไฟล์นี้เต็ม budget) */
-
-/* ---------- กรอบครอบตัด ---------- */
-.crop-frame {
-  overflow: hidden;
-  background: #0f172a;
-  border-radius: var(--radius-sm);
-}
-
-.crop-frame image-cropper {
-  --cropper-outline-color: rgba(15, 23, 42, 0.6);
-  display: block;
-}
-
-/* ---------- แถบเครื่องมือ ---------- */
-.tool-label {
-  margin: 24px 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.segmented {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  background: var(--line-soft);
-  border-radius: var(--radius-sm);
-}
-
-.segmented button {
-  min-height: 48px;
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.segmented button.is-on {
-  color: var(--primary-hover);
-  background: #fff;
-  box-shadow: var(--shadow);
-}
-
-.tools {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.tool {
+.crop-pick-text {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 72px;
-  padding: 8px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 2px;
+}
+
+.crop-pick-text small {
   color: var(--text-muted);
-  background: #fff;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.tool:hover {
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-  border-color: var(--primary-soft-2);
-}
-
-/* ---------- ปุ่มหลักของแต่ละขั้น ---------- */
-.main-action {
-  min-height: 56px;
-  margin-top: 24px;
-  font-size: 17px;
-}
-
-.btn-spinner.dark {
-  border-color: var(--primary-soft-2);
-  border-top-color: var(--primary);
-}
-
-/* ---------- ระหว่างรอผล ---------- */
-.skel-bar {
-  height: 12px;
-  margin-bottom: 16px;
-}
-
-.skel-number {
-  height: 72px;
-}
-
-/* ---------- ผลการอ่านตัวเลข ---------- */
-.result {
-  animation: fade-up 0.25s ease-out;
-}
-
-.conf {
-  margin-bottom: 24px;
-}
-
-.conf-bar {
-  height: 10px;
-  overflow: hidden;
-  background: var(--line-soft);
-  border-radius: 999px;
-}
-
-.conf-fill {
-  display: block;
-  height: 100%;
-  background: var(--warning);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.conf-text {
-  margin-top: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #b45309;
-}
-
-.conf.good .conf-fill {
-  background: var(--success);
-}
-
-.conf.good .conf-text {
-  color: var(--success);
-}
-
-/* ช่องเลขมิเตอร์ — ต้องใหญ่ อ่านง่าย และแก้ด้วยมือได้
-   (สไตล์ .prev-note / .verify / .usage-summary อยู่ใน styles.css กลาง เพราะไฟล์นี้เต็ม budget) */
-.meter-label {
-  font-size: 16px;
-}
-
-.meter-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  background: var(--primary-soft);
-  border: 2px solid var(--primary-soft-2);
-  border-radius: var(--radius-sm);
-}
-
-.meter-box:focus-within {
-  border-color: var(--primary);
-}
-
-.meter-input {
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  font-family: inherit;
-  font-size: 44px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--text);
-  background: transparent;
-  border: none;
-  outline: none;
-}
-
-.meter-input::-webkit-outer-spin-button,
-.meter-input::-webkit-inner-spin-button {
+/* ── ข้อความกำกับ ── ต้องอ่านก่อนลากกรอบ จึงอยู่เหนือรูปเสมอ */
+.crop-guide {
   margin: 0;
-  -webkit-appearance: none;
-}
-
-.meter-unit {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.save-alert {
-  margin-top: 16px;
-}
-
-@media (max-width: 640px) {
-  .tools {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .segmented {
-    grid-template-columns: 1fr;
-  }
-
-  .meter-input {
-    font-size: 36px;
-  }
-}
-
-/* หลักฐานจากการทดสอบภาคสนาม — บอกว่าผลอ่านระดับความชัดนี้ถูกจริงกี่ % */
-.conf-evidence {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--text-muted, #6b7280);
-}
-
-/* ด่านตรวจด้วยตา: โผล่เฉพาะตอนค่าความเชื่อมั่นไม่ผ่านเกณฑ์ 0.85 */
-.verify-gate {
-  margin-bottom: 24px;
-  padding: 14px 16px;
-  border: 1px solid var(--warning, #f59e0b);
-  border-radius: 12px;
-  background: #fffbeb;
-}
-
-.verify-gate-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #b45309;
-}
-
-.verify-gate-tips {
-  margin: 0 0 12px;
-  padding-left: 20px;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
   font-size: 14px;
-  line-height: 1.7;
-  color: #92400e;
+  line-height: 1.6;
 }
 
-.verify-gate-check {
+/* ── แถบสถานะกรอบอัตโนมัติ ── สีน้ำเงินคนละโทนกับคำเตือนสีเหลืองด้านบน
+   เพราะเป็นคนละเรื่องกัน: อันบนคือสิ่งที่คนต้องระวัง อันนี้คือสิ่งที่ระบบทำให้แล้ว */
+.crop-auto {
   display: flex;
-  gap: 10px;
+  gap: var(--sp-1);
   align-items: flex-start;
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--text);
   font-size: 14px;
+  line-height: 1.6;
+}
+
+.crop-auto.is-busy {
+  color: var(--text-muted);
+}
+
+/* ── กรอบครอป ── */
+.crop-stage {
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #0f172a;
+}
+
+.crop-stage image-cropper {
+  display: block;
+  /* บนมือถือแนวตั้ง รูปเต็มจอทำให้ปุ่มยืนยันหลุดพ้นจอไปเลย */
+  max-height: 46vh;
+}
+
+/* ── เครื่องมือ ── */
+.crop-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  justify-content: space-between;
+}
+
+.crop-ratio,
+.crop-rotate {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.crop-chip {
+  min-width: 56px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-muted);
+  font: inherit;
   font-weight: 600;
-  color: #78350f;
   cursor: pointer;
 }
 
-.verify-gate-check input {
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  flex: none;
-  accent-color: var(--warning, #f59e0b);
+.crop-chip.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.crop-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── พรีวิว ── */
+.crop-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.crop-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1);
+}
+
+.crop-preview-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.crop-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.crop-preview-img {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  /* พื้นเข้มช่วยให้เห็นขอบภาพที่ครอปได้ชัดว่าตัดโดนตัวเลขไหม */
+  background: #0f172a;
+}
+
+/* ── ปุ่มยืนยัน ── ปักไว้ล่างสุด ระยะนิ้วโป้งบนมือถือ */
+.crop-actions {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.crop-actions .btn {
+  flex: 1;
+}
+
+@media (min-width: 760px) {
+  .crop-stage image-cropper {
+    max-height: 56vh;
+  }
+
+  .crop-actions {
+    justify-content: flex-end;
+  }
+
+  .crop-actions .btn {
+    flex: 0 0 auto;
+    min-width: 160px;
+  }
 }

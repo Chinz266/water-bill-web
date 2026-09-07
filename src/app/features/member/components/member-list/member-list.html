@@ -1,33 +1,82 @@
 <div class="members">
-  <div class="members-head">
-    <div class="page-head">
-      <h1 class="page-title">ลูกบ้านในหมู่บ้าน</h1>
-      <p class="page-subtitle">เพิ่ม แก้ไข หรือลบข้อมูลบ้านและเจ้าของบ้านได้ที่นี่</p>
-    </div>
-
-    <button type="button" class="btn btn-primary add-btn" (click)="openAddModal()">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      เพิ่มบ้านใหม่
-    </button>
+  <div class="page-head">
+    <h1 class="page-title">ทะเบียนลูกบ้าน</h1>
+    <p class="page-subtitle">รายชื่อบ้านทุกหลังในระบบ เพิ่ม แก้ไข หรือลบได้ที่นี่ครับ</p>
   </div>
 
-  @if (members$ | async; as members) {
-    @if (members.length > 0) {
-      <!-- 🔍 ช่องค้นหา — พิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทร -->
-      <div class="card search-card">
-        <label class="field-label" for="member-search">ค้นหาบ้านหรือเจ้าของบ้าน</label>
-        <input
-          id="member-search"
-          class="field-input"
-          type="search"
-          [(ngModel)]="searchTerm"
-          placeholder="เช่น 99/1, สมชาย หรือ 0812345678"
-        />
+  <!-- ค้นหากับปุ่มเพิ่มบ้านอยู่แถวเดียวกัน — สองอย่างนี้คือสิ่งที่คนเปิดหน้านี้มาทำ -->
+  <div class="members-bar">
+    <input
+      class="field-input search-input"
+      type="search"
+      [(ngModel)]="searchTerm"
+      placeholder="ค้นบ้านเลขที่ ชื่อ หรือเบอร์โทร"
+      aria-label="ค้นหาบ้านหรือเจ้าของบ้าน"
+    />
+    <button type="button" class="btn btn-primary add-btn" (click)="openAddModal()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      เพิ่มบ้าน
+    </button>
+    <!-- ทางลัดสำหรับตอนลงทะเบียนทั้งหมู่บ้าน — ยืนกรอกทีละหลังกลางแดดทำจริงไม่ไหว -->
+    <a class="btn btn-secondary add-btn" routerLink="/members/batch">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      เพิ่มหลายหลังจากรูป
+    </a>
+  </div>
+
+  @if (isLoading) {
+    <div class="card">
+      <p class="loading-note">
+        <span class="loading-dot"></span> กำลังโหลดรายชื่อลูกบ้าน รอสักครู่นะครับ...
+      </p>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>
+  } @else if (loadFailed) {
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-art">📡</div>
+        <h2 class="empty-title">โหลดรายชื่อไม่สำเร็จ</h2>
+        <p class="empty-text">อาจเป็นเพราะเน็ตหลุดหรือระบบหลังบ้านยังไม่พร้อมครับ</p>
+        <button type="button" class="btn btn-primary" (click)="loadMembers()">ลองโหลดใหม่</button>
       </div>
+    </div>
+  } @else if (members.length === 0) {
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-art">🏠</div>
+        <h2 class="empty-title">ยังไม่มีบ้านในระบบ</h2>
+        <p class="empty-text">เพิ่มบ้านหลังแรกเข้าระบบก่อน แล้วค่อยเริ่มบันทึกค่าน้ำได้เลยครับ</p>
+        <button type="button" class="btn btn-primary" (click)="openAddModal()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          เพิ่มบ้านหลังแรก
+        </button>
+      </div>
+    </div>
+  } @else {
+    <!-- บ้านที่ไม่มีพิกัดจะถูกจับคู่รูปมิเตอร์อัตโนมัติไม่ได้ ต้องเห็นว่าเหลือกี่หลัง -->
+    @if (missingCoordsCount > 0) {
+      <div class="alert alert-warning coords-alert">
+        <span>📍</span>
+        <span>
+          ยังมีอีก <strong>{{ missingCoordsCount }}</strong> หลังที่ไม่มีพิกัดมิเตอร์
+          จับคู่รูปอัตโนมัติไม่ได้ครับ — กด "ดึงพิกัดจากรูป" ในรายการ
+          แล้วเลือกรูปหน้าปัดที่ถ่ายตอนเปิด GPS
+        </span>
+      </div>
+    }
 
-      @let visibleMembers = filterMembers(members);
-
-      @if (visibleMembers.length > 0) {
+    @if (visibleMembers.length === 0) {
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-art">🔍</div>
+          <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
+          <p class="empty-text">ลองพิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทรใหม่อีกครั้งนะครับ</p>
+          <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">ล้างคำค้นหา</button>
+        </div>
+      </div>
+    } @else {
       <!-- จอใหญ่: ตาราง -->
       <div class="table-card desktop-only">
         <div class="table-scroll">
@@ -35,8 +84,10 @@
             <thead>
               <tr>
                 <th>บ้านเลขที่</th>
-                <th>ชื่อเจ้าของบ้าน</th>
+                <th>เจ้าของบ้าน</th>
                 <th>เบอร์โทรศัพท์</th>
+                <th>วันจดประจำ</th>
+                <th>พิกัดมิเตอร์</th>
                 <th class="th-actions">จัดการ</th>
               </tr>
             </thead>
@@ -44,10 +95,45 @@
               @for (member of visibleMembers; track member.id) {
                 <tr>
                   <td class="cell-strong">{{ member.house_no }}</td>
-                  <td>{{ member.fname }} {{ member.lname }}</td>
+                  <td>{{ ownerName(member) }}</td>
                   <td class="cell-muted">{{ member.phone || '—' }}</td>
+                  <!-- รอบบิลของแต่ละหลังไม่ตรงกัน เพราะเดินจดทั้งหมู่บ้านไม่จบในวันเดียว -->
+                  <td class="cell-muted">
+                    @if (readingDay(member); as day) {
+                      ประมาณวันที่ {{ day }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                  <td>
+                    @if (hasMemberCoords(member)) {
+                      <span class="chip chip-success">มีพิกัดแล้ว</span>
+                    } @else {
+                      <!-- พิกัดมาจากรูปทางเดียว การวัดจากเครื่องที่นั่งทำงานอยู่ได้ค่าคนละอำเภอ -->
+                      <label class="btn btn-sm btn-secondary" [attr.for]="'coords-photo-d-' + member.id">
+                        @if (locatingMemberId === member.id) {
+                          <span class="btn-spinner dark"></span>
+                          กำลังอ่านรูป...
+                        } @else {
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                          ดึงพิกัดจากรูป
+                        }
+                      </label>
+                      <input
+                        [id]="'coords-photo-d-' + member.id"
+                        type="file"
+                        accept="image/*"
+                        (change)="fillCoordsFromPhoto(member, $event)"
+                        hidden
+                      />
+                    }
+                  </td>
                   <td>
                     <div class="cell-actions">
+                      <a class="btn btn-sm btn-secondary" [routerLink]="['/members', member.id, 'manage']">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/><path d="M8 13h8"/></svg>
+                        ทะเบียนมิเตอร์
+                      </a>
                       <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                         แก้ไข
@@ -71,13 +157,47 @@
           <div class="card member-card">
             <div class="member-top">
               <span class="chip chip-info">บ้านเลขที่ {{ member.house_no }}</span>
+              @if (!hasMemberCoords(member)) {
+                <span class="chip chip-warning">ไม่มีพิกัด</span>
+              }
             </div>
-            <p class="member-name">{{ member.fname }} {{ member.lname }}</p>
+            <p class="member-name">{{ ownerName(member) }}</p>
             <p class="member-phone text-muted">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 5.2 2 2 0 0 1 6 3Z"/></svg>
               {{ member.phone || 'ไม่ได้ระบุเบอร์โทร' }}
             </p>
+            @if (readingDay(member); as day) {
+              <p class="reading-day text-muted">
+                <span aria-hidden="true">🗓️</span>
+                จดประจำประมาณวันที่ {{ day }} ของเดือน
+              </p>
+            }
+
+            @if (!hasMemberCoords(member)) {
+              <!-- ทางเดียวที่จะได้พิกัด: รูปหน้าปัดที่ถ่ายตอนยืนอยู่หน้ามิเตอร์จริง -->
+              <label class="btn btn-secondary btn-block coords-btn" [attr.for]="'coords-photo-m-' + member.id">
+                @if (locatingMemberId === member.id) {
+                  <span class="btn-spinner dark"></span>
+                  กำลังอ่านรูป...
+                } @else {
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                  ดึงพิกัดจากรูปหน้าปัดที่ถ่ายไว้
+                }
+              </label>
+              <input
+                [id]="'coords-photo-m-' + member.id"
+                type="file"
+                accept="image/*"
+                (change)="fillCoordsFromPhoto(member, $event)"
+                hidden
+              />
+            }
+
             <div class="member-actions">
+              <a class="btn btn-sm btn-secondary" [routerLink]="['/members', member.id, 'manage']">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/><path d="M8 13h8"/></svg>
+                ทะเบียนมิเตอร์
+              </a>
               <button type="button" class="btn btn-sm btn-secondary" (click)="openEditModal(member)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 แก้ไข
@@ -90,47 +210,12 @@
           </div>
         }
       </div>
-      } @else {
-        <!-- ค้นหาแล้วไม่เจอ -->
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-art">🔍</div>
-            <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
-            <p class="empty-text">ลองพิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทรใหม่อีกครั้งนะครับ</p>
-            <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">
-              ล้างคำค้นหา
-            </button>
-          </div>
-        </div>
-      }
-    } @else {
-      <!-- ยังไม่มีข้อมูล -->
-      <div class="card">
-        <div class="empty-state">
-          <div class="empty-art">🏠</div>
-          <h2 class="empty-title">ยังไม่มีบ้านในระบบ</h2>
-          <p class="empty-text">เพิ่มบ้านหลังแรกเข้าระบบก่อน แล้วค่อยเริ่มบันทึกค่าน้ำได้เลยครับ</p>
-          <button type="button" class="btn btn-primary" (click)="openAddModal()">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            เพิ่มบ้านหลังแรก
-          </button>
-        </div>
-      </div>
     }
-  } @else {
-    <!-- กำลังโหลด -->
-    <div class="card">
-      <p class="loading-note">
-        <span class="loading-dot"></span> กำลังโหลดรายชื่อลูกบ้าน รอสักครู่นะครับ...
-      </p>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-    </div>
   }
 </div>
 
-<!-- หน้าต่างเพิ่มบ้านใหม่ -->
+<!-- ================= เพิ่มบ้านใหม่ =================
+     พิกัดมาจากรูปหน้าปัดที่แนบเท่านั้น รูปใบเดียวได้ทั้งวันจดและตำแหน่งมิเตอร์ -->
 @if (showAddModal) {
   <div class="modal-overlay" (click)="closeAddModal()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
@@ -138,6 +223,27 @@
         <h2 class="modal-title">เพิ่มบ้านใหม่</h2>
         <button type="button" class="modal-close" (click)="closeAddModal()" aria-label="ปิด">✕</button>
       </div>
+
+      <!-- สถานะพิกัดอยู่บนสุด เพราะเป็นของบังคับที่ต้องได้มาจากรูปเท่านั้น -->
+      <div class="coords-status" [class.is-ready]="hasCoords" [class.is-error]="locationError">
+        @if (hasCoords) {
+          <span>📍</span>
+          <span>
+            ได้พิกัดจากรูปแล้ว ({{ newMember.latitude | number: '1.5-5' }}, {{ newMember.longitude | number: '1.5-5' }})
+          </span>
+        } @else {
+          <span>📍</span>
+          <span>ยังไม่รู้ตำแหน่ง — แนบรูปหน้าปัดที่ถ่ายตอนเปิดตำแหน่งไว้ด้านล่างครับ</span>
+        }
+      </div>
+
+      @if (locationError) {
+        <p class="field-error">{{ locationError }}</p>
+      }
+
+      <!-- ของประกอบสายตาล้วน: ที่ยืนอยู่ตอนนี้ห่างจากจุดที่ถ่ายรูปแค่ไหน
+           ช่วยจับตอนหยิบรูปเก่าผิดใบมาแนบ ค่าจากเครื่องไม่ถูกบันทึกและไม่แตะพิกัดของรูป -->
+      <app-device-location [photo]="newMemberCoords" subject="รูปที่แนบ" />
 
       @if (villages.length > 1) {
         <div class="field">
@@ -151,39 +257,56 @@
         </div>
       }
 
-      <div class="field">
-        <label class="field-label" for="add-house">บ้านเลขที่ <span class="field-required">*</span></label>
-        <input
-          id="add-house"
-          class="field-input"
-          type="text"
-          [(ngModel)]="newMember.house_no"
-          [class.is-invalid]="addErrors.house_no"
-          placeholder="เช่น 99/1"
-        />
-        @if (addErrors.house_no) {
-          <p class="field-error">{{ addErrors.house_no }}</p>
-        }
-      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label" for="add-house">บ้านเลขที่ <span class="field-required">*</span></label>
+          <input
+            id="add-house"
+            class="field-input"
+            type="text"
+            [(ngModel)]="newMember.house_no"
+            [class.is-invalid]="addErrors.house_no"
+            placeholder="เช่น 99/1"
+          />
+          @if (addErrors.house_no) {
+            <p class="field-error">{{ addErrors.house_no }}</p>
+          }
+        </div>
 
+        <div class="field">
+          <label class="field-label" for="add-initial">
+            เลขมิเตอร์ตอนนี้ <span class="field-required">*</span>
+          </label>
+          <input
+            id="add-initial"
+            class="field-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            [(ngModel)]="newMember.initial_meter_unit"
+            placeholder="เช่น 1250"
+          />
+        </div>
+      </div>
+      <p class="field-hint">
+        เลขมิเตอร์ตั้งต้นกรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
+        · บันทึกว่าจดเมื่อ <strong>{{ registrationDateLabel }}</strong> = วันเริ่มรอบบิลใบแรก
+      </p>
+
+      <!-- ชื่อช่องเดียว คำแรกเป็นชื่อ ที่เหลือเป็นนามสกุล -->
       <div class="field">
-        <label class="field-label" for="add-fname">ชื่อจริงเจ้าของบ้าน <span class="field-required">*</span></label>
+        <label class="field-label" for="add-owner">ชื่อเจ้าของบ้าน <span class="field-required">*</span></label>
         <input
-          id="add-fname"
+          id="add-owner"
           class="field-input"
           type="text"
-          [(ngModel)]="newMember.fname"
+          [(ngModel)]="ownerInput"
           [class.is-invalid]="addErrors.fname"
-          placeholder="เช่น สมชาย"
+          placeholder="เช่น สมชาย ใจดี"
         />
         @if (addErrors.fname) {
           <p class="field-error">{{ addErrors.fname }}</p>
         }
-      </div>
-
-      <div class="field">
-        <label class="field-label" for="add-lname">นามสกุล</label>
-        <input id="add-lname" class="field-input" type="text" [(ngModel)]="newMember.lname" placeholder="เช่น ใจดี" />
       </div>
 
       <div class="field">
@@ -200,43 +323,78 @@
         @if (addErrors.phone) {
           <p class="field-error">{{ addErrors.phone }}</p>
         } @else {
-          <p class="field-hint">ไม่กรอกก็ได้ครับ แต่มีไว้ติดต่อเจ้าของบ้านง่ายกว่า</p>
+          <p class="field-hint">ไม่กรอกก็ได้ครับ แต่ลูกบ้านต้องใช้เบอร์นี้ล็อกอินเข้าดูบิลตัวเอง</p>
         }
       </div>
 
       <div class="field">
-        <label class="field-label" for="add-initial">เลขมิเตอร์ ณ วันลงทะเบียน</label>
-        <input
-          id="add-initial"
-          class="field-input"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          [(ngModel)]="newMember.initial_unit"
-          placeholder="เช่น 1250"
-        />
-        <p class="field-hint">
-          กรอกเลขที่หน้าปัดมิเตอร์ตอนนี้ เพื่อให้บิลเดือนแรกคิดเฉพาะน้ำที่ใช้จริง
-        </p>
+        <!-- รูปกลายเป็นของบังคับ เพราะเป็นที่มาเดียวของพิกัดมิเตอร์แล้ว -->
+        <label class="field-label">รูปหน้าปัดมิเตอร์ <span class="field-required">*</span></label>
+
+        @if (photoPreview) {
+          <div class="photo-attach">
+            <img [src]="photoPreview" alt="รูปมิเตอร์ตอนลงทะเบียน" />
+            <button type="button" class="btn btn-ghost btn-sm" (click)="removePhoto()">เอารูปออก</button>
+          </div>
+
+          <!-- ข้อมูลที่ติดมากับรูป ต้องเห็นก่อนกดบันทึก เพราะกลายเป็นวันเริ่มรอบบิล
+               กับตำแหน่งมิเตอร์ของบ้านหลังนี้ไปตลอด แก้ทีหลังลำบาก -->
+          <ul class="photo-meta">
+            <li>
+              <span aria-hidden="true">📅</span>
+              @if (photoCapturedAt) {
+                <span>ถ่ายเมื่อ <strong>{{ registrationDateLabel }}</strong> — ใช้เป็นวันจดเลขตั้งต้น</span>
+              } @else if (photoDateUnreadable) {
+                <span>รูปนี้อ่านวันถ่ายไม่ออก ระบบจะลงวันจดเป็นวันนี้ ({{ registrationDateLabel }}) ครับ</span>
+              } @else {
+                <span>รูปนี้ไม่มีวันเวลาติดมา ระบบจะลงวันจดเป็นวันนี้ ({{ registrationDateLabel }}) ครับ</span>
+              }
+            </li>
+            <li>
+              <span aria-hidden="true">📍</span>
+              @if (coordsSource === 'photo') {
+                <span>ใช้พิกัดที่ติดมากับรูปเป็นตำแหน่งมิเตอร์ของบ้านหลังนี้</span>
+              } @else {
+                <span>รูปนี้ไม่มีพิกัดติดมา — {{ photoCoordsHint }}</span>
+              }
+            </li>
+          </ul>
+        } @else {
+          <label class="btn btn-secondary btn-block" for="add-photo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            ถ่ายรูปหน้าปัด / เลือกรูปที่ถ่ายไว้
+          </label>
+          <input id="add-photo" type="file" accept="image/*" capture="environment" (change)="onPhotoPicked($event)" hidden />
+          <p class="field-hint">
+            รูปเป็นหลักฐานของเลขตั้งต้น และเป็นที่มาของวันจดกับพิกัดมิเตอร์ครับ
+            — ตอนถ่ายต้องเปิดตำแหน่ง (GPS) ที่กล้อง
+            <br />{{ photoCoordsHint }}
+          </p>
+        }
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="closeAddModal()">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" (click)="saveMember()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-          บันทึกข้อมูล
+        <button type="button" class="btn btn-secondary" (click)="closeAddModal()" [disabled]="isSavingMember">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="saveMember()" [disabled]="isSavingMember">
+          @if (isSavingMember) {
+            <span class="btn-spinner"></span>
+            กำลังบันทึก...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            บันทึกบ้านหลังนี้
+          }
         </button>
       </div>
     </div>
   </div>
 }
 
-<!-- หน้าต่างแก้ไขข้อมูลบ้าน -->
+<!-- ================= แก้ไขข้อมูลบ้าน ================= -->
 @if (showEditModal) {
   <div class="modal-overlay" (click)="closeEditModal()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">แก้ไขข้อมูลบ้านเลขที่ {{ editingMember.house_no }}</h2>
+        <h2 class="modal-title">แก้ไขบ้านเลขที่ {{ editingMember.house_no }}</h2>
         <button type="button" class="modal-close" (click)="closeEditModal()" aria-label="ปิด">✕</button>
       </div>
 
@@ -266,25 +424,27 @@
         }
       </div>
 
-      <div class="field">
-        <label class="field-label" for="edit-fname">ชื่อจริงเจ้าของบ้าน <span class="field-required">*</span></label>
-        <input
-          id="edit-fname"
-          class="field-input"
-          type="text"
-          [(ngModel)]="editingMember.fname"
-          [class.is-invalid]="editErrors.fname"
-          placeholder="เช่น สมชาย"
-        />
-        @if (editErrors.fname) {
-          <p class="field-error">{{ editErrors.fname }}</p>
-        }
-      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label" for="edit-fname">ชื่อจริง <span class="field-required">*</span></label>
+          <input
+            id="edit-fname"
+            class="field-input"
+            type="text"
+            [(ngModel)]="editingMember.fname"
+            [class.is-invalid]="editErrors.fname"
+            placeholder="เช่น สมชาย"
+          />
+        </div>
 
-      <div class="field">
-        <label class="field-label" for="edit-lname">นามสกุล</label>
-        <input id="edit-lname" class="field-input" type="text" [(ngModel)]="editingMember.lname" placeholder="เช่น ใจดี" />
+        <div class="field">
+          <label class="field-label" for="edit-lname">นามสกุล</label>
+          <input id="edit-lname" class="field-input" type="text" [(ngModel)]="editingMember.lname" placeholder="เช่น ใจดี" />
+        </div>
       </div>
+      @if (editErrors.fname) {
+        <p class="field-error">{{ editErrors.fname }}</p>
+      }
 
       <div class="field">
         <label class="field-label" for="edit-phone">เบอร์โทรศัพท์</label>
@@ -302,41 +462,312 @@
         }
       </div>
 
+      <!-- เลขตั้งต้นคือเส้นเริ่มต้นที่บิลใบแรกเอาไปลบ พิมพ์ผิดหลักเดียวทุกบิลผิดตามไปหมด
+           แยกปุ่มบันทึกของตัวเองเพราะไปคนละปลายทางและต้องกรอกเหตุผลทุกครั้ง -->
+      <div class="field initial-unit">
+        <label class="field-label" for="edit-initial-unit">เลขมิเตอร์ตั้งต้น</label>
+
+        @if (initialReading) {
+          <input
+            id="edit-initial-unit"
+            class="field-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="1"
+            [(ngModel)]="initialUnitInput"
+            [disabled]="isSavingInitialUnit"
+          />
+          <p class="field-hint">
+            ค่าที่บันทึกไว้ตอนนี้คือ <strong>{{ initialReading.unit | number: '1.0-0' }}</strong> —
+            แก้แล้วกระทบการคิดหน่วยน้ำของบ้านหลังนี้ทุกรอบครับ
+          </p>
+
+          @if (initialUnitChanged) {
+            <label class="field-label" for="edit-initial-reason">เหตุผลที่แก้</label>
+            <input
+              id="edit-initial-reason"
+              class="field-input"
+              type="text"
+              maxlength="500"
+              [(ngModel)]="initialReasonInput"
+              [disabled]="isSavingInitialUnit"
+              placeholder="เช่น ตอนลงทะเบียนพิมพ์เกินหนึ่งหลัก เทียบกับรูปหน้าปัดแล้วเป็น 1250"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              (click)="saveInitialUnit()"
+              [disabled]="isSavingInitialUnit"
+            >
+              {{ isSavingInitialUnit ? 'กำลังบันทึก...' : 'บันทึกเลขตั้งต้นใหม่' }}
+            </button>
+          }
+        } @else if (initialReadingError) {
+          <p class="field-error">{{ initialReadingError }}</p>
+        } @else {
+          <p class="field-hint">กำลังโหลดเลขมิเตอร์ตั้งต้น...</p>
+        }
+
+        @if (initialReading && initialReadingError) {
+          <p class="field-error">{{ initialReadingError }}</p>
+        }
+      </div>
+
+      <!-- พิกัดคือสิ่งที่ระบบใช้จับคู่รูปมิเตอร์กับบ้าน วัดพลาดครั้งแรกต้องแก้ได้ -->
+      <div class="field">
+        <label class="field-label">พิกัดมิเตอร์</label>
+        <div class="coords-status" [class.is-ready]="hasMemberCoords(editingMember)">
+          @if (hasMemberCoords(editingMember)) {
+            <span>📍</span>
+            <span>{{ editingMember.latitude | number: '1.5-5' }}, {{ editingMember.longitude | number: '1.5-5' }}</span>
+          } @else {
+            <span>📍</span>
+            <span>ยังไม่มีพิกัด</span>
+          }
+        </div>
+
+        <!-- ทางเดียวที่จะได้พิกัด — พิกัดในไฟล์รูปถูกฝังตอนกดชัตเตอร์หน้ามิเตอร์จริง
+             ต่างจากการวัดจากเครื่องที่นั่งกรอกอยู่ ซึ่งได้ค่าคนละที่กันเป็นร้อยกิโล
+             แนบรูปไหนก็เอาพิกัดของรูปนั้นทับลงไปเลย ไม่ต้องเทียบกับของเดิม -->
+        <label class="btn btn-secondary btn-block" for="edit-coords-photo">
+          @if (isUpdating) {
+            <span class="btn-spinner dark"></span>
+            กำลังบันทึกพิกัด...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            ดึงพิกัดจากรูปที่ถ่ายไว้ (บันทึกให้เลย)
+          }
+        </label>
+        <input id="edit-coords-photo" type="file" accept="image/*" (change)="onEditPhotoPicked($event)" hidden />
+
+        <!-- เทียบพิกัดที่บันทึกไว้กับที่ยืนอยู่ตอนนี้ — ดูอย่างเดียว การแก้ยังต้องแนบรูปเท่านั้น -->
+        <app-device-location [photo]="editingMemberCoords" subject="พิกัดที่บันทึกไว้" />
+
+        @if (editLocationError) {
+          <p class="field-error">{{ editLocationError }}</p>
+        } @else {
+          <p class="field-hint">
+            รูปที่ถ่ายตอนเปิดตำแหน่งจะพกตำแหน่งมาในไฟล์ ระบบดึงให้เองครับ
+            — ต้องเป็นไฟล์ต้นฉบับในเครื่อง รูปที่อัปโหลดไปแล้วถูกย่อจนพิกัดหาย
+            <br />{{ photoCoordsHint }}
+          </p>
+        }
+      </div>
+
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="closeEditModal()">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" (click)="updateMember()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-          บันทึกการแก้ไข
+        <button type="button" class="btn btn-secondary" (click)="closeEditModal()" [disabled]="isUpdating">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" (click)="updateMember()" [disabled]="isUpdating">
+          @if (isUpdating) {
+            <span class="btn-spinner"></span>
+            กำลังบันทึก...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            บันทึกการแก้ไข
+          }
         </button>
       </div>
     </div>
   </div>
 }
 
-<!-- หน้าต่างยืนยันก่อนลบ -->
+<!-- ================= บิลย้อนหลังของบ้านหลังเดียว =================
+     ดูบิล + กดรับชำระเงินได้ — พิมพ์บิลยังทำที่หน้าประวัติบิลที่เดียว
+
+     ตอนนี้ "ไม่มีปุ่มไหนในหน้านี้เปิดหน้าต่างนี้แล้ว" (เจ้าของโปรเจกต์สั่งถอดปุ่มออก)
+     โค้ดยังอยู่เพราะเป็นทางเดียวที่รับชำระเงินรายบ้านจากทะเบียนได้ ถ้าจะเอากลับมา
+     แค่ใส่ปุ่มที่เรียก openBills(member) — อย่าเขียนหน้าต่างใหม่ซ้อนอีกชุด -->
+@if (billsMember) {
+  <div class="modal-overlay" (click)="closeBills()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">บิลของบ้านเลขที่ {{ billsMember.house_no }}</h2>
+          <p class="text-muted">{{ ownerName(billsMember) }}</p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeBills()" aria-label="ปิด">✕</button>
+      </div>
+
+      @if (isLoadingBills) {
+        <p class="loading-note">
+          <span class="loading-dot"></span> กำลังดึงบิลของบ้านหลังนี้ รอสักครู่นะครับ...
+        </p>
+      } @else if (billsLoadFailed) {
+        <div class="alert alert-danger">
+          <span>❌</span>
+          <span>ดึงบิลไม่สำเร็จครับ กดปุ่มลองใหม่ด้านล่างได้เลย</span>
+        </div>
+      } @else if (memberBills.length === 0) {
+        <div class="alert alert-info">
+          <span>🧾</span>
+          <span>บ้านหลังนี้ยังไม่มีบิลในระบบครับ ต้องไปจดมิเตอร์ที่หน้าสแกนก่อน</span>
+        </div>
+      } @else {
+        <ul class="bill-picks">
+          @for (bill of memberBills; track bill.id) {
+            <li class="bill-pick">
+              <div class="bill-pick-info">
+                <span class="bill-pick-month">{{ monthLabel(bill.billing_month, bill.billing_year) }}</span>
+                <span class="bill-pick-meta">
+                  {{ bill.usage_unit }} ลบ.ม. · {{ payable(bill) | number:'1.2-2' }} บาท
+                  @if (hasArrears(bill)) {
+                    <span class="chip chip-warning">รวมค้างเก่า {{ arrears(bill) | number:'1.2-2' }}</span>
+                  }
+                </span>
+              </div>
+              <span
+                class="chip"
+                [class.chip-success]="bill.payment_status === 'Paid'"
+                [class.chip-warning]="bill.payment_status !== 'Paid'"
+              >{{ statusLabel(bill.payment_status) }}</span>
+              @if (bill.payment_status === 'Paid') {
+                <button type="button" class="btn btn-sm btn-secondary" (click)="askToggleStatus(bill)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+                  กลับเป็นรอชำระ
+                </button>
+              } @else {
+                <button type="button" class="btn btn-sm btn-primary" (click)="askToggleStatus(bill)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+                  รับชำระเงิน
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeBills()">ปิด</button>
+        @if (billsLoadFailed) {
+          <button type="button" class="btn btn-primary" (click)="openBills(billsMember)">ลองใหม่</button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- หน้าต่างยืนยันก่อนเปลี่ยนสถานะการชำระ — ข้อความชุดเดียวกับหน้าประวัติบิล
+     ซ้อนอยู่บนหน้าต่างบิล จึงต้องประกาศทีหลังเพื่อให้อยู่ชั้นบน -->
+@if (billToToggle) {
+  <div class="modal-overlay" (click)="cancelToggleStatus()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          @if (toggleTargetStatus === 'Paid') {
+            รับเงินบิลนี้แล้วใช่ไหมครับ?
+          } @else {
+            เปลี่ยนกลับเป็นรอชำระเงินใช่ไหมครับ?
+          }
+        </h2>
+        <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด" [disabled]="isTogglingStatus">✕</button>
+      </div>
+
+      <div class="alert alert-info">
+        <span>🧾</span>
+        <span>
+          บิลของบ้านเลขที่ <strong>{{ billsMember?.house_no || '—' }}</strong>
+          ({{ ownerName(billsMember) }})
+          ประจำเดือน{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+          ยอด <strong>{{ payable(billToToggle) | number: '1.2-2' }}</strong> บาท
+          @if (hasArrears(billToToggle)) {
+            <!-- ต้องเห็นก่อนกด ไม่งั้นคนเก็บเงินจะเก็บขาดไปเท่ากับยอดค้างเก่า -->
+            (ค่าน้ำเดือนนี้ {{ billToToggle.total_amount | number: '1.2-2' }}
+            + ค้างยกมา {{ arrears(billToToggle) | number: '1.2-2' }} บาท)
+          }
+        </span>
+      </div>
+
+      @if (toggleTargetStatus === 'Paid') {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
+            ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะก่อนนะครับ
+          </span>
+        </div>
+      } @else {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+            และลูกบ้านจะเห็นว่ายังไม่ได้จ่ายครับ
+          </span>
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="cancelToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          ยังไม่เปลี่ยน
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="confirmToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          @if (isTogglingStatus) {
+            <span class="btn-spinner"></span>
+            กำลังเปลี่ยน...
+          } @else if (toggleTargetStatus === 'Paid') {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            ยืนยัน รับเงินแล้ว
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+            ยืนยัน กลับเป็นรอชำระ
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= ยืนยันก่อนลบ =================
+     กดยืนยันครั้งเดียว ระบบล้างบิลที่ผูกอยู่ให้เองแล้วลบซ้ำ ไม่ต้องกดหลายรอบ -->
 @if (memberToDelete) {
   <div class="modal-overlay" (click)="cancelDelete()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2 class="modal-title">ลบบ้านหลังนี้ใช่ไหมครับ?</h2>
-        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด">✕</button>
+        <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด" [disabled]="isDeleting">✕</button>
       </div>
 
       <div class="alert alert-warning">
         <span>⚠️</span>
         <span>
-          บ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong>
-          ({{ memberToDelete.fname }} {{ memberToDelete.lname }})
-          จะถูกลบพร้อม <strong>ประวัติจดมิเตอร์และบิลค่าน้ำทั้งหมด</strong> ของบ้านหลังนี้
-          ออกจากระบบถาวร กู้คืนไม่ได้นะครับ
+          บ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong> ({{ ownerName(memberToDelete) }})
+          จะถูกลบพร้อม <strong>บิลค่าน้ำ ประวัติจดมิเตอร์ เรื่องที่แจ้งไว้ และบัญชีลูกบ้าน</strong>
+          ทั้งหมด ออกจากระบบถาวร กู้คืนไม่ได้นะครับ
         </span>
       </div>
 
+      @if (deleteBlockedReason) {
+        <div class="alert alert-danger">
+          <span>❌</span>
+          <span>{{ deleteBlockedReason }}</span>
+        </div>
+      }
+
+      @if (isDeleting && deleteStep) {
+        <p class="loading-note">
+          <span class="loading-dot"></span> {{ deleteStep }}
+        </p>
+      }
+
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="cancelDelete()">เก็บไว้ก่อน</button>
-        <button type="button" class="btn btn-danger" (click)="confirmDelete()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
-          ลบเลย
+        <button type="button" class="btn btn-secondary" (click)="cancelDelete()" [disabled]="isDeleting">เก็บไว้ก่อน</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="isDeleting">
+          @if (isDeleting) {
+            <span class="btn-spinner"></span>
+            กำลังลบ...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
+            ลบเลย
+          }
         </button>
       </div>
     </div>

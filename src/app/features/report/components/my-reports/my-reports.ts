@@ -42,6 +42,8 @@ export class MyReportsComponent implements OnInit {
 
   reports: Report[] = [];
   houses: any[] = [];
+  /** โหลดรายชื่อบ้านไม่สำเร็จ — แยกจาก "ไม่มีบ้าน" เพราะวิธีแก้ของผู้ใช้ต่างกัน */
+  housesFailed = false;
   isLoading = true;
 
   // ---------- ฟอร์มแจ้งเรื่องใหม่ ----------
@@ -76,7 +78,16 @@ export class MyReportsComponent implements OnInit {
         }
         this.cdr.detectChanges();
       },
-      error: (err) => console.error('โหลดรายชื่อบ้านไม่สำเร็จ:', err),
+      // ถ้าโหลดบ้านไม่ได้ ฟอร์มจะส่งไม่ออกเลย (ไม่มี members_id) — ต้องบอกผู้ใช้
+      // ไม่ใช่เงียบไว้ใน console แล้วปล่อยให้ไปตันตอนกดส่ง
+      error: (err) => {
+        console.error('โหลดรายชื่อบ้านไม่สำเร็จ:', err);
+        this.housesFailed = true;
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'โหลดข้อมูลบ้านของคุณไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
+          id: 'my-houses-error',
+        });
+      },
     });
   }
 
@@ -103,6 +114,18 @@ export class MyReportsComponent implements OnInit {
   // ฟอร์มแจ้งเรื่อง
   // ==========================================
   openForm(): void {
+    // ไม่มีบ้านผูกกับบัญชี = ส่งเรื่องไม่ได้แน่นอน (หลังบ้านต้องการ members_id)
+    // บอกตั้งแต่ตรงนี้ ดีกว่าให้กรอกจนเสร็จแล้วค่อยเด้งว่าให้เลือกบ้าน ทั้งที่ไม่มีให้เลือก
+    if (this.houses.length === 0) {
+      toast.error(
+        this.housesFailed
+          ? 'ยังโหลดข้อมูลบ้านของคุณไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้งนะครับ'
+          : 'บัญชีนี้ยังไม่ได้ผูกกับบ้านหลังไหน รบกวนติดต่อผู้ดูแลหมู่บ้านให้เพิ่มให้ก่อนนะครับ',
+        { id: 'report-no-house' },
+      );
+      return;
+    }
+
     if (this.houses.length === 1) {
       this.form.members_id = this.houses[0].id;
     }

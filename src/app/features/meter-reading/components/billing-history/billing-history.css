@@ -8,6 +8,47 @@ svg {
   stroke-linejoin: round;
 }
 
+/* ---------- แก้ไขเลขมิเตอร์ + ประวัติการแก้ (โครง modal ใช้ .modal-* จาก styles.css) ---------- */
+.edit-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.edit-log {
+  border-left: 3px solid var(--line);
+  padding-left: var(--sp-2);
+}
+
+.edit-log-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-1);
+}
+
+.edit-log-meta {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+/* พื้นเข้มช่วยให้เห็นขอบกรอบที่กำลังลากชัดขึ้น (เหมือนกล่องครอปในหน้าจดมิเตอร์) */
+.edit-crop {
+  background: #0f172a;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.edit-photo-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
 .history-head {
   display: flex;
   align-items: flex-start;
@@ -123,6 +164,79 @@ svg {
 
 .bill-figures .big-value {
   font-size: 32px;
+}
+
+/* ---------- รูปมิเตอร์ในหน้ารายละเอียด ---------- */
+.photo-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  text-align: center;
+}
+
+.meter-photo {
+  display: block;
+  width: 100%;
+  /* หน้าปัดอยู่กลางรูปเสมอ ตัดขอบบน-ล่างทิ้งได้ไม่เสียข้อมูล */
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--line-soft);
+}
+
+.photo-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.photo-missing {
+  padding: 20px 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+/* รูปเต็มจอ — ต้องอยู่เหนือ .modal-overlay (z-index 1000) ที่เปิดค้างอยู่ข้างหลัง */
+.photo-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.9);
+  cursor: zoom-out;
+}
+
+.photo-zoom img {
+  max-width: 100%;
+  max-height: 92vh;
+  max-height: 92dvh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  cursor: default;
+}
+
+.photo-zoom-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 /* สลับระหว่างตาราง (จอใหญ่) กับการ์ด (มือถือ) */

@@ -1,0 +1,26 @@
+.sub-heading {
+  margin: 18px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.page-head .btn {
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .action-row .btn {
+    width: 100%;
+  }
+}

@@ -40,6 +40,13 @@ svg {
   max-width: 52ch;
 }
 
+/* สองโหมดสแกนวางคู่กัน ขึ้นบรรทัดใหม่เองบนจอแคบ */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .hero-btn {
   min-height: 56px;
   padding: 0 28px;

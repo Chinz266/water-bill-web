@@ -1,0 +1,280 @@
+<div class="page-head">
+  <h1 class="page-title">ทะเบียนมิเตอร์</h1>
+  <p class="page-subtitle">
+    @if (member(); as m) {
+      บ้านเลขที่ {{ m.house_no }} · {{ m.fname }} {{ m.lname }}
+    } @else {
+      กำลังโหลดข้อมูลบ้าน...
+    }
+  </p>
+  <a class="btn btn-ghost btn-sm" routerLink="/members">← กลับหน้ารายชื่อลูกบ้าน</a>
+</div>
+
+<!-- 🔧 ทะเบียนมิเตอร์ -->
+<div class="card">
+  <h2 class="section-heading">ทะเบียนมิเตอร์</h2>
+
+  @if (isLoading()) {
+    <p class="text-muted">กำลังโหลด...</p>
+  } @else {
+    @if (activeMeter; as meter) {
+      <dl class="detail-list">
+        <div class="detail-row">
+          <dt>มิเตอร์ที่ใช้อยู่</dt>
+          <dd class="cell-strong">{{ meter.serial_no || 'ไม่ได้กรอกเลขเครื่อง' }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>ติดตั้งเมื่อ</dt>
+          <dd>{{ meter.installed_at | date:'d MMM y' }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt>จำนวนหลักบนหน้าปัด</dt>
+          <dd>
+            @if (meter.digits) {
+              {{ meter.digits }} หลัก
+            } @else {
+              <span class="text-muted">ยังไม่ได้กรอก — กรอกไว้จะช่วยจับกรณีระบบอ่านเลขหลักหายหรือเกิน</span>
+            }
+          </dd>
+        </div>
+      </dl>
+    } @else {
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>
+          บ้านหลังนี้<strong>ยังไม่มีมิเตอร์ในทะเบียน</strong> — ออกบิลได้ตามปกติ
+          แต่เวลาเปลี่ยนมิเตอร์ระบบจะคิดหน่วยที่ใช้ก่อนถอดให้ไม่ได้ครับ
+        </span>
+      </div>
+    }
+
+    <!-- หน่วยค้างที่รอเข้าบิลใบหน้า — ต้องเห็น ไม่งั้นตอนบิลเด้งจะงงว่าหน่วยมาจากไหน -->
+    @if (pendingResidualMeter; as pending) {
+      <div class="alert alert-info">
+        <span>💧</span>
+        <span>
+          มิเตอร์ตัวเก่า (ถอดเมื่อ {{ pending.removed_at | date:'d MMM y' }} เลขปิด
+          {{ pending.final_unit }}) มีน้ำที่ใช้ก่อนถอด<strong>รอคิดเข้าบิลใบถัดไป</strong>
+          ระบบจะบวกให้เองครั้งเดียว แล้วไม่คิดซ้ำอีกครับ
+        </span>
+      </div>
+    }
+
+    <button type="button" class="btn btn-primary" (click)="openMeterForm()">
+      @if (activeMeter) { เปลี่ยนมิเตอร์ใหม่ } @else { ลงทะเบียนมิเตอร์ตัวปัจจุบัน }
+    </button>
+
+    @if (meters().length > 1) {
+      <h3 class="sub-heading">ประวัติมิเตอร์</h3>
+      <ul class="history-list">
+        @for (meter of meters(); track meter.id) {
+          <li>
+            {{ meter.serial_no || 'ไม่ระบุเลขเครื่อง' }} ·
+            {{ meter.installed_at | date:'d MMM y' }} —
+            @if (meter.removed_at) {
+              {{ meter.removed_at | date:'d MMM y' }} (เลขปิด {{ meter.final_unit }})
+            } @else {
+              <span class="chip chip-success">ใช้อยู่</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+</div>
+
+<!-- 📍 ตำแหน่งมิเตอร์ในกลุ่มที่ติดกัน -->
+<div class="card">
+  <h2 class="section-heading">ตำแหน่งมิเตอร์ในกลุ่ม</h2>
+
+  <div class="alert alert-info">
+    <span>📍</span>
+    <span>
+      กรอกเฉพาะบ้านที่<strong>มิเตอร์ติดเรียงกันบนกำแพงเดียวกัน</strong> (ทาวน์โฮม ห้องเช่า ตึกแถว)
+      มิเตอร์พวกนี้อยู่ใกล้กันเกินกว่าที่ตำแหน่งจากมือถือจะแยกได้ ลำดับที่กรอกตรงนี้
+      คือสิ่งเดียวที่บอกได้ว่าตัวไหนของบ้านไหนครับ
+      <br />
+      <strong>บ้านที่มิเตอร์อยู่แยกของตัวเอง เว้นว่างไว้ได้เลย</strong>
+    </span>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="cluster-group">กลุ่มมิเตอร์</label>
+    <input
+      id="cluster-group"
+      class="field-input"
+      type="text"
+      placeholder="เช่น WALL-206"
+      [(ngModel)]="clusterForm.cluster_group_id"
+    />
+    <p class="field-hint">
+      ตั้งชื่ออะไรก็ได้ ขอแค่ทุกบ้านบนกำแพงเดียวกันใช้ชื่อเดียวกันครับ
+    </p>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="cluster-seq">ตำแหน่งในกลุ่ม</label>
+    <input
+      id="cluster-seq"
+      class="field-input"
+      type="number"
+      inputmode="numeric"
+      min="1"
+      step="1"
+      [(ngModel)]="clusterForm.sequence_index"
+    />
+    <p class="field-hint">
+      <strong>ยืนหันหน้าเข้าหากำแพง แล้วนับจากซ้ายไปขวา</strong> — ตัวซ้ายสุดคือ 1
+      <br />
+      ⚠️ ทั้งหมู่บ้านต้องยืนนับด้านเดียวกัน ไม่งั้นซ้ายขวาจะกลับกันทั้งกลุ่ม
+    </p>
+  </div>
+
+  @if (takenByOther; as taken) {
+    <div class="alert alert-warning">
+      <span>⚠️</span>
+      <span>
+        ตำแหน่งที่ {{ clusterForm.sequence_index }} เป็นของ<strong>บ้านเลขที่ {{ taken.house_no }}</strong>
+        อยู่แล้ว — ตำแหน่งซ้ำกันจะแยกมิเตอร์สองตัวนี้ไม่ได้ครับ
+      </span>
+    </div>
+  }
+
+  @if (sequenceGap; as gap) {
+    <div class="alert alert-info">
+      <span>💡</span>
+      <span>
+        กลุ่มนี้ยังไม่มีบ้านที่ตำแหน่ง {{ gap }} — ถ้าลงทะเบียนครบแล้ว
+        แปลว่านับข้ามไปหนึ่งตัว ลองเช็กที่หน้างานอีกทีครับ
+      </span>
+    </div>
+  }
+
+  @if (groupMates.length > 0) {
+    <h3 class="sub-heading">บ้านในกลุ่มนี้</h3>
+    <ul class="history-list">
+      @for (mate of groupMates; track mate.id) {
+        <li>
+          ตัวที่ {{ mate.sequence_index ?? '—' }} จากซ้าย ·
+          บ้านเลขที่ {{ mate.house_no }}
+          @if (mate.id === membersId()) {
+            <span class="chip chip-success">บ้านหลังนี้</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  <button
+    type="button"
+    class="btn btn-primary"
+    (click)="saveCluster()"
+    [disabled]="isSavingCluster()"
+  >
+    @if (isSavingCluster()) { กำลังบันทึก... } @else { บันทึกตำแหน่งมิเตอร์ }
+  </button>
+</div>
+
+<!-- แบบฟอร์มมิเตอร์ -->
+@if (showMeterForm()) {
+  <div class="modal-overlay" (click)="showMeterForm.set(false)">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          @if (activeMeter) { เปลี่ยนมิเตอร์ใหม่ } @else { ลงทะเบียนมิเตอร์ตัวปัจจุบัน }
+        </h2>
+        <button type="button" class="modal-close" (click)="showMeterForm.set(false)" aria-label="ปิด">✕</button>
+      </div>
+
+      @if (activeMeter) {
+        <div class="alert alert-info">
+          <span>💡</span>
+          <span>
+            <strong>บันทึกตอนเปลี่ยนจริง</strong> ไม่ต้องรอไปกรอกตอนออกบิล — คนที่เปลี่ยนมิเตอร์
+            กับคนที่เดินจดรอบหน้ามักคนละคน คนจดจะไม่มีทางรู้เลขปิดของตัวที่ถอดไปแล้วครับ
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="old-final">เลขบนหน้าปัดของมิเตอร์ตัวเก่า ณ วันถอด</label>
+          <input
+            id="old-final"
+            class="field-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            [(ngModel)]="meterForm.old_final_unit"
+          />
+          <p class="field-hint">
+            ตัวเลขนี้คือสิ่งเดียวที่ทำให้น้ำที่ใช้ไปก่อนเปลี่ยนไม่หายจากระบบ
+          </p>
+        </div>
+      }
+
+      <div class="field">
+        <label class="field-label" for="new-initial">
+          @if (activeMeter) { เลขบนหน้าปัดของตัวใหม่ตอนติดตั้ง } @else { เลขบนหน้าปัดตอนติดตั้ง }
+        </label>
+        <input
+          id="new-initial"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [(ngModel)]="meterForm.new_initial_unit"
+        />
+        <p class="field-hint">มิเตอร์ใหม่ปกติเป็น 0</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="serial">เลขเครื่อง (ไม่บังคับ)</label>
+        <input id="serial" class="field-input" type="text" [(ngModel)]="meterForm.serial_no" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="digits">จำนวนหลักบนหน้าปัด</label>
+        <input
+          id="digits"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          min="3"
+          max="10"
+          [(ngModel)]="meterForm.digits"
+        />
+        <p class="field-hint">
+          นับเลขศูนย์นำหน้าด้วย (00025 = 5 หลัก) — กรอกไว้ระบบจะจับได้เวลาอ่านหลักหายหรือเกิน
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="meter-date">
+          @if (activeMeter) { วันที่เปลี่ยน } @else { วันที่ติดตั้ง }
+        </label>
+        <input id="meter-date" class="field-input" type="date" [(ngModel)]="meterForm.date" />
+        <p class="field-hint">ไม่กรอก = วันนี้</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="meter-note">บันทึกเพิ่มเติม</label>
+        <input
+          id="meter-note"
+          class="field-input"
+          type="text"
+          [(ngModel)]="meterForm.note"
+          placeholder="เช่น หน้าปัดฝ้าอ่านไม่ออก / เข็มค้าง"
+        />
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="showMeterForm.set(false)" [disabled]="isSavingMeter()">
+          ยกเลิก
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveMeter()" [disabled]="isSavingMeter()">
+          @if (isSavingMeter()) { <span class="btn-spinner"></span> กำลังบันทึก... } @else { บันทึก }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+

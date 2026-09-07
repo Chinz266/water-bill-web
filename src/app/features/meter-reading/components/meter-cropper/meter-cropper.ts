@@ -1,414 +1,468 @@
-import { ChangeDetectorRef, Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
-import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ImageCropperComponent, ImageTransform, OutputFormat } from 'ngx-image-cropper';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { forkJoin, switchMap, throwError } from 'rxjs';
-import { toast } from 'ngx-sonner';
-import { MeterReadingService } from '../../services/meter-reading.service';
-import { MemberService } from '../../../member/services/member.service';
-import { AuthService } from '../../../auth/services/auth.service';
-import { extractErrorMessage } from '../../../auth/services/auth-error';
+import { CommonModule } from '@angular/common';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import {
-  CAPTURE_TIPS,
-  OCR_ACCURACY_BY_CONFIDENCE,
-  OCR_CONFIDENCE_THRESHOLD
-} from '../../../../core/measurement.constants';
+  CropperPosition,
+  Dimensions,
+  ImageCropperComponent,
+  ImageCroppedEvent,
+  ImageTransform,
+  LoadedImage,
+} from 'ngx-image-cropper';
 
+import { MeterCropBox, MeterReadingService } from '../../services/meter-reading.service';
+
+/** การหมุน/พลิกที่ไลบรารีทำให้ภาพตาม EXIF — ไลบรารีไม่ได้ export ชนิดนี้ออกมาตรง ๆ */
+export type CropperExifTransform = LoadedImage['exifTransform'];
+
+/** ผลลัพธ์ที่ส่งออกไปเมื่อกดยืนยัน — มีให้ทั้งสองรูปแบบเพราะปลายทางใช้คนละอย่าง */
+export interface MeterCropResult {
+  /** data:image/jpeg;base64,... — ใช้กับ POST /bills/scan (ฟิลด์ meter_photo) */
+  dataUrl: string;
+  /** ก้อนไฟล์เดียวกัน — ใช้กับ endpoint ที่รับ multipart (ocr-upload, scan-batch, แก้บิล) */
+  blob: Blob;
+  fileName: string;
+  /** ขนาดจริงของภาพที่ครอปได้ (พิกเซล) — เก็บไว้ให้ผู้เรียกตัดสินใจต่อได้ */
+  width: number;
+  height: number;
+}
+
+/**
+ * หมุนกรอบที่โมเดลชี้ ให้ตรงกับภาพที่คนเห็นบนจอ
+ *
+ * ═══ ทำไมกรอบถึงไม่ตรงตั้งแต่แรก ═══
+ *
+ * vision service อ่านรูปด้วย PIL ซึ่ง **ไม่หมุนภาพตาม EXIF Orientation** พิกัดที่ได้จึงเป็น
+ * ของภาพ "ตามที่เก็บในไฟล์" ส่วน ngx-image-cropper หมุนภาพตาม EXIF ให้ก่อนแสดงเสมอ
+ * รูปที่ถ่ายแนวตั้งจากมือถือ (ซึ่งคือรูปเกือบทั้งหมดในงานนี้) จึงต่างกันอยู่ 90 องศา
+ * เอากรอบมาวางตรง ๆ แล้วมันจะไปโผล่คนละมุมของภาพ ดูเหมือน AI จับพลาด ทั้งที่จับถูก
+ *
+ * ลำดับหมุนก่อนแล้วค่อยพลิก ตามที่ ngx-image-cropper วาดลง canvas (rotate ก่อน scale(-1))
+ * สลับลำดับเมื่อไหร่ รูปที่มีทั้ง rotate และ flip จะเพี้ยนแบบที่หาสาเหตุยากมาก
+ */
+export function mapBoxThroughExif(box: MeterCropBox, exif: CropperExifTransform | null): MeterCropBox {
+  const quarters = (((exif?.rotate ?? 0) % 4) + 4) % 4;
+  let { x, y, w, h } = box;
+
+  for (let turn = 0; turn < quarters; turn++) {
+    // หมุนตามเข็ม 90°: มุมซ้ายบนไปอยู่ขวาบน → (x, y) กลายเป็น (1 - y, x) และด้านกว้าง/สูงสลับกัน
+    const nextX = 1 - (y + h);
+    const nextY = x;
+    x = nextX;
+    y = nextY;
+    [w, h] = [h, w];
+  }
+
+  if (exif?.flip) {
+    x = 1 - (x + w);
+  }
+
+  return { ...box, x, y, w, h };
+}
+
+/**
+ * กรอบสัดส่วน 0-1 → พิกัดพิกเซลบนกรอบครอป โดยยืดให้ได้สัดส่วนที่เลือกไว้
+ *
+ * ═══ ทำไมต้องยืด ไม่ใช่ใช้กรอบของโมเดลตรง ๆ ═══
+ *
+ * กรอบครอปล็อกสัดส่วนไว้ (3:1 / 4:1 ตามรูปทรงของแถวตัวเลข) กรอบที่ส่งเข้าไปโดยสัดส่วนไม่ตรง
+ * จะถูกไลบรารีจัดใหม่เอง ซึ่งวิธีจัดของมันคือ "หด" ด้านที่เกิน = เฉือนตัวเลขที่โมเดลเพิ่งชี้ทิ้ง
+ * ที่นี่จึงยืดด้านที่แคบออกแทน กรอบได้สัดส่วนตามที่ล็อกไว้โดยไม่มีหลักไหนหลุดออกนอกกรอบ
+ *
+ * หดเฉพาะตอนกรอบใหญ่เกินภาพเท่านั้น (ถ่ายจ่อจนตัวเลขเต็มเฟรม) — หดพร้อมกันทั้งสองด้าน
+ * เพื่อคงสัดส่วน แล้วค่อยดันกลับเข้าในภาพ
+ */
+export function fitBoxToRatio(box: MeterCropBox, ratio: number, size: Dimensions): CropperPosition {
+  const maxWidth = size.width;
+  const maxHeight = size.height;
+  const target = ratio > 0 ? ratio : 1;
+
+  if (maxWidth <= 0 || maxHeight <= 0) {
+    return { x1: 0, y1: 0, x2: 0, y2: 0 };
+  }
+
+  let width = box.w * maxWidth;
+  let height = box.h * maxHeight;
+
+  if (width / height < target) {
+    width = height * target;
+  } else {
+    height = width / target;
+  }
+
+  if (width > maxWidth) {
+    width = maxWidth;
+    height = width / target;
+  }
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * target;
+  }
+
+  // ยึดจุดกึ่งกลางของกรอบเดิมไว้ ตัวเลขจะได้อยู่กลางกรอบหลังยืด แล้วค่อยดันเข้าในภาพ
+  const centerX = (box.x + box.w / 2) * maxWidth;
+  const centerY = (box.y + box.h / 2) * maxHeight;
+  const x1 = Math.round(Math.min(Math.max(centerX - width / 2, 0), maxWidth - width));
+  const y1 = Math.round(Math.min(Math.max(centerY - height / 2, 0), maxHeight - height));
+
+  return { x1, y1, x2: Math.round(x1 + width), y2: Math.round(y1 + height) };
+}
+
+/**
+ * ครอบเฉพาะแถวตัวเลขบนหน้าปัด ก่อนส่งให้โมเดลอ่าน
+ *
+ * ═══ ทำไมต้องครอปก่อนส่ง ═══
+ *
+ * โมเดลอ่านเลขจากทั้งภาพ รูปที่ถ่ายมาทั้งหน้าปัดจึงมีทั้งเลขทะเบียนมิเตอร์ ตัวหนังสือ
+ * บนฝาครอบ และเข็มแดงปนอยู่ ยิ่งมีอะไรอยู่ในภาพมาก โอกาสอ่านหลักเกินยิ่งสูง
+ * การครอปให้เหลือเฉพาะแถวตัวเลขสีดำจึงเป็นวิธีที่ถูกที่สุดในการเพิ่มความแม่น
+ *
+ * ═══ ทำไมล็อกสัดส่วน ═══
+ *
+ * หน้าปัดมิเตอร์เป็นแถบแนวนอน กรอบอิสระทำให้คนลากเผลอกินเข็มแดง (ทศนิยม) เข้ามาด้วย
+ * ซึ่งเป็นความผิดพลาดที่ทำให้ยอดคลาด 1,000 เท่า (25.312 → 25312 ดู docs/api.md ของหลังบ้าน)
+ * สัดส่วน 3:1 / 4:1 บังคับให้กรอบเป็นแถบเตี้ย ๆ ตามรูปทรงของแถวตัวเลขจริง
+ *
+ * ═══ กรอบเริ่มต้นมาจากโมเดล (auto-crop) ═══
+ *
+ * ได้รูปมาปุ๊บจะยิงถามโมเดลก่อนว่าแถวตัวเลขอยู่ตรงไหน แล้วเอามาตั้งเป็นกรอบเริ่มต้นให้เลย
+ * คนที่ยืนจดกลางแดดจึงเหลือแค่ "ดูว่าตรงไหม" แทนที่จะต้องลากเองทุกใบ — และกรอบที่ลากเร็ว ๆ
+ * คือต้นเหตุของการครอปติดเลขแดง ซึ่งทำให้ยอดคลาด 1,000 เท่า
+ *
+ * กรอบที่ได้มาเป็นแค่จุดตั้งต้น **ลากปรับทับได้เสมอ** (คราบโคลน แสงสะท้อน มุมเอียง ทำให้
+ * โมเดลจับพลาดได้) และถ้าโมเดลไม่ตอบ/ไม่เจอ ทุกอย่างถอยกลับไปเป็นกรอบกลางภาพแบบเดิม
+ * ไม่มีการบล็อกหรือขึ้น error เพราะนี่เป็นตัวช่วย ไม่ใช่ขั้นตอนที่ขาดไม่ได้
+ *
+ * ⚠️ ภาพที่ครอปแล้ว **ไม่มี EXIF** (canvas วาดพิกเซลใหม่ metadata ไม่ติดไปด้วย)
+ *    พิกัด/เวลาถ่ายต้องอ่านจากไฟล์ต้นฉบับก่อนเสมอ อย่าหวังจะได้จากภาพที่ออกจากที่นี่
+ */
 @Component({
   selector: 'app-meter-cropper',
   standalone: true,
-  // eslint-disable-next-line @angular-eslint/no-unused-standalone-imports
-  imports: [CommonModule, FormsModule, ImageCropperComponent],
+  imports: [CommonModule, ImageCropperComponent],
   templateUrl: './meter-cropper.html',
-  styleUrls: ['./meter-cropper.css']
+  styleUrl: './meter-cropper.css',
 })
-export class MeterCropperComponent implements OnInit {
-  // ==========================================
-  // โซนประกาศตัวแปร
-  // ==========================================
-  imageChangedEvent: Event | null = null;
-  croppedImage: SafeUrl = '';
-  croppedBlob: Blob | null | undefined = null;
-  aiResult: any = null;
-  isLoading = false;
-  isSaving = false;
-  saveSuccess = false;
-  maintainAspectRatio = false;
-  aspectRatio = 3 / 1;
-  transform: ImageTransform = {};
-  private rotation = 0;
-  private scale = 1;
+export class MeterCropperComponent {
+  /** คุณภาพ JPEG ที่ส่งออก — 80 คือจุดที่ไฟล์เล็กลงมากแต่ขอบตัวเลขยังคม */
+  static readonly QUALITY = 80;
 
-  // 🌟 บ้านที่กำลังจดมิเตอร์ — บิลต้องผูกกับบ้าน ถ้าไม่เลือกจะบันทึกไม่ได้
-  members: any[] = [];
-  selectedMemberId: number | null = null;
+  /**
+   * ความกว้างสูงสุดของภาพที่ส่งออก (พิกเซล)
+   *
+   * คู่กับ onlyScaleDown = ภาพเล็กอยู่แล้วจะไม่ถูกขยาย เพราะการขยายไม่ได้เพิ่ม
+   * รายละเอียดให้โมเดล มีแต่ทำให้ไฟล์ใหญ่ขึ้นเปล่า ๆ
+   */
+  static readonly MAX_WIDTH = 1200;
 
-  // เลขมิเตอร์ครั้งก่อนของบ้านที่เลือก — โหลดไว้ล่วงหน้าเพื่อคำนวณ/เตือน "ก่อน" กดบันทึก
-  previousReading: number | null = null;
-  isLoadingPrevious = false;
-  // หน่วยที่ใช้ครั้งก่อน (ไว้เทียบว่าครั้งนี้กระโดดผิดปกติไหม) — ต้องมีประวัติ ≥ 2 ครั้งถึงคำนวณได้
-  private previousUsage: number | null = null;
+  /** แคบกว่านี้แล้วตัวเลขจะเบลอจนโมเดลอ่านไม่ออก — เตือน แต่ไม่ห้ามกด */
+  static readonly MIN_READABLE_WIDTH = 240;
 
-  // บิลที่เพิ่งสร้าง — เก็บไว้ให้กด "ยกเลิก" ย้อนได้ทันทีถ้าบันทึกผิด
-  savedBill: any = null;
-  isUndoing = false;
+  /**
+   * แถบที่ใช้ตั้งกรอบเมื่อโมเดลชี้ไม่ได้ — สัดส่วนของภาพ (0-1)
+   *
+   * ═══ ทำไมห้ามปล่อยให้กรอบไปอยู่กลางภาพ ═══
+   *
+   * กลางหน้าปัดมิเตอร์น้ำคือที่อยู่ของ**เข็มแดงกับโลโก้** ไม่ใช่แถวตัวเลข กรอบที่ตกลง
+   * ตรงกลาง (ค่าเริ่มต้นของไลบรารี) จึงครอบของที่ไม่ต้องการมาเต็ม ๆ ทุกครั้งที่โมเดลพลาด
+   * แล้วคนต้องลากขึ้นเองทุกใบ — ซึ่งเป็นงานที่ทำซ้ำวันละหลายสิบครั้ง
+   *
+   * แถบตัวเลขอยู่เหนือเข็มแดงแต่ไม่ได้สูงถึงขอบบน — ของเดิมตั้งไว้ 25-45% ซึ่งสูงเกิน
+   * รูปที่ถ่ายเต็มหน้าปัด (กรอบไปคร่อมตัวหนังสือบนฝาครอบแทน) ขยับลงมาที่ 35-55%
+   * แล้วยืดเป็น 4:1 กรอบจะตกที่แถวเลขบ่อยกว่า และยังไม่ต่ำจนกินเข็มแดงที่กลางหน้าปัด
+   */
+  static readonly FALLBACK_BAND = { x: 0.2, y: 0.35, w: 0.6, h: 0.2 };
 
-  // จากการทดลอง: ภาพที่ค่าความเชื่อมั่นต่ำกว่าเกณฑ์อ่านถูกเพียง 30.5% และภาพที่ระบบ
-  // ไม่ให้ค่าความเชื่อมั่นเลยอ่านถูก 0% — สองกลุ่มนี้จึงต้องให้เจ้าหน้าที่ติ๊กยืนยัน
-  // ว่าเทียบเลขกับหน้าปัดแล้ว ก่อนจะกดบันทึกได้
-  verifiedByStaff = false;
-  readonly captureTips = CAPTURE_TIPS;
+  /**
+   * แถบของปุ่ม "จัดกรอบไปที่แถบตัวเลข" — ระดับเดียวกับแถบสำรองแต่แคบกว่า
+   *
+   * ปุ่มนี้เป็นทางลัดของคนที่เห็นแล้วว่ากรอบไปผิดที่ ต้องให้ผลต่างจากแถบสำรองพอที่จะ
+   * เห็นว่า "กดแล้วมีอะไรเกิดขึ้น" แม้ตอนที่กรอบค้างอยู่ในแถบสำรองอยู่แล้ว —
+   * แคบลงยังได้ของแถมคือครอบเฉพาะแถวตัวเลขแน่นขึ้น ซึ่งเป็นสิ่งที่โมเดลอ่านง่ายที่สุด
+   */
+  static readonly SNAP_BAND = { x: 0.25, y: 0.4, w: 0.5, h: 0.15 };
 
-  private auth = inject(AuthService);
+  /** ไฟล์ต้นฉบับจากหน้าที่เรียกใช้ — ไม่ส่งมาก็ได้ คอมโพเนนต์มีปุ่มเลือกรูปของตัวเอง */
+  readonly file = input<File | null>(null);
 
-  constructor(
-    private sanitizer: DomSanitizer,
-    private meterReadingService: MeterReadingService,
-    private memberService: MemberService,
-    private cdr: ChangeDetectorRef
-  ) {}
+  /** ปิดปุ่มทั้งหมดระหว่างที่ผู้เรียกกำลังยิงงานอยู่ */
+  readonly busy = input<boolean>(false);
 
-  // ตอน prerender (SSR) ยังไม่มี token ใน localStorage ยิง API ไปก็ได้ 401 เปล่า ๆ
-  // ต้องข้ามไปก่อน แล้วให้ฝั่ง browser โหลดจริง ไม่งั้น build จะพังตอน prerender
-  private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  readonly cropped = output<MeterCropResult>();
+  readonly cancelled = output<void>();
 
-  ngOnInit(): void {
-    if (!this.isBrowser) return;
+  /** สัดส่วนที่เลือกได้ — กว้าง:สูง ของแถวตัวเลข */
+  readonly ratios = [
+    { value: 4, label: '4:1' },
+    { value: 3, label: '3:1' },
+  ];
 
-    this.memberService.getMembers().subscribe({
-      next: (members) => {
-        this.members = members ?? [];
-        this.cdr?.detectChanges();
-      },
-      error: (err) => {
-        console.error('ดึงรายชื่อลูกบ้านไม่สำเร็จ:', err);
-        toast.error(extractErrorMessage(err, 'โหลดรายชื่อบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-load-error' });
-      }
+  /** สัดส่วนตั้งต้น — ใช้ตอนเปิดหน้าและตอนกดปุ่มจัดกรอบ */
+  static readonly DEFAULT_RATIO = 4;
+
+  readonly ratio = signal(MeterCropperComponent.DEFAULT_RATIO);
+  readonly rotation = signal(0);
+  readonly preview = signal<string | null>(null);
+  readonly cropWidth = signal(0);
+  readonly cropHeight = signal(0);
+  readonly loadFailed = signal(false);
+
+  /**
+   * ให้โมเดลตั้งกรอบเริ่มต้นให้เมื่อได้รูปใหม่ (auto-crop) — ปิดได้เมื่อผู้เรียกยิงเองอยู่แล้ว
+   *
+   * ปิดแล้วทุกอย่างทำงานเหมือนเดิมทุกประการ คือขึ้นกรอบกลางภาพให้คนลากเอง
+   */
+  readonly autoDetect = input<boolean>(true);
+
+  /** กำลังถามโมเดลว่ากรอบอยู่ตรงไหน — โชว์ให้คนรู้ว่าอย่าเพิ่งรีบลาก */
+  readonly detecting = signal(false);
+
+  /** กรอบที่โมเดลชี้ (สัดส่วนของภาพต้นฉบับ) — null = ยังไม่ได้ถาม/ถามแล้วไม่เจอ */
+  readonly autoBox = signal<MeterCropBox | null>(null);
+
+  /** กรอบที่เห็นอยู่ตอนนี้มาจากแถบสำรอง ไม่ใช่จากโมเดล — ต้องบอกคนให้ตรวจหนักกว่าปกติ */
+  readonly usedFallback = signal(false);
+
+  /**
+   * กรอบที่ส่งให้ไลบรารีจริง (พิกเซลบนภาพที่ย่อแล้ว) — undefined = ปล่อยกรอบกลางภาพตามเดิม
+   *
+   * ตั้งครั้งเดียวตอนได้กรอบจากโมเดล จากนั้นไม่แตะอีกเลย ให้ไลบรารีถือสถานะต่อ
+   * ไม่งั้นทุกครั้งที่ค่าใน component ขยับ กรอบจะเด้งกลับไปที่เดิม ทับสิ่งที่คนเพิ่งลาก
+   */
+  readonly cropBox = signal<CropperPosition | undefined>(undefined);
+
+  /** การหมุนที่ไลบรารีทำให้ภาพตาม EXIF — ต้องเอามาหมุนกรอบตามด้วย ไม่งั้นกรอบไปคนละมุม */
+  private readonly exif = signal<CropperExifTransform | null>(null);
+
+  /** ขนาดของภาพที่แสดงจริงบนจอ (พิกเซล) — กรอบครอปคิดพิกัดบนขนาดนี้ ไม่ใช่ขนาดไฟล์ */
+  private readonly displaySize = signal<Dimensions | null>(null);
+
+  private readonly readings = inject(MeterReadingService);
+
+  /** ไฟล์ที่เลือกเองในกล่องนี้ — ชนะ input เสมอ เพราะเป็นสิ่งที่คนเพิ่งกดเลือก */
+  private readonly picked = signal<File | null>(null);
+
+  readonly source = computed(() => this.picked() ?? this.file());
+  readonly transform = computed<ImageTransform>(() => ({ rotate: this.rotation() }));
+  readonly tooSmall = computed(
+    () => this.cropWidth() > 0 && this.cropWidth() < MeterCropperComponent.MIN_READABLE_WIDTH,
+  );
+
+  /** ขนาดไฟล์โดยประมาณของ base64 — 4 ตัวอักษรแทน 3 ไบต์ */
+  readonly previewKb = computed(() => {
+    const dataUrl = this.preview();
+    if (!dataUrl) return 0;
+    const body = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    return Math.round((body.length * 0.75) / 1024);
+  });
+
+  readonly quality = MeterCropperComponent.QUALITY;
+  readonly maxWidth = MeterCropperComponent.MAX_WIDTH;
+
+  /** ข้อความบอกสถานะกรอบอัตโนมัติ — null = ไม่มีอะไรต้องบอก (คนลากเองอยู่แล้ว) */
+  readonly autoBoxNote = computed<string | null>(() => {
+    if (this.detecting()) return 'กำลังให้ AI หาแถวตัวเลขให้...';
+
+    const box = this.autoBox();
+    if (!box) {
+      return this.usedFallback()
+        ? 'AI หาแถวตัวเลขไม่เจอ — ตั้งกรอบไว้เหนือกลางภาพให้ก่อน (ตำแหน่งมาตรฐานของแถบตัวเลข) กรุณาลากปรับให้ตรงก่อนยืนยัน'
+        : null;
+    }
+
+    // กรอบที่มาจาก border คือ "ทั้งแถบเลขมิเตอร์" ซึ่งยังไม่ได้ตัดเลขทศนิยมสีแดงออก
+    // ต้องบอกให้ชัดว่าอันนี้ต้องหดเอง ไม่ใช่กดยืนยันต่อได้เลยเหมือนกรอบของเลขสีดำ
+    return box.source === 'border'
+      ? 'AI ตั้งกรอบให้คร่าว ๆ แล้ว — กรอบนี้ยังรวมเลขทศนิยมสีแดง กรุณาหดกรอบให้เหลือเฉพาะเลขสีดำก่อนยืนยัน'
+      : 'AI ตั้งกรอบให้แล้ว — ตรวจดูว่าครอบเลขสีดำครบทุกหลักไหม ลากปรับได้ตามต้องการ';
+  });
+
+  constructor() {
+    // ได้รูปใหม่เมื่อไหร่ถามกรอบใหม่ทันที — กรอบของรูปเก่าใช้กับรูปใหม่ไม่ได้เลย
+    effect(() => {
+      const file = this.source();
+      const enabled = this.autoDetect();
+      untracked(() => this.requestAutoBox(file, enabled));
     });
-  }
 
-  // เลือกบ้านแล้วรีบไปถามเลขมิเตอร์ครั้งก่อน เอาไว้คำนวณและเตือนก่อนบันทึก
-  onMemberChange(): void {
-    this.previousReading = null;
-    this.previousUsage = null;
-    if (!this.selectedMemberId) return;
+    // วางกรอบเมื่อรู้ขนาดที่แสดงจริงแล้ว และการถามโมเดลจบแล้ว (จะเจอหรือไม่เจอก็ตาม)
+    //
+    // ⚠️ ไม่มีทางออกที่ "ไม่ทำอะไรเลย" — ปล่อยไว้แปลว่าไลบรารีตั้งกรอบไว้กลางภาพ
+    //    ซึ่งคือตำแหน่งของเข็มแดงกับโลโก้ ไม่ใช่แถวตัวเลข (ดู FALLBACK_BAND)
+    effect(() => {
+      const box = this.autoBox();
+      const size = this.displaySize();
+      const detecting = this.detecting();
+      if (!size || detecting) return;
 
-    this.isLoadingPrevious = true;
-    this.meterReadingService.getReadingsByMember(Number(this.selectedMemberId)).subscribe({
-      next: (readings) => {
-        this.isLoadingPrevious = false;
-        // หลังบ้านเรียงครั้งล่าสุดมาก่อน — ตัวแรกคือเลขเดือนที่แล้ว
-        this.previousReading = readings?.length ? Number(readings[0].meter_unit) : 0;
-        // ถ้ามีอย่างน้อย 2 ครั้ง คำนวณว่าเดือนก่อนใช้ไปเท่าไร ไว้เทียบความผิดปกติ
-        this.previousUsage =
-          readings && readings.length >= 2
-            ? Number(readings[0].meter_unit) - Number(readings[1].meter_unit)
-            : null;
-        this.cdr?.detectChanges();
-      },
-      error: (err) => {
-        this.isLoadingPrevious = false;
-        console.error('ดึงเลขมิเตอร์ครั้งก่อนไม่สำเร็จ:', err);
-        this.cdr?.detectChanges();
-      }
+      // อ่าน ratio/exif แบบ untracked — ไม่งั้นทุกครั้งที่คนกดเปลี่ยนสัดส่วน กรอบจะเด้ง
+      // กลับไปที่ AI ชี้ ทับกรอบที่คนเพิ่งลากปรับเอง ซึ่งเป็นสิ่งเดียวที่ต้องเคารพที่สุด
+      untracked(() => {
+        if (box) {
+          this.usedFallback.set(false);
+          const mapped = mapBoxThroughExif(box, this.exif());
+          this.cropBox.set(fitBoxToRatio(mapped, this.ratio(), size));
+          return;
+        }
+
+        // แถบสำรองเป็นพิกัดของภาพที่คนเห็นอยู่แล้ว (ไม่ได้มาจากไฟล์) จึงไม่ต้องหมุนตาม EXIF
+        this.usedFallback.set(true);
+        this.cropBox.set(
+          fitBoxToRatio(
+            { ...MeterCropperComponent.FALLBACK_BAND, source: 'digits' },
+            this.ratio(),
+            size,
+          ),
+        );
+      });
     });
-  }
-
-  // ==========================================
-  // โซนฟังก์ชันจัดการรูปภาพ (เลือกรูป & ครอปรูป)
-  // ==========================================
-  fileChangeEvent(event: Event): void {
-    this.imageChangedEvent = event;
-    // รีเซ็ตค่าผลลัพธ์เก่าทิ้งเวลาเลือกรูปใหม่
-    this.aiResult = null;
-    this.saveSuccess = false;
-    this.resetImage();
-  }
-
-  imageCropped(event: any) {
-    this.croppedImage = this.sanitizer.bypassSecurityTrustUrl(event.objectUrl);
-    this.croppedBlob = event.blob;
-  }
-
-  // ==========================================
-  // โซนฟังก์ชันปรับแต่งรูปภาพ (หมุน, สลับ, ซูม)
-  // ==========================================
-  rotateLeft(): void {
-    this.rotation -= 90;
-    this.updateTransform();
-  }
-
-  rotateRight(): void {
-    this.rotation += 90;
-    this.updateTransform();
-  }
-
-  flipHorizontal(): void {
-    this.transform = {
-      ...this.transform,
-      flipH: !this.transform.flipH
-    };
-  }
-
-  flipVertical(): void {
-    this.transform = {
-      ...this.transform,
-      flipV: !this.transform.flipV
-    };
-  }
-
-  zoomIn(): void {
-    this.scale += 0.1;
-    this.updateTransform();
-  }
-
-  zoomOut(): void {
-    this.scale = Math.max(0.1, this.scale - 0.1);
-    this.updateTransform();
-  }
-
-  resetImage(): void {
-    this.rotation = 0;
-    this.scale = 1;
-    this.transform = {};
-  }
-
-  private updateTransform(): void {
-    this.transform = {
-      ...this.transform,
-      rotate: this.rotation,
-      scale: this.scale
-    };
-  }
-
-  // ==========================================
-  // โซนแสดงความมั่นใจของการอ่านเลข (เอาไว้ทำแถบสีบนหน้าจอ)
-  // ==========================================
-
-  // อ่านค่าความมั่นใจจากหลังบ้าน ถ้าไม่ได้ส่งมาก็คืน null (หน้าจอจะขึ้นเป็นสีเหลืองให้ตรวจสอบเอง)
-  get confidencePercent(): number | null {
-    const raw = this.aiResult?.confidence ?? this.aiResult?.score ?? null;
-    const value = typeof raw === 'string' ? parseFloat(raw) : raw;
-    if (typeof value !== 'number' || isNaN(value)) return null;
-
-    // หลังบ้านอาจส่งมาเป็น 0–1 หรือ 0–100 ก็ได้ รองรับทั้งสองแบบ
-    const percent = value <= 1 ? value * 100 : value;
-    return Math.max(0, Math.min(100, Math.round(percent)));
   }
 
   /**
-   * ผ่านเกณฑ์บันทึกอัตโนมัติไหม — หลังบ้านตัดสินมาให้แล้วใน auto_savable
-   * (ถ้า API เวอร์ชันเก่ายังไม่ส่งฟิลด์นี้ ค่อยเทียบกับเกณฑ์เองเป็นตัวสำรอง)
+   * ถามโมเดลว่าแถวตัวเลขอยู่ตรงไหนของรูปใบนี้
+   *
+   * ผลของรูปใบเก่าที่ตอบกลับมาช้าต้องถูกทิ้ง ไม่ใช่เอามาตั้งกรอบให้รูปใบใหม่ —
+   * คนที่กดเปลี่ยนรูปเร็ว ๆ จะได้กรอบของรูปก่อนหน้ามาวางทับ แล้วครอปผิดตำแหน่งโดยไม่รู้ตัว
    */
-  get autoSavable(): boolean {
-    if (typeof this.aiResult?.auto_savable === 'boolean') {
-      return this.aiResult.auto_savable;
-    }
-    const percent = this.confidencePercent;
-    return percent !== null && percent >= OCR_CONFIDENCE_THRESHOLD * 100;
-  }
+  private requestAutoBox(file: File | null, enabled: boolean): void {
+    this.autoBox.set(null);
+    this.cropBox.set(undefined);
 
-  // ชัดเจน = เขียว, ที่เหลือ (รวมถึงกรณีไม่รู้ค่า) = เหลือง ให้เจ้าหน้าที่ตรวจซ้ำ
-  get isConfident(): boolean {
-    return this.autoSavable;
-  }
-
-  get confidenceLabel(): string {
-    const percent = this.confidencePercent;
-    if (percent === null) return 'ระบบไม่ได้ให้ค่าความเชื่อมั่น โปรดตรวจสอบตัวเลขกับหน้าปัด';
-    if (this.autoSavable) return `อ่านได้ชัดเจน (${percent}%)`;
-    return `อ่านได้ไม่ค่อยชัด (${percent}%) โปรดตรวจสอบ`;
-  }
-
-  /** ความแม่นยำที่วัดได้จริงของกลุ่มนี้ ใช้บอกเจ้าหน้าที่ว่าควรเชื่อผลแค่ไหน */
-  get expectedAccuracyPercent(): number {
-    const fromApi = this.aiResult?.expected_accuracy;
-    if (typeof fromApi === 'number' && !isNaN(fromApi)) return Math.round(fromApi * 100);
-    if (this.autoSavable) return Math.round(OCR_ACCURACY_BY_CONFIDENCE.atOrAboveThreshold * 100);
-    if (this.confidencePercent === null) {
-      return Math.round(OCR_ACCURACY_BY_CONFIDENCE.withoutConfidence * 100);
-    }
-    return Math.round(OCR_ACCURACY_BY_CONFIDENCE.belowThreshold * 100);
-  }
-
-  /** ต้องให้เจ้าหน้าที่ติ๊กยืนยันก่อนบันทึกไหม */
-  get needsManualVerify(): boolean {
-    return !this.autoSavable;
-  }
-
-  /** เงื่อนไขครบพร้อมบันทึกหรือยัง (ใช้ทั้งปุ่มและตอนกดจริง ให้ตรงกันเสมอ) */
-  get canSave(): boolean {
-    if (this.isSaving) return false;
-    if (!this.aiResult?.read_unit || !this.selectedMemberId) return false;
-    if (this.isBelowPrevious) return false;
-    if (this.needsManualVerify && !this.verifiedByStaff) return false;
-    return true;
-  }
-
-  // ==========================================
-  // โซนคำนวณสด + เตือนก่อนบันทึก (เทียบกับเลขเดือนก่อน)
-  // ==========================================
-
-  /** เลขที่กรอกในช่อง (แปลงเป็นตัวเลข) — null ถ้ายังว่างหรือไม่ใช่ตัวเลข */
-  get currentUnitValue(): number | null {
-    const raw = this.aiResult?.read_unit;
-    const value = typeof raw === 'string' ? parseFloat(raw) : raw;
-    return typeof value === 'number' && !isNaN(value) ? value : null;
-  }
-
-  /** หน่วยที่ใช้เดือนนี้ = เลขนี้ − เลขเดือนก่อน (โชว์ให้เห็นสด ๆ ขณะแก้เลข) */
-  get usageUnit(): number | null {
-    if (this.currentUnitValue === null || this.previousReading === null) return null;
-    return this.currentUnitValue - this.previousReading;
-  }
-
-  /** เลขน้อยกว่าเดือนก่อน = ผิดแน่ (มิเตอร์ไม่เดินถอยหลัง) — กันไว้ก่อนบันทึก */
-  get isBelowPrevious(): boolean {
-    return this.usageUnit !== null && this.usageUnit < 0;
-  }
-
-  /** ใช้น้ำมากผิดปกติ = กระโดดเกิน 3 เท่าของเดือนก่อน และต่างกันเยอะพอ (กันเตือนพร่ำเพรื่อกับเลขน้อย ๆ) */
-  get isAbnormalJump(): boolean {
-    if (this.usageUnit === null || this.previousUsage === null || this.previousUsage <= 0) return false;
-    return this.usageUnit > this.previousUsage * 3 && this.usageUnit - this.previousUsage >= 30;
-  }
-
-  // ==========================================
-  // โซนฟังก์ชันคุยกับหลังบ้าน (NestJS)
-  // ==========================================
-
-  // 1. ส่งรูปไปสแกนเลข
-  uploadToBackend() {
-    if (!this.croppedBlob) return;
-
-    this.isLoading = true;
-    this.aiResult = null;
-    this.saveSuccess = false;
-    // สแกนรูปใหม่ = ต้องยืนยันใหม่ ห้ามให้การติ๊กครั้งก่อนค้างมาใช้กับเลขชุดใหม่
-    this.verifiedByStaff = false;
-
-    const formData = new FormData();
-    // ตั้งชื่อไฟล์จำลองให้ NestJS รับไปใช้งาน
-    formData.append('file', this.croppedBlob, 'meter-cropped.jpg');
-
-    this.meterReadingService.uploadCroppedImage(formData).subscribe({
-      next: (res) => {
-        this.isLoading = false;
-        this.aiResult = res; // เก็บผลลัพธ์ที่ได้จาก AI มาแสดงหน้าจอ
-        this.cdr?.detectChanges();
-      },
-      error: (err) => {
-        this.isLoading = false;
-        console.error('Error:', err);
-        this.cdr?.detectChanges();
-        toast.error(extractErrorMessage(err, 'อ่านเลขมิเตอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'api-error' });
-      }
-    });
-  }
-
-  // 2. กดยืนยันบันทึก — ต้องทำ 3 ขั้นตามลำดับ ไม่งั้นหลังบ้านจะหา id ที่อ้างถึงไม่เจอ
-  //    (1) หาเรทค่าน้ำที่ใช้อยู่ + เลขมิเตอร์ครั้งก่อนของบ้านหลังนี้
-  //    (2) บันทึกการจดมิเตอร์ครั้งนี้ เพื่อให้ได้ meter_readings_id จริง
-  //    (3) สร้างบิลจาก id จริงทั้งหมด
-  confirmAndSave() {
-    const currentUnit = Math.round(Number(this.aiResult?.read_unit));
-    if (!this.aiResult || !currentUnit || isNaN(currentUnit)) return;
-
-    if (!this.selectedMemberId) {
-      toast.error('กรุณาเลือกบ้านเลขที่ก่อนบันทึกนะครับ', { id: 'need-member' });
+    if (!file || !enabled) {
+      this.detecting.set(false);
       return;
     }
 
-    if (this.needsManualVerify && !this.verifiedByStaff) {
-      toast.error('ค่าความเชื่อมั่นต่ำกว่าเกณฑ์ กรุณาเทียบเลขกับหน้าปัดแล้วติ๊กยืนยันก่อนบันทึก', {
-        id: 'need-verify'
-      });
+    this.detecting.set(true);
+    this.readings.detectCropBox(file).subscribe((box) => {
+      if (this.source() !== file) return;
+
+      this.detecting.set(false);
+      this.autoBox.set(box);
+    });
+  }
+
+  /**
+   * ดันกรอบขึ้นไปจับแถบตัวเลขทันที (ปุ่ม 🎯)
+   *
+   * มีไว้สำหรับตอนที่กรอบไปผิดที่ — โมเดลจับโดนคราบโคลน/แสงสะท้อน หรือคนเผลอลากจนหลง
+   * กดแล้วได้ตำแหน่งมาตรฐานกลับมาใน 1 คลิก เร็วกว่าลากหาเองซึ่งต้องทำทีละใบ
+   *
+   * ทำงานได้เสมอหลังภาพขึ้นจอ ไม่สนใจว่าโมเดลตอบอะไรมา — ปุ่มที่กดแล้วเงียบบางครั้ง
+   * แย่กว่าไม่มีปุ่ม เพราะคนจะไม่รู้ว่าต้องกดซ้ำหรือไปลากเอง
+   *
+   * ดึงสัดส่วนกลับเป็น 4:1 ให้ด้วย — คนที่กดปุ่มนี้คือคนที่กรอบเพี้ยนอยู่ ถ้าเพี้ยนเพราะ
+   * เผลอสลับไป 3:1 (กรอบสูงขึ้น กินเข็มแดงง่าย) การจัดกรอบเฉย ๆ จะยังเพี้ยนเหมือนเดิม
+   */
+  quickSnap(): void {
+    const size = this.displaySize();
+    if (!size || this.busy()) return;
+
+    this.ratio.set(MeterCropperComponent.DEFAULT_RATIO);
+    this.usedFallback.set(true);
+    this.cropBox.set(
+      fitBoxToRatio(
+        { ...MeterCropperComponent.SNAP_BAND, source: 'digits' },
+        MeterCropperComponent.DEFAULT_RATIO,
+        size,
+      ),
+    );
+  }
+
+  /** ไลบรารีหมุนภาพตาม EXIF ให้แล้ว — จำค่าที่มันหมุนไว้ เพื่อหมุนกรอบตามให้ตรงกัน */
+  onImageLoaded(loaded: LoadedImage): void {
+    this.exif.set(loaded.exifTransform ?? null);
+  }
+
+  /** รู้ขนาดที่แสดงจริงตอนนี้ — กรอบครอปคิดเป็นพิกเซลบนขนาดนี้ ไม่ใช่ขนาดของไฟล์ */
+  onCropperReady(dimensions: Dimensions): void {
+    this.displaySize.set(dimensions);
+  }
+
+  pickFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.loadFailed.set(true);
       return;
     }
 
-    const memberId = Number(this.selectedMemberId);
-    const adminId = this.auth.admin()?.id;
-
-    this.isSaving = true;
-    this.saveSuccess = false;
-
-    forkJoin({
-      rate: this.meterReadingService.getActiveWaterRate(),
-      readings: this.meterReadingService.getReadingsByMember(memberId)
-    })
-      .pipe(
-        switchMap(({ rate, readings }) => {
-          if (!rate?.id) {
-            return throwError(() => new Error('ยังไม่มีเรทค่าน้ำที่เปิดใช้งานในระบบ กรุณาตั้งเรทค่าน้ำก่อน'));
-          }
-
-          // หลังบ้านเรียงครั้งล่าสุดมาก่อน เลยหยิบตัวแรกเป็นเลขมิเตอร์เดือนที่แล้ว
-          const previousUnit = readings?.length ? Number(readings[0].meter_unit) : 0;
-          if (currentUnit < previousUnit) {
-            return throwError(
-              () => new Error(`เลขมิเตอร์ (${currentUnit}) น้อยกว่าครั้งก่อน (${previousUnit}) กรุณาตรวจสอบตัวเลขอีกครั้ง`)
-            );
-          }
-
-          return this.meterReadingService
-            .createMeterReading({
-              reading_date: new Date().toISOString().slice(0, 10),
-              meter_unit: currentUnit,
-              members_id: memberId,
-              create_by: adminId
-            })
-            .pipe(
-              switchMap((reading) =>
-                this.meterReadingService.saveBill({
-                  meter_readings_id: reading.id,
-                  water_rates_id: rate.id,
-                  previous_unit: previousUnit,
-                  current_unit: currentUnit,
-                  create_by: adminId
-                })
-              )
-            );
-        })
-      )
-      .subscribe({
-        next: (bill) => {
-          this.isSaving = false;
-          this.saveSuccess = true;
-          this.savedBill = bill; // เก็บไว้ให้กดยกเลิกย้อนได้
-          this.cdr?.detectChanges();
-          toast.success('บันทึกเลขมิเตอร์และสร้างบิลเรียบร้อยแล้ว', { id: 'save-success' });
-        },
-        error: (err) => {
-          this.isSaving = false;
-          console.error('Save error:', err);
-          this.cdr?.detectChanges();
-          toast.error(extractErrorMessage(err, 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'save-error' });
-        }
-      });
+    this.reset();
+    this.picked.set(file);
   }
 
-  // 3. ยกเลิกบิลที่เพิ่งสร้าง (undo) — เผื่อกดบันทึกผิด ลบทิ้งแล้วเริ่มจดใหม่ได้เลย
-  undoSave(): void {
-    if (!this.savedBill?.id || this.isUndoing) return;
+  onCropped(event: ImageCroppedEvent): void {
+    // output="base64" จึงได้ data URL มาตรง ๆ ใช้ทั้งพรีวิวและผลลัพธ์สุดท้ายก้อนเดียวกัน
+    // (ถ้าใช้ objectUrl จะต้องมาไล่ revoke เองทุกครั้งที่ลากกรอบ ซึ่งลืมง่ายและรั่วเงียบ)
+    this.preview.set(event.base64 ?? null);
+    this.cropWidth.set(event.width);
+    this.cropHeight.set(event.height);
+  }
 
-    this.isUndoing = true;
-    this.meterReadingService.deleteBill(this.savedBill.id).subscribe({
-      next: () => {
-        this.isUndoing = false;
-        this.savedBill = null;
-        this.saveSuccess = false;
-        // โหลดเลขเดือนก่อนใหม่ เพราะการจดครั้งนี้ถูกลบไปแล้ว
-        this.onMemberChange();
-        this.cdr?.detectChanges();
-        toast.success('ยกเลิกบิลเรียบร้อยแล้ว จดใหม่ได้เลยครับ', { id: 'undo-success' });
-      },
-      error: (err) => {
-        this.isUndoing = false;
-        console.error('Undo error:', err);
-        this.cdr?.detectChanges();
-        toast.error(extractErrorMessage(err, 'ยกเลิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'undo-error' });
-      }
+  onLoadFailed(): void {
+    this.loadFailed.set(true);
+    this.picked.set(null);
+  }
+
+  setRatio(value: number): void {
+    this.ratio.set(value);
+  }
+
+  rotate(direction: -1 | 1): void {
+    // ทวนเข็ม/ตามเข็มทีละ 90° วนกลับมาที่ 0 เสมอ ไม่ให้เลขบวกไปเรื่อย ๆ
+    this.rotation.set((this.rotation() + direction * 90 + 360) % 360);
+  }
+
+  confirm(): void {
+    const dataUrl = this.preview();
+    const source = this.source();
+    if (!dataUrl || this.busy()) return;
+
+    this.cropped.emit({
+      dataUrl,
+      blob: MeterCropperComponent.toBlob(dataUrl),
+      fileName: source?.name ?? 'meter-crop.jpg',
+      width: this.cropWidth(),
+      height: this.cropHeight(),
     });
+  }
+
+  cancel(): void {
+    this.reset();
+    this.cancelled.emit();
+  }
+
+  private reset(): void {
+    this.picked.set(null);
+    this.preview.set(null);
+    this.autoBox.set(null);
+    this.cropBox.set(undefined);
+    this.detecting.set(false);
+    this.usedFallback.set(false);
+    this.exif.set(null);
+    this.displaySize.set(null);
+    this.cropWidth.set(0);
+    this.cropHeight.set(0);
+    this.rotation.set(0);
+    this.loadFailed.set(false);
+  }
+
+  /**
+   * data URL → Blob สำหรับ endpoint ที่รับ multipart
+   *
+   * ไม่ใช้ fetch(dataUrl).blob() เพราะเป็น async ทั้งที่ข้อมูลอยู่ในมือแล้ว —
+   * การทำให้ปุ่มยืนยันกลายเป็น async ทำให้ผู้เรียกต้องจัดการสถานะรอเปล่า ๆ
+   */
+  static toBlob(dataUrl: string): Blob {
+    const comma = dataUrl.indexOf(',');
+    const mime = /data:([^;,]+)/.exec(dataUrl.slice(0, comma))?.[1] ?? 'image/jpeg';
+    const binary = atob(dataUrl.slice(comma + 1));
+
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
   }
 }

@@ -9,6 +9,7 @@ export interface Village {
   provinces_id: number;
   districts_id: number;
   subdistricts_id: number;
+  zip_code: string | null;
   village_name: string;
   village_no: string;
   headman_name: string | null;
@@ -25,6 +26,8 @@ export interface Village {
 export interface UpdateVillagePayload {
   village_name?: string;
   village_no?: string;
+  // ส่ง '' ไปได้ถ้าอยากล้างค่า หลังบ้านจะแปลงเป็น null ให้
+  zip_code?: string;
   headman_name?: string;
   deputy_headman_name?: string;
   phone?: string;
@@ -47,10 +50,6 @@ export class VillageService {
 
   getVillages(): Observable<Village[]> {
     return this.http.get<Village[]>(this.baseUrl);
-  }
-
-  getVillage(id: number): Observable<Village> {
-    return this.http.get<Village>(`${this.baseUrl}/${id}`);
   }
 
   // PATCH /villages/:id — modify_by หลังบ้านอ่านจาก token เอง ไม่ต้องส่งมา

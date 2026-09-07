@@ -34,10 +34,14 @@ export class VillageSettingsComponent implements OnInit {
     provinces_id: [null as number | null, [Validators.required]],
     districts_id: [null as number | null, [Validators.required]],
     subdistricts_id: [null as number | null, [Validators.required]],
+    // ไม่บังคับกรอก — หมู่บ้านที่ยังไม่มีรหัสก็ออกบิลได้ตามปกติ
+    // แต่ถ้ากรอกต้องครบ 5 หลัก เพราะคอลัมน์เป็น varchar(5) เกินมาจะโดนตัดท้ายทิ้ง
+    zip_code: ['', [Validators.pattern(/^\d{5}$/)]],
   });
 
   get villageName() { return this.form.controls.village_name; }
   get villageNo() { return this.form.controls.village_no; }
+  get zipCode() { return this.form.controls.zip_code; }
 
   // ==========================================
   // 🗺️ จังหวัด → อำเภอ → ตำบล (เลือกเป็นชั้น)
@@ -202,6 +206,7 @@ export class VillageSettingsComponent implements OnInit {
       provinces_id: village.provinces_id ?? null,
       districts_id: village.districts_id ?? null,
       subdistricts_id: village.subdistricts_id ?? null,
+      zip_code: village.zip_code ?? '',
     });
     this.form.markAsPristine();
 

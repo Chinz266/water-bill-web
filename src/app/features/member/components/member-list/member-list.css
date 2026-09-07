@@ -8,34 +8,42 @@ svg {
   stroke-linejoin: round;
 }
 
-.members-head {
+/* ค้นหา + ปุ่มเพิ่มบ้าน อยู่แถวเดียวกัน — สองอย่างที่คนเปิดหน้านี้มาทำ */
+.members-bar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
 }
 
-.members-head .page-head {
-  margin-bottom: 24px;
+.members-bar .search-input {
+  flex: 1;
+}
+
+.add-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.coords-alert {
+  margin-bottom: var(--sp-2);
 }
 
 .th-actions {
   text-align: right;
 }
 
-.search-card {
-  margin-bottom: 16px;
-}
-
 /* การ์ดลูกบ้านสำหรับมือถือ */
 .member-cards {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-2);
 }
 
 .member-top {
-  margin-bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
 }
 
 .member-name {
@@ -46,15 +54,19 @@ svg {
 .member-phone {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-1);
   margin-top: 4px;
+}
+
+.coords-btn {
+  margin-top: var(--sp-2);
 }
 
 .member-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 16px;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
 }
 
 /* สลับระหว่างตาราง (จอใหญ่) กับการ์ด (มือถือ) */
@@ -63,19 +75,12 @@ svg {
 }
 
 @media (max-width: 768px) {
-  .members-head {
+  .members-bar {
     flex-direction: column;
-    align-items: stretch;
-  }
-
-  .members-head .page-head {
-    margin-bottom: 16px;
   }
 
   .add-btn {
-    width: 100%;
     min-height: 56px;
-    margin-bottom: 16px;
   }
 
   .desktop-only {
@@ -85,4 +90,86 @@ svg {
   .mobile-only {
     display: flex;
   }
+}
+
+/* ---------- ในหน้าต่างเพิ่ม/แก้ไข ---------- */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+@media (max-width: 480px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* แถบสถานะพิกัด — อยู่บนสุดของหน้าต่างเพิ่มบ้าน เพราะเป็นอย่างเดียว
+   ที่ต้องยืนอยู่ถูกที่ถึงจะได้ ถ้าไปซ่อนไว้ล่างสุดคนจะเพิ่งรู้ตอนกดบันทึกไม่ผ่าน */
+.coords-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 12px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.coords-status.is-ready {
+  border-color: var(--success);
+  color: var(--text);
+}
+
+.coords-status.is-error {
+  border-color: var(--danger);
+}
+
+.btn-spinner.dark {
+  border-color: var(--primary-soft-2);
+  border-top-color: var(--primary);
+}
+
+/* รูปหน้าปัดที่แนบตอนลงทะเบียน — เป็นหลักฐานของเลขตั้งต้น */
+.photo-attach {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.photo-attach img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  background: #0f172a;
+  border-radius: var(--radius-sm);
+}
+
+/* วันถ่าย/พิกัดที่อ่านได้จากรูป — ต้องเห็นก่อนกดบันทึก เพราะสองอย่างนี้
+   คือจุดเริ่มรอบบิลกับตำแหน่งมิเตอร์ของบ้านหลังนี้ไปตลอด */
+.photo-meta {
+  margin-top: var(--sp-1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text-muted);
+  list-style: none;
+}
+
+.photo-meta li {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+/* วันจดประจำของบ้าน — รอบบิลของแต่ละหลังไม่ตรงกัน */
+.reading-day {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: 4px;
+  font-size: 14px;
 }

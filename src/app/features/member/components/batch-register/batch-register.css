@@ -1,0 +1,314 @@
+.reg {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- สลับกับหน้าเพิ่มทีละหลัง ---------- */
+.reg-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.reg-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.reg-mode.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.reg-mode-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reg-mode-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- โครงขั้นตอน ---------- */
+.step + .step {
+  margin-top: var(--sp-2);
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: var(--sp-2);
+}
+
+.step-no {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-hover);
+  background: var(--primary-soft-2);
+  border-radius: 50%;
+}
+
+.step-title {
+  font-size: 19px;
+}
+
+.village-field {
+  margin-bottom: var(--sp-2);
+  max-width: 320px;
+}
+
+.pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+
+.pick-btn {
+  cursor: pointer;
+}
+
+/* ---------- สรุปยอด ---------- */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-2);
+  padding: 12px;
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.summary-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.summary-cap {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.summary-val {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.summary-val.ok {
+  color: var(--primary-hover);
+}
+
+.summary-val.warn {
+  color: var(--warning);
+}
+
+.summary-val.done {
+  color: var(--success);
+}
+
+.progress {
+  margin-bottom: var(--sp-2);
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.2s;
+}
+
+/* ---------- แต่ละหลังในคิว ---------- */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-2);
+}
+
+.reg-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+/* แถวที่ยังบันทึกไม่ได้ต้องสะดุดตาตอนไล่ตรวจทีละสิบ ๆ แถว */
+.reg-row.is-blocked {
+  border-color: var(--warning);
+  background: #fffbeb;
+}
+
+.reg-row.is-saved {
+  border-color: var(--success-soft);
+  background: var(--success-soft);
+}
+
+.row-photo {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: #0f172a;
+  border-radius: var(--radius-sm);
+}
+
+.row-photo-broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--line-soft);
+}
+
+.row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+
+.row-seq {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.row-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.row-meta.warn {
+  font-weight: 600;
+  color: #92400e;
+}
+
+.row-remove {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 16px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.row-remove:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.row-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-1);
+}
+
+.row-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.row-cap {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.row-field .field-input {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 15px;
+}
+
+.row-issue {
+  margin-top: var(--sp-1);
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.row-note {
+  margin-top: var(--sp-1);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.row-saved {
+  font-size: 15px;
+  color: #166534;
+}
+
+.reg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+
+@media (max-width: 640px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .reg-row {
+    flex-direction: column;
+  }
+
+  .row-photo {
+    width: 100%;
+    height: 140px;
+  }
+
+  .row-fields {
+    grid-template-columns: 1fr;
+  }
+}

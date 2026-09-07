@@ -61,25 +61,38 @@ svg {
   color: var(--text-muted);
 }
 
-/* ---------- เมนูจอใหญ่ ---------- */
+/* ---------- เมนูจอใหญ่ ----------
+ * 8 เมนู + ชื่อระบบ + กล่องผู้ใช้ ต้องการ ~1,430px ถึงอยู่บรรทัดเดียวได้
+ * จอ 1280–1366 จึงไม่พอ วัดจริงได้สามชั้น:
+ *   ≥1440 เต็มรูปแบบ · 1200–1440 ซ่อนคำโปรย (~1,185px) · <1200 ลงแถบล่าง
+ */
 .desk-menu {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin-left: auto;
 }
 
 .desk-menu a {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 48px;
-  padding: 0 16px;
-  font-size: 16px;
+  padding: 0 12px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-muted);
   text-decoration: none;
   border-radius: 12px;
+  /* 🌟 กันคำไทยตัดกลางคำ ("หน้า/แรก") ห้ามเอาออก — ไม่มีสองบรรทัดนี้
+     เมนูจะถูกบีบจนแคบกว่าตัวหนังสือ แล้วแถบสูงจาก 73px เป็น 125px */
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
+}
+
+.desk-menu svg {
+  width: 20px;
+  height: 20px;
 }
 
 .desk-menu a:hover {
@@ -165,17 +178,32 @@ svg {
   height: 20px;
 }
 
-/* ---------- แถบเมนูล่าง (มือถือ) ---------- */
+/* 1200–1440: ตัดส่วนที่เป็นคำอธิบายออกก่อน เพราะคำกำกับเมนูมีค่ากว่า
+   (รูปกลม ๆ ยังกดเข้าหน้าตั้งค่าผู้ดูแลได้เหมือนเดิม) */
+@media (max-width: 1440px) {
+  .topbar {
+    gap: 16px;
+    padding: 12px 16px;
+  }
+
+  .brand-sub,
+  .user-text,
+  .logout-text {
+    display: none;
+  }
+
+  .topbar-user {
+    padding-left: 16px;
+  }
+}
+
+/* ---------- แถบเมนูล่าง (มือถือ/แท็บเล็ต) ---------- */
 .tabbar {
   display: none;
 }
 
-.more-backdrop,
-.more-menu {
-  display: none;
-}
-
-@media (max-width: 900px) {
+/* ⚠️ ต้องตรงกับ .main-content ใน app.css ที่เว้นที่ให้แถบนี้ ไม่งั้นเนื้อหาท้ายหน้าโดนบัง */
+@media (max-width: 1200px) {
   .topbar {
     gap: 12px;
     padding: 10px 16px;
@@ -198,10 +226,6 @@ svg {
     border-left: none;
   }
 
-  .logout-btn {
-    display: none;
-  }
-
   .tabbar {
     position: fixed;
     bottom: 0;
@@ -209,176 +233,49 @@ svg {
     right: 0;
     z-index: 100;
     display: grid;
-    /* จำนวนช่องต้องตามจำนวนเมนูจริง ไม่งั้นเมนูสุดท้ายตกไปแถวสอง */
-    grid-template-columns: repeat(5, 1fr);
+    /* แบ่งช่องตามจำนวนลิงก์จริงเอง — ของเดิมตรึง 6 ช่องทั้งที่มี 8 เมนู
+       สองอันท้ายเลยตกไปแถวสอง แบบนี้เพิ่มเมนูใหม่ก็ไม่พัง */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     background: #fff;
     border-top: 1px solid var(--line);
     box-shadow: 0 -2px 16px rgba(15, 23, 42, 0.06);
   }
 
-  .tabbar a,
-  .tabbar button {
+  .tabbar a {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    min-height: 60px;
+    min-height: 56px;
     padding: 6px 2px;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-muted);
     text-decoration: none;
     border-radius: 12px;
-    /* 5 เมนูบนจอแคบ — ห้ามตัดคำขึ้นบรรทัดใหม่ ไม่งั้นแถบสูงไม่เท่ากัน */
+    /* 8 เมนูบนจอแคบ — ห้ามตัดคำขึ้นบรรทัดใหม่ ไม่งั้นแถบสูงไม่เท่ากัน */
     white-space: nowrap;
     overflow: hidden;
-    font-family: inherit;
-    line-height: 1.2;
-    background: transparent;
-    border: 0;
-    cursor: pointer;
   }
 
-  .tabbar a.is-active,
-  .tabbar button.is-active {
+  .tabbar svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .tabbar a.is-active {
     color: var(--primary);
     background: var(--primary-soft);
   }
+}
 
-  .more-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 108;
-    display: block;
-    background: rgba(15, 23, 42, 0.28);
-  }
-
-  .more-menu {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(82px + env(safe-area-inset-bottom));
-    z-index: 109;
-    display: block;
-    max-width: 430px;
-    max-height: calc(100dvh - 120px);
-    margin-left: auto;
-    overflow-y: auto;
-    padding: 14px;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.24);
-  }
-
-  .more-profile {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 4px 6px 14px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .more-avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 46px;
-    height: 46px;
-    flex-shrink: 0;
-    overflow: hidden;
-    border-radius: 50%;
-    background: var(--primary-soft);
-  }
-
-  .more-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .more-profile > span:last-child,
-  .more-links a > span:nth-child(2),
-  .more-links button > span:nth-child(2) {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-  }
-
-  .more-profile strong,
-  .more-links strong {
-    color: var(--text);
-    font-size: 15px;
-  }
-
-  .more-profile small,
-  .more-links small {
-    color: var(--text-muted);
-    font-size: 12px;
-  }
-
-  .more-links {
-    display: grid;
-    gap: 4px;
-    padding-top: 10px;
-  }
-
-  .more-links a,
-  .more-links button {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    min-height: 62px;
-    padding: 8px;
-    font-family: inherit;
-    text-align: left;
-    text-decoration: none;
-    background: transparent;
-    border: 0;
-    border-radius: 12px;
-    cursor: pointer;
-  }
-
-  .more-links a:hover,
-  .more-links button:hover,
-  .more-links a.is-active {
-    background: var(--line-soft);
-  }
-
-  .more-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 42px;
-    flex-shrink: 0;
-    color: var(--primary-hover);
-    background: var(--primary-soft);
-    border-radius: 50%;
-  }
-
-  .more-icon svg {
-    width: 21px;
-    height: 21px;
-  }
-
-  .more-arrow {
-    color: var(--text-muted);
-    font-size: 30px;
-    font-weight: 300;
-    line-height: 1;
-  }
-
-  .more-logout strong,
-  .more-logout .more-icon {
-    color: var(--danger);
-  }
-
-  .more-logout .more-icon {
-    background: var(--danger-soft);
+/* ≤420px: 8 ช่องเหลือช่องละ ~45px ซึ่งพอดีเป๊ะกับ "แจ้งเรื่อง" ที่ 12px จนโดนตัดหาง */
+@media (max-width: 420px) {
+  .tabbar a {
+    font-size: 10px;
+    gap: 2px;
   }
 }

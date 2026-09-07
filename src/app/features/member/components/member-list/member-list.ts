@@ -1,75 +1,73 @@
-import { Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable, catchError, of } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { toast } from 'ngx-sonner';
 import { MemberService } from '../../services/member.service';
 import { MeterReadingService } from '../../../meter-reading/services/meter-reading.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { extractErrorMessage } from '../../../auth/services/auth-error';
 import { Village, VillageService } from '../../../village/services/village.service';
+import { parseCaptureDate, readPhotoMetadata } from '../../../meter-reading/services/exif';
+import { LatLng, toCoords } from '../../../meter-reading/services/geo';
+import { anchorDayOf, memberReadingDates } from '../../../meter-reading/services/billing-cycle';
+import { photoDataUrl } from '../../../meter-reading/services/photo-file';
+import { BillPrintService } from '../../../meter-reading/services/bill-print.service';
+import { DeviceLocationComponent } from '../../../meter-reading/components/device-location/device-location';
+import { NO_PHOTO_COORDS_MESSAGE, PHOTO_COORDS_HINT } from '../../../meter-reading/services/photo-coords-help';
 
+/**
+ * ทะเบียนลูกบ้าน — เขียนใหม่ทั้งหน้า ตัดขั้นตอนที่คนใช้ต้องกดเองออกให้มากที่สุด
+ *
+ * ของเดิมทำงานถูก แต่ทุกอย่างเป็นปุ่มที่ต้องกดตามลำดับ ซึ่งเจ้าหน้าที่ที่ยืนอยู่
+ * หน้ามิเตอร์กลางแดดมักกดข้ามแล้วได้ข้อมูลไม่ครบ รอบนี้เปลี่ยนเป็น:
+ *
+ *   1. เปิดหน้าต่างเพิ่มบ้าน → แนบรูปหน้าปัดใบเดียว ได้ทั้งวันจดและพิกัดมิเตอร์
+ *      (พิกัดคือของบังคับอยู่แล้ว การให้กดวัดเองมีแต่ทำให้ลืม)
+ *   2. ชื่อเจ้าของบ้านเหลือช่องเดียว แล้วตัดคำแรกเป็นชื่อ ที่เหลือเป็นนามสกุล
+ *   3. ลบบ้าน = กดครั้งเดียวจบ ถ้าติดบิลที่ผูกอยู่ ระบบล้างให้แล้วลบซ้ำเอง
+ *      (ของเดิมต้องกดลบ → อ่าน error → กดล้างบิล → กดลบใหม่ รวม 4 จังหวะ)
+ *   4. บ้านที่ยังไม่มีพิกัดแนบรูปจากในรายการได้เลย ไม่ต้องเข้าหน้าต่างแก้ไข
+ *
+ * พิกัดทุกจุดในหน้านี้มาจาก EXIF ของรูปเท่านั้น ไม่วัดจากเครื่องอีกแล้ว — ดู coordsFromPhoto
+ *
+ * และเมื่อทางเข้าเหลือทางเดียวคือรูป ค่าที่บันทึกไว้ก็คือจุดที่กดชัตเตอร์หน้ามิเตอร์เสมอ
+ * หน้านี้จึงไม่ต้องมีชั้นตรวจ/เดาแทนคนอีกแล้ว (เทียบใจกลางหมู่บ้านว่าหลังไหน "ผิดปกติ",
+ * ยกพิกัดจากครั้งที่จดมาเติมให้, บอกว่าย้ายไปกี่เมตร) ทั้งหมดนั้นเป็นของยุคที่ยังวัดพิกัด
+ * จากเครื่อง ซึ่งได้ค่ามั่วปนมาจนต้องคอยไล่จับ — แนบรูปไหนก็เอาพิกัดของรูปนั้น จบตรงนั้น
+ */
 @Component({
   selector: 'app-member-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, DeviceLocationComponent],
   templateUrl: './member-list.html',
   styleUrls: ['./member-list.css']
 })
 export class MemberListComponent implements OnInit {
-  members$!: Observable<any[]>;
-  isLoading = true;
-  isFetching = false;
+  private memberService = inject(MemberService);
+  private meterReadingService = inject(MeterReadingService);
+  private villageService = inject(VillageService);
+  private auth = inject(AuthService);
+  private print = inject(BillPrintService);
+  private cdr = inject(ChangeDetectorRef);
 
-  // 🌟 หมู่บ้านจริงจากระบบ — บ้านทุกหลังต้องสังกัดหมู่บ้าน (เลิก hardcode villages_id: 1)
+  members: any[] = [];
   villages: Village[] = [];
-
-  // 🔍 คำค้นหา — กรองจากบ้านเลขที่ ชื่อ-นามสกุล หรือเบอร์โทร
+  isLoading = true;
+  loadFailed = false;
   searchTerm = '';
 
-  filterMembers(members: any[]): any[] {
-    const term = this.searchTerm.trim().toLowerCase();
-    if (!term) return members;
-    return members.filter((m) =>
-      [m.house_no, m.fname, m.lname, `${m.fname ?? ''} ${m.lname ?? ''}`, m.phone]
-        .some((value) => (value ?? '').toString().toLowerCase().includes(term))
-    );
-  }
-
-  showAddModal: boolean = false;
-  // initial_unit = เลขมิเตอร์ ณ วันลงทะเบียน เอาไว้เป็นจุดตั้งต้นให้บิลเดือนแรกคิดถูก
-  newMember: any = { house_no: '', fname: '', lname: '', phone: '', villages_id: null, initial_unit: null };
-
-  showEditModal: boolean = false;
-  editingMember: any = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: null };
-
-  // 🌟 ลูกบ้านที่กำลังจะลบ — ใช้เปิดหน้าต่างยืนยันก่อนลบจริง
-  memberToDelete: any = null;
-
-  // 🌟 ตัวแปรสำหรับเก็บสถานะความผิดพลาด (ใช้ดักข้อมูลโชว์บนหน้าจอ)
-  addErrors = { house_no: '', fname: '', phone: '' };
-  editErrors = { house_no: '', fname: '', phone: '' };
-
-  private auth = inject(AuthService);
-
-  constructor(
-    private memberService: MemberService,
-    private meterReadingService: MeterReadingService,
-    private villageService: VillageService
-  ) { }
-
   // ตอน prerender (SSR) ยังไม่มี token ใน localStorage ยิง API ไปก็ได้ 401 เปล่า ๆ
-  // ต้องข้ามไปก่อน แล้วให้ฝั่ง browser โหลดจริง ไม่งั้น build จะพังตอน prerender
   private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   ngOnInit(): void {
     if (!this.isBrowser) return;
 
     this.loadMembers();
-
     this.villageService.getVillages().subscribe({
       next: (villages) => {
         this.villages = villages ?? [];
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ:', err);
@@ -78,75 +76,310 @@ export class MemberListComponent implements OnInit {
     });
   }
 
-  /** ชื่อหมู่บ้านไว้โชว์ใน dropdown เช่น "หมู่ 1 — โนนกราด" */
+  loadMembers(): void {
+    this.isLoading = true;
+    this.loadFailed = false;
+
+    this.memberService.getMembers().subscribe({
+      next: (members) => {
+        this.members = this.sortByHouseNo(members ?? []);
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('ดึงข้อมูลสมาชิกไม่สำเร็จ:', err);
+        this.isLoading = false;
+        this.loadFailed = true;
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'โหลดรายชื่อลูกบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-load-error' });
+      }
+    });
+  }
+
+  /** เรียงตามบ้านเลขที่แบบที่คนอ่าน — 2 ต้องมาก่อน 10 ไม่ใช่เรียงตามตัวอักษร */
+  private sortByHouseNo(members: any[]): any[] {
+    const collator = new Intl.Collator('th', { numeric: true, sensitivity: 'base' });
+    return [...members].sort((a, b) =>
+      collator.compare((a?.house_no ?? '').toString(), (b?.house_no ?? '').toString())
+    );
+  }
+
+  get visibleMembers(): any[] {
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return this.members;
+
+    return this.members.filter((m) =>
+      [m.house_no, m.fname, m.lname, `${m.fname ?? ''} ${m.lname ?? ''}`, m.phone]
+        .some((value) => (value ?? '').toString().toLowerCase().includes(term))
+    );
+  }
+
+  /** บ้านที่ไม่มีพิกัดจะถูกจับคู่รูปมิเตอร์อัตโนมัติไม่ได้ ต้องเห็นว่าเหลือกี่หลัง */
+  get missingCoordsCount(): number {
+    return this.members.filter((m) => !this.hasMemberCoords(m)).length;
+  }
+
+  hasMemberCoords(member: any): boolean {
+    return toCoords(member?.latitude, member?.longitude) !== null;
+  }
+
+  /**
+   * วันประจำเดือนที่บ้านหลังนี้ถูกจด — แต่ละหลังไม่ตรงกัน เพราะเดินจดทั้งหมู่บ้าน
+   * ไม่จบในวันเดียว เจ้าหน้าที่จะได้รู้ว่าหลังไหนถึงคิวแล้วโดยไม่ต้องเปิดประวัติบิลดูทีละหลัง
+   *
+   * ใช้เฉพาะของที่ /member/all ส่งซ้อนมา ไม่ยิง API เพิ่มเพื่อข้อมูลประกอบชิ้นเดียว
+   * (ดู memberReadingDates) บ้านที่ยังไม่มีประวัติจะไม่ขึ้นอะไร ดีกว่าขึ้นเลขที่เดาเอา
+   */
+  readingDay(member: any): number | null {
+    return anchorDayOf(memberReadingDates(member));
+  }
+
   villageLabel(village: Village): string {
     const no = (village.village_no ?? '').toString().trim();
-    // ช่องตั้งค่าเก็บเลขหมู่ล้วน ๆ — เติมคำว่า "หมู่" ตอนแสดง (กันซ้ำเผื่อข้อมูลเก่าพิมพ์มาเต็ม)
     const moo = no ? (no.startsWith('หมู่') ? no : `หมู่ ${no}`) : '';
     return [moo, village.village_name].filter(Boolean).join(' — ');
   }
 
-  loadMembers() {
-    this.members$ = this.memberService.getMembers().pipe(
-      catchError(err => {
-        console.error('ดึงข้อมูลสมาชิกไม่สำเร็จ:', err);
-        toast.error(extractErrorMessage(err, 'โหลดรายชื่อลูกบ้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-load-error' });
-        return of([]); // ถ้าดึงข้อมูลไม่สำเร็จ ให้คืนค่าเป็น array ว่าง
-      })
-    );
+  ownerName(member: any): string {
+    return `${member?.fname ?? ''} ${member?.lname ?? ''}`.trim() || 'ไม่ระบุชื่อ';
   }
 
-  // --- 🌟 ฟังก์ชันหลักสำหรับดักข้อมูล (Validation Logic) ---
-  validateMember(member: any, errorsObj: any): boolean {
-    let isValid = true;
+  /**
+   * ส่งขึ้น /member/update เฉพาะฟิลด์ที่หลังบ้านรู้จัก
+   *
+   * ของที่ /member/all คืนมามีก้อนซ้อน (villages, bills) ติดมาด้วย ถ้าโยนกลับไปทั้งดุ้น
+   * หลังบ้านที่เปิด whitelist ไว้จะตีกลับทั้งคำขอ ทั้งที่คนแก้แค่เบอร์โทรช่องเดียว
+   */
+  private updatePayload(member: any, over: Record<string, unknown> = {}): Record<string, unknown> {
+    const villagesId = member?.villages_id ?? member?.villages?.id;
+    return {
+      id: member.id,
+      house_no: member.house_no,
+      fname: member.fname,
+      lname: member.lname,
+      phone: member.phone,
+      ...(villagesId != null ? { villages_id: villagesId } : {}),
+      ...over
+    };
+  }
 
-    // เคลียร์ค่า Error เก่าก่อนตรวจใหม่
+  // ==========================================
+  // พิกัดมาจากรูปทางเดียว (ใช้ร่วมกันทั้งเพิ่ม แก้ไข และปุ่มลัดในรายการ)
+  // ==========================================
+
+  /**
+   * เลิกวัดพิกัดจากเครื่อง (navigator.geolocation) ทั้งหน้าแล้ว
+   *
+   * เครื่องที่ไม่มี GPS จริง — คอมพิวเตอร์ที่ใช้ทำงานอยู่ที่ทำการ หรือมือถือที่ปิดตำแหน่ง —
+   * จะเดาจากเน็ตที่ต่ออยู่แล้วคืนค่าที่ห่างจากมิเตอร์จริงเป็นร้อยกิโล ค่าพวกนั้นถูกบันทึก
+   * ทับพิกัดมิเตอร์ไปแล้วหลายหลัง จนจับคู่รูปผิดบ้านโดยไม่มีใครรู้
+   *
+   * ส่วนรูปหน้าปัดถูกกดชัตเตอร์ตอนยืนอยู่หน้ามิเตอร์จริง พิกัดที่กล้องฝังมาในไฟล์
+   * จึงเป็นตำแหน่งมิเตอร์เสมอ ไม่ว่าจะมานั่งกรอกที่ไหนทีหลังก็ตาม
+   *
+   * (แถบ app-device-location ในหน้าต่างเพิ่ม/แก้ไข เรียก navigator.geolocation อยู่ก็จริง
+   * แต่ค่าที่ได้ขึ้นจอเฉย ๆ ไม่มีทางไหลกลับมาถึงตรงนี้ — ดู device-location.ts)
+   */
+  private async coordsFromPhoto(file: Blob): Promise<LatLng | null> {
+    const meta = await readPhotoMetadata(file);
+    return toCoords(meta.latitude, meta.longitude);
+  }
+
+  /** ข้อความเดียวกันทุกที่ที่รูปไม่มีพิกัดติดมา — ใช้ร่วมกับ batch-register จะได้ไม่เพี้ยนคนละแบบ */
+  private readonly noPhotoCoordsMessage = NO_PHOTO_COORDS_MESSAGE;
+  readonly photoCoordsHint = PHOTO_COORDS_HINT;
+
+  // ==========================================
+  // ตรวจข้อมูลก่อนส่ง (ใช้ร่วมกันทั้งเพิ่มและแก้ไข)
+  // ==========================================
+  addErrors = { house_no: '', fname: '', phone: '' };
+  editErrors = { house_no: '', fname: '', phone: '' };
+
+  validateMember(member: any, errorsObj: any): boolean {
     errorsObj.house_no = '';
     errorsObj.fname = '';
     errorsObj.phone = '';
 
-    // 1. ดักข้อมูลบ้านเลขที่ (ห้ามว่าง)
     if (!member.house_no || member.house_no.trim() === '') {
       errorsObj.house_no = 'กรุณากรอกบ้านเลขที่';
-      isValid = false;
     }
-
-    // 2. ดักข้อมูลชื่อจริง (ห้ามว่าง)
     if (!member.fname || member.fname.trim() === '') {
-      errorsObj.fname = 'กรุณากรอกชื่อจริงเจ้าบ้าน';
-      isValid = false;
+      errorsObj.fname = 'กรุณากรอกชื่อเจ้าของบ้าน';
     }
-
-    // 3. ดักข้อมูลเบอร์โทรศัพท์ (ถ้ากรอก ต้องเป็นตัวเลข 9-10 หลัก)
     if (member.phone && member.phone.trim() !== '') {
-      const phoneRegex = /^0\d{8,9}$/; // ขึ้นต้นด้วย 0 ตามด้วยเลข 8-9 ตัว
-      // ลบแดช (-) ออกก่อนตรวจ เผื่อผู้ใช้งานกรอกแบบมีขีดมา
-      const cleanPhone = member.phone.replace(/-/g, '');
-      if (!phoneRegex.test(cleanPhone)) {
+      // ลบขีดออกก่อนตรวจ เผื่อกรอกมาแบบ 081-234-5678
+      const phoneRegex = /^0\d{8,9}$/;
+      if (!phoneRegex.test(member.phone.replace(/-/g, ''))) {
         errorsObj.phone = 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 9-10 หลัก เช่น 0812345678)';
-        isValid = false;
       }
     }
 
-    return isValid;
+    return !errorsObj.house_no && !errorsObj.fname && !errorsObj.phone;
   }
 
-  // --- การจัดการเพิ่มข้อมูล ---
-  openAddModal() {
-    // มีหมู่บ้านเดียว (กรณีปกติของระบบหมู่บ้านเดี่ยว) เลือกให้เลย ไม่ต้องให้ผู้ใช้กดเอง
+  // ==========================================
+  // เพิ่มบ้านใหม่ (ยืนอยู่หน้ามิเตอร์)
+  // ==========================================
+  showAddModal = false;
+  isSavingMember = false;
+
+  /** ฟิลด์ตรงกับ RegisterMemberOnsiteDto ของหลังบ้าน */
+  newMember: any = this.emptyMember();
+
+  /** ได้พิกัดจากรูปที่แนบมาแล้วหรือยัง — ทางเดียวที่บ้านใหม่จะมีพิกัด */
+  coordsSource: 'photo' | 'none' = 'none';
+  locationError: string | null = null;
+  photoPreview: string | null = null;
+
+  /**
+   * วันเวลาที่กดชัตเตอร์ (อ่านจาก EXIF ของไฟล์ต้นฉบับ) — ใช้เป็นวันจดเลขตั้งต้น
+   * ไม่ใช่วันที่กดบันทึก เพราะเจ้าหน้าที่มักเดินเก็บข้อมูลทั้งซอยก่อน
+   * แล้วค่อยกลับมานั่งกรอกทีหลัง บางทีข้ามวัน
+   */
+  photoCapturedAt: Date | null = null;
+  /** รูปมีวันถ่ายติดมาแต่อ่านไม่ออก — ต้องบอกว่าระบบจะใช้วันนี้แทน ไม่ใช่เงียบ */
+  photoDateUnreadable = false;
+
+  private emptyMember() {
+    return {
+      house_no: '',
+      fname: '',
+      lname: '',
+      phone: '',
+      villages_id: null as number | null,
+      initial_meter_unit: null as number | null,
+      latitude: null as number | null,
+      longitude: null as number | null,
+      meter_photo: null as string | null
+    };
+  }
+
+  /**
+   * ชื่อเจ้าของบ้านช่องเดียว — คำแรกเป็นชื่อ ที่เหลือเป็นนามสกุล
+   * คนกรอกบนมือถือกลางแดด สองช่องคือสองครั้งที่ต้องเล็งนิ้ว ทั้งที่พิมพ์รวดเดียวก็แยกได้
+   */
+  get ownerInput(): string {
+    return `${this.newMember.fname ?? ''} ${this.newMember.lname ?? ''}`.trim();
+  }
+
+  set ownerInput(value: string) {
+    const [first, ...rest] = value.trim().split(/\s+/);
+    this.newMember.fname = first ?? '';
+    this.newMember.lname = rest.join(' ');
+  }
+
+  openAddModal(): void {
+    // มีหมู่บ้านเดียว (กรณีปกติของหมู่บ้านเดี่ยว) เลือกให้เลย
     if (this.newMember.villages_id === null && this.villages.length === 1) {
       this.newMember.villages_id = this.villages[0].id;
     }
     this.showAddModal = true;
   }
 
-  closeAddModal() {
+  closeAddModal(): void {
     this.showAddModal = false;
-    this.newMember = { house_no: '', fname: '', lname: '', phone: '', villages_id: null, initial_unit: null };
-    this.addErrors = { house_no: '', fname: '', phone: '' }; // ล้าง error ทิ้ง
+    this.newMember = this.emptyMember();
+    this.addErrors = { house_no: '', fname: '', phone: '' };
+    this.coordsSource = 'none';
+    this.locationError = null;
+    this.photoPreview = null;
+    this.photoCapturedAt = null;
+    this.photoDateUnreadable = false;
   }
 
-  saveMember() {
+  /**
+   * แนบรูปหน้าปัด — เป็นหลักฐานของเลขตั้งต้น และเป็นที่มาของทั้ง "วันจด" กับ "พิกัด"
+   *
+   * ต้องอ่าน EXIF จากไฟล์ต้นฉบับตรงนี้เท่านั้น รูปที่ส่งขึ้นไปเป็น data URL
+   * ที่หลังบ้านเก็บเป็นไฟล์ใหม่ ข้อมูลพวกนี้จะอ่านย้อนหลังไม่ได้อีกแล้ว
+   *
+   * รูปคือทางเดียวที่บ้านใหม่จะได้พิกัด ถ้ารูปไม่มีพิกัดติดมาต้องบอกให้ชัด
+   * ไม่งั้นคนจะกรอกจนครบแล้วมาติดตอนกดบันทึกโดยไม่รู้ว่าต้องแก้ยังไง
+   */
+  async onPhotoPicked(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file) return;
+
+    const meta = await readPhotoMetadata(file);
+
+    // วันถ่ายคือวันที่ไปยืนอ่านเลขจริง = จุดเริ่มรอบบิลใบแรกของบ้านหลังนี้
+    this.photoCapturedAt = parseCaptureDate(meta.captureDate);
+    this.photoDateUnreadable = !!meta.captureDate && this.photoCapturedAt === null;
+
+    const coords = toCoords(meta.latitude, meta.longitude);
+    if (coords) {
+      this.newMember.latitude = coords.lat;
+      this.newMember.longitude = coords.lng;
+      this.coordsSource = 'photo';
+      this.locationError = null;
+    } else {
+      // รูปเก่าที่แชร์ผ่านแอปแชทมาแล้ว EXIF ถูกถอดทิ้ง เจอบ่อยกว่าที่คิด
+      this.locationError = this.noPhotoCoordsMessage;
+    }
+
+    /**
+     * ย่อก่อนส่งเสมอ — หลังบ้านรับรูปเป็น data URL ใน JSON ซึ่ง body-parser
+     * ตั้งเพดานไว้ 100kb ถ้าโยนไฟล์เต็ม (มือถือใบละ 3–8 MB + base64 บวกอีกหนึ่งในสาม)
+     * ทั้งคำขอจะโดนตีกลับเป็น entity.too.large ตั้งแต่ก่อนเข้า controller
+     * คือลงทะเบียนบ้านไม่ผ่านทั้งที่ข้อมูลอย่างอื่นถูกหมด
+     */
+    const data = await photoDataUrl(file);
+    if (!data) {
+      toast.error('อ่านไฟล์รูปไม่สำเร็จ ลองเลือกใหม่อีกครั้งครับ', { id: 'photo-read-error' });
+      return;
+    }
+
+    this.newMember.meter_photo = data;
+    this.photoPreview = data;
+    this.cdr.detectChanges();
+  }
+
+  removePhoto(): void {
+    this.newMember.meter_photo = null;
+    this.photoPreview = null;
+    // วันถ่ายมาจากรูปใบนั้นใบเดียว เอารูปออกแล้วต้องกลับไปใช้วันนี้ ไม่ใช่ค้างวันของรูปเก่า
+    this.photoCapturedAt = null;
+    this.photoDateUnreadable = false;
+    // พิกัดที่ได้จากรูปต้องหายไปพร้อมรูป ไม่งั้นเหลือพิกัดที่ไม่มีที่มา
+    if (this.coordsSource === 'photo') {
+      this.newMember.latitude = null;
+      this.newMember.longitude = null;
+      this.coordsSource = 'none';
+    }
+    this.locationError = null;
+  }
+
+  get hasCoords(): boolean {
+    return toCoords(this.newMember.latitude, this.newMember.longitude) !== null;
+  }
+
+  /**
+   * พิกัดของรูปที่แนบอยู่ ส่งให้แถบเทียบตำแหน่งเครื่อง (app-device-location) วาดอย่างเดียว
+   *
+   * ทางเดินของค่ายังเป็นทางเดียวเหมือนเดิม: รูป → EXIF → newMember → หลังบ้าน
+   * แถบนั้นอ่านค่านี้ไปแสดง ไม่มีทางเขียนกลับ — ตำแหน่งจากเครื่องจึงไม่แตะข้อมูลที่บันทึก
+   */
+  get newMemberCoords(): LatLng | null {
+    return toCoords(this.newMember.latitude, this.newMember.longitude);
+  }
+
+  get editingMemberCoords(): LatLng | null {
+    return toCoords(this.editingMember?.latitude, this.editingMember?.longitude);
+  }
+
+  /** วันที่จะถูกบันทึกเป็นวันจดเลขตั้งต้นจริง ๆ — ไม่มีวันถ่ายติดรูปก็ถอยมาใช้วันนี้ */
+  get registrationDate(): Date {
+    return this.photoCapturedAt ?? new Date();
+  }
+
+  get registrationDateLabel(): string {
+    return this.print.dateLabel(this.registrationDate);
+  }
+
+  saveMember(): void {
+    if (this.isSavingMember) return;
     if (!this.validateMember(this.newMember, this.addErrors)) return;
 
     if (!this.newMember.villages_id) {
@@ -154,116 +387,601 @@ export class MemberListComponent implements OnInit {
       return;
     }
 
-    const adminId = this.auth.admin()?.id;
+    const coords = toCoords(this.newMember.latitude, this.newMember.longitude);
+    if (!coords) {
+      toast.error('ต้องแนบรูปหน้าปัดที่ถ่ายตอนเปิด GPS ไว้ก่อนครับ ระบบใช้พิกัดในรูปเป็นตำแหน่งมิเตอร์ ไม่งั้นจับคู่รูปกับบ้านหลังนี้ไม่ได้', { id: 'need-coords' });
+      return;
+    }
 
-    // หลังบ้านบังคับ create_by (คอลัมน์ห้ามเป็น NULL) — ใช้ id ของแอดมินที่ล็อกอินอยู่
-    this.memberService.addMember({ ...this.newMember, create_by: adminId }).subscribe({
-      next: (created: any) => {
-        const memberId = created?.id;
-        const initialUnit = Number(this.newMember.initial_unit);
-        const hasInitial =
-          this.newMember.initial_unit !== null &&
-          this.newMember.initial_unit !== '' &&
-          !isNaN(initialUnit) &&
-          initialUnit >= 0;
+    // หลังบ้านบังคับเป็นจำนวนเต็มไม่ติดลบ ดักตั้งแต่ที่นี่จะได้ไม่ต้องรอ error กลับมา
+    const initialUnit = Math.round(Number(this.newMember.initial_meter_unit));
+    if (
+      this.newMember.initial_meter_unit === null ||
+      this.newMember.initial_meter_unit === '' ||
+      !Number.isFinite(initialUnit) ||
+      initialUnit < 0
+    ) {
+      toast.error('กรุณากรอกเลขมิเตอร์ ณ วันลงทะเบียนครับ (ไม่ติดลบ)', { id: 'need-initial' });
+      return;
+    }
 
-        // ถ้ากรอกเลขมิเตอร์เริ่มต้นมา ให้บันทึกเป็นการจดครั้งแรกของบ้านหลังนี้
-        // เดือนถัดไปเวลาออกบิล ระบบจะใช้เลขนี้เป็น "เลขครั้งก่อน" ให้อัตโนมัติ
-        if (memberId && hasInitial) {
-          this.meterReadingService
-            .createMeterReading({
-              reading_date: new Date().toISOString().slice(0, 10),
-              meter_unit: initialUnit,
-              members_id: memberId,
-              create_by: adminId
-            })
-            .subscribe({
-              next: () => {
-                this.closeAddModal();
-                toast.success('เพิ่มบ้านใหม่และบันทึกเลขมิเตอร์เริ่มต้นแล้ว', { id: 'member-added' });
-                this.loadMembers();
-              },
-              error: (err) => {
-                // บ้านถูกเพิ่มสำเร็จแล้ว แค่บันทึกเลขตั้งต้นไม่ผ่าน — ไม่ต้องลบบ้านทิ้ง
-                console.error('Save initial reading error:', err);
-                this.closeAddModal();
-                toast.warning(
-                  'เพิ่มบ้านแล้ว แต่บันทึกเลขมิเตอร์เริ่มต้นไม่สำเร็จ กรุณาไปจดที่หน้าสแกนมิเตอร์',
-                  { id: 'member-added-no-reading' }
-                );
-                this.loadMembers();
-              }
-            });
-        } else {
+    this.isSavingMember = true;
+
+    // ยิงครั้งเดียวจบ — หลังบ้านสร้างบ้านกับการจดครั้งแรกในทรานแซกชันเดียว
+    this.memberService
+      .registerOnsite({
+        fname: this.newMember.fname,
+        lname: this.newMember.lname,
+        house_no: this.newMember.house_no,
+        phone: this.newMember.phone || undefined,
+        villages_id: this.newMember.villages_id,
+        create_by: this.auth.admin()?.id,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        initial_meter_unit: initialUnit,
+        // วันถ่ายรูปคือวันที่อ่านเลขนี้จริง ๆ = จุดเริ่มรอบบิลใบแรกของบ้านหลังนี้
+        reading_date: this.print.isoDate(this.registrationDate),
+        meter_photo: this.newMember.meter_photo || undefined
+      })
+      .subscribe({
+        next: () => {
+          this.isSavingMember = false;
           this.closeAddModal();
-          toast.success('เพิ่มบ้านใหม่เรียบร้อยแล้ว', { id: 'member-added' });
-          this.loadMembers(); // 🌟 โหลดรายชื่อใหม่ให้ตารางอัปเดตทันที
+          toast.success('เพิ่มบ้านใหม่พร้อมเลขมิเตอร์ตั้งต้นเรียบร้อยแล้ว', { id: 'member-added' });
+          this.loadMembers();
+        },
+        error: (err) => {
+          this.isSavingMember = false;
+          console.error('Register onsite error:', err);
+          this.cdr.detectChanges();
+          toast.error(extractErrorMessage(err, 'เพิ่มข้อมูลไม่สำเร็จ กรุณาตรวจสอบข้อมูลอีกครั้ง'), { id: 'member-add-error' });
         }
+      });
+  }
+
+  // ==========================================
+  // ปุ่มลัดในรายการ: เติมพิกัดให้บ้านที่ยังไม่มี
+  // ==========================================
+  /** id ของบ้านที่กำลังอ่านพิกัดจากรูปอยู่ — กันกดซ้ำและใช้แสดงตัวหมุนเฉพาะแถวนั้น */
+  locatingMemberId: number | null = null;
+
+  /**
+   * บ้านเก่าที่ลงทะเบียนไว้ก่อนระบบเก็บพิกัดจะไม่มีพิกัดติดมา และจับคู่รูปอัตโนมัติไม่ได้
+   * แนบรูปหน้าปัดที่ถ่ายไว้แล้วจากในรายการได้เลย ระบบดึงพิกัดในไฟล์ไปบันทึกให้จบในจังหวะเดียว
+   * ไม่ต้องเปิดหน้าต่างแก้ไขแล้วกดบันทึกอีกที และไม่ต้องเดินกลับไปยืนหน้ามิเตอร์
+   */
+  async fillCoordsFromPhoto(member: any, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file || !this.isBrowser || this.locatingMemberId !== null) return;
+
+    this.locatingMemberId = member.id;
+    this.cdr.detectChanges();
+
+    const coords = await this.coordsFromPhoto(file);
+    if (!coords) {
+      this.locatingMemberId = null;
+      this.cdr.detectChanges();
+      toast.error(this.noPhotoCoordsMessage, { id: 'member-coords-error' });
+      return;
+    }
+
+    this.memberService
+      .updateMember(this.updatePayload(member, { latitude: coords.lat, longitude: coords.lng }))
+      .subscribe({
+        next: () => {
+          this.locatingMemberId = null;
+          toast.success(`บันทึกพิกัดจากรูปของบ้านเลขที่ ${member.house_no} แล้วครับ`, { id: 'member-coords-saved' });
+          this.loadMembers();
+        },
+        error: (err) => {
+          this.locatingMemberId = null;
+          console.error('Fill coords error:', err);
+          this.cdr.detectChanges();
+          toast.error(extractErrorMessage(err, 'บันทึกพิกัดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-coords-error' });
+        }
+      });
+  }
+
+  // ==========================================
+  // แก้ไขข้อมูลบ้าน (รวมพิกัด)
+  // ==========================================
+  showEditModal = false;
+  isUpdating = false;
+  editingMember: any = null;
+  editLocationError: string | null = null;
+
+  openEditModal(member: any): void {
+    this.editingMember = { ...member };
+    this.editErrors = { house_no: '', fname: '', phone: '' };
+    this.editLocationError = null;
+    this.showEditModal = true;
+    this.loadInitialReading(member?.id);
+  }
+
+  // ==========================================
+  // เลขมิเตอร์ตั้งต้น — เส้นเริ่มต้นที่บิลใบแรกเอาไปลบ
+  //
+  // ของเดิมกรอกได้ครั้งเดียวตอนลงทะเบียนแล้วแก้ไม่ได้อีกเลย พิมพ์เกินหนึ่งหลัก
+  // (1250 เป็น 12500) ทุกบิลของบ้านหลังนั้นผิดตามไปตลอด ทางแก้เดิมคือลบบ้านทิ้ง
+  // แล้วลงใหม่ ซึ่งพาบิลกับประวัติการจดหายไปด้วยทั้งหมด
+  // ==========================================
+
+  /** เลขตั้งต้นปัจจุบันของบ้านที่กำลังแก้ — null = ยังโหลดไม่เสร็จ หรือบ้านนี้ยังไม่เคยจด */
+  initialReading: { id: number; unit: number } | null = null;
+  initialUnitInput: number | string = '';
+  initialReasonInput = '';
+  initialReadingError: string | null = null;
+  isSavingInitialUnit = false;
+
+  private loadInitialReading(memberId: unknown): void {
+    this.initialReading = null;
+    this.initialUnitInput = '';
+    this.initialReasonInput = '';
+    this.initialReadingError = null;
+
+    const id = Number(memberId);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    this.memberService.getInitialReading(id).subscribe({
+      next: (readings: any) => {
+        const list = Array.isArray(readings) ? readings : [];
+        // หลังบ้านเรียงใหม่สุดขึ้นก่อน และ reading_date เป็น date ล้วน วันเดียวกันเรียงไม่ออก
+        // จึงต้องหาตัว id น้อยที่สุดเอง ให้ตรงกับที่หลังบ้านถือว่าเป็น "การจดครั้งแรก"
+        const first = list.reduce(
+          (a: any, b: any) => (a === null || Number(b?.id) < Number(a?.id) ? b : a),
+          null as any
+        );
+
+        this.initialReading = first
+          ? { id: Number(first.id), unit: Number(first.meter_unit) }
+          : null;
+        this.initialUnitInput = this.initialReading ? this.initialReading.unit : '';
+        this.cdr.detectChanges();
       },
-      error: (err: any) => {
-        console.error('Add member error:', err);
-        toast.error(extractErrorMessage(err, 'เพิ่มข้อมูลไม่สำเร็จ กรุณาตรวจสอบข้อมูลอีกครั้ง'), { id: 'member-add-error' });
+      error: (err) => {
+        console.error('โหลดเลขมิเตอร์ตั้งต้นไม่สำเร็จ:', err);
+        this.initialReadingError = extractErrorMessage(err, 'โหลดเลขมิเตอร์ตั้งต้นไม่สำเร็จ');
+        this.cdr.detectChanges();
       }
     });
   }
 
-  // --- การจัดการแก้ไขข้อมูล ---
-  openEditModal(member: any) {
-    this.editingMember = { ...member };
-    this.showEditModal = true;
+  /** เลขบนฟอร์มต่างจากของเดิมไหม — ไม่ต่างก็ไม่ต้องให้กดบันทึก */
+  get initialUnitChanged(): boolean {
+    if (!this.initialReading) return false;
+    const value = Number(this.initialUnitInput);
+    return Number.isInteger(value) && value >= 0 && value !== this.initialReading.unit;
   }
 
-  closeEditModal() {
+  saveInitialUnit(): void {
+    if (this.isSavingInitialUnit || !this.editingMember || !this.initialReading) return;
+
+    const unit = Number(this.initialUnitInput);
+    if (!Number.isInteger(unit) || unit < 0) {
+      this.initialReadingError = 'เลขมิเตอร์ตั้งต้นต้องเป็นจำนวนเต็มไม่ติดลบครับ';
+      return;
+    }
+
+    const reason = this.initialReasonInput.trim();
+    if (!reason) {
+      // หลังบ้านก็ตีกลับถ้าไม่มีเหตุผล แต่บอกตั้งแต่ตรงนี้ดีกว่าให้ยิงไปแล้วค่อยเด้งกลับ
+      this.initialReadingError = 'กรุณากรอกเหตุผลที่แก้ครับ — การแก้นี้กระทบทุกบิลของบ้านหลังนี้';
+      return;
+    }
+
+    this.isSavingInitialUnit = true;
+    this.initialReadingError = null;
+
+    this.memberService
+      .updateInitialReading({ id: Number(this.editingMember.id), initial_meter_unit: unit, reason })
+      .subscribe({
+        next: () => {
+          this.isSavingInitialUnit = false;
+          this.initialReading = { ...this.initialReading!, unit };
+          this.initialReasonInput = '';
+          this.cdr.detectChanges();
+          toast.success('แก้เลขมิเตอร์ตั้งต้นเรียบร้อยแล้ว', { id: 'initial-unit-saved' });
+        },
+        error: (err) => {
+          this.isSavingInitialUnit = false;
+          console.error('แก้เลขมิเตอร์ตั้งต้นไม่สำเร็จ:', err);
+          // ข้อความจากหลังบ้านบอกเหตุผลจริง (เช่น มากกว่าการจดครั้งถัดไป) ต้องโชว์ตรง ๆ
+          this.initialReadingError = extractErrorMessage(err, 'แก้เลขมิเตอร์ตั้งต้นไม่สำเร็จ');
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  closeEditModal(): void {
+    if (this.isUpdating) return;
     this.showEditModal = false;
-    this.editingMember = { id: null, house_no: '', fname: '', lname: '', phone: '', villages_id: null };
-    this.editErrors = { house_no: '', fname: '', phone: '' }; // ล้าง error ทิ้ง
+    this.editingMember = null;
   }
 
-  // --- 🛠️ ฟังก์ชันสำหรับ แก้ไขข้อมูล (Update) ---
-  updateMember() {
+  /**
+   * ดึงพิกัดจากรูปที่ถ่ายไว้แล้ว — ทางเดียวที่บ้านเก่าจะได้พิกัดที่เชื่อถือได้
+   * ใช้แค่ค่าพิกัดใน EXIF ไม่ได้อัปโหลดตัวรูป (หน้าแก้ไขไม่ได้เก็บรูปหน้าปัด)
+   */
+  async onEditPhotoPicked(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file || !this.editingMember) return;
+
+    const coords = await this.coordsFromPhoto(file);
+
+    if (!coords) {
+      this.editLocationError = this.noPhotoCoordsMessage;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    // รูปที่แนบมาคือรูปล่าสุดที่คนตั้งใจเลือกเอง ใช้ค่าของมันตรง ๆ ไม่ต้องเทียบกับของเดิม
+    this.editingMember.latitude = coords.lat;
+    this.editingMember.longitude = coords.lng;
+    this.editLocationError = null;
+    this.cdr.detectChanges();
+
+    this.persistCoords('บันทึกพิกัดจากรูปเรียบร้อยแล้ว');
+  }
+
+  /**
+   * เขียนพิกัดที่เพิ่งได้ลงฐานข้อมูลทันที ไม่รอให้กด "บันทึกการแก้ไข" อีกจังหวะ
+   *
+   * ของเดิมแค่เซ็ตค่าลงฟอร์ม คนที่กดดึงพิกัดแล้วปิดหน้าต่างเลยจะได้ค่าเก่ากลับมา
+   * ทั้งที่หน้าจอเพิ่งขึ้นพิกัดใหม่ให้ดู — เห็นแล้วเข้าใจว่าระบบดึงพิกัดไม่ตรงกับรูป
+   */
+  private persistCoords(successMessage: string): void {
+    const member = this.editingMember;
+    const coords = toCoords(member?.latitude, member?.longitude);
+    if (!member || !coords || this.isUpdating) return;
+
+    this.isUpdating = true;
+    this.cdr.detectChanges();
+
+    this.memberService
+      .updateMember(this.updatePayload(member, { latitude: coords.lat, longitude: coords.lng }))
+      .subscribe({
+        next: () => {
+          this.isUpdating = false;
+          this.cdr.detectChanges();
+          toast.success(successMessage, { id: 'edit-coords-photo' });
+          this.loadMembers();
+        },
+        error: (err) => {
+          this.isUpdating = false;
+          console.error('บันทึกพิกัดไม่สำเร็จ:', err);
+          // ค่าบนฟอร์มยังเป็นพิกัดจากรูปอยู่ กดปุ่มบันทึกการแก้ไขลองใหม่ได้เลย
+          this.editLocationError = extractErrorMessage(err, 'บันทึกพิกัดไม่สำเร็จ กดปุ่มบันทึกการแก้ไขเพื่อลองใหม่');
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  updateMember(): void {
+    if (this.isUpdating || !this.editingMember) return;
     if (!this.validateMember(this.editingMember, this.editErrors)) return;
 
-    this.memberService.updateMember(this.editingMember).subscribe({
-      next: () => {
-        this.closeEditModal();
-        toast.success('บันทึกการแก้ไขเรียบร้อยแล้ว', { id: 'member-updated' });
-        this.loadMembers();
+    const member = this.editingMember;
+    const coords = toCoords(member.latitude, member.longitude);
+
+    this.isUpdating = true;
+    this.memberService
+      .updateMember(
+        this.updatePayload(member, coords ? { latitude: coords.lat, longitude: coords.lng } : {})
+      )
+      .subscribe({
+        next: () => {
+          this.isUpdating = false;
+          this.closeEditModal();
+          toast.success('บันทึกการแก้ไขเรียบร้อยแล้ว', { id: 'member-updated' });
+          this.loadMembers();
+        },
+        error: (err) => {
+          this.isUpdating = false;
+          console.error('Update member error:', err);
+          this.cdr.detectChanges();
+          toast.error(extractErrorMessage(err, 'แก้ไขข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-update-error' });
+        }
+      });
+  }
+
+  // ==========================================
+  // บิลย้อนหลังของบ้านหลังเดียว — ดูและรับชำระเงินได้
+  //
+  // ยืนดูทะเบียนบ้านหลังไหนอยู่ ก็เห็นรอบที่ออกไปแล้วกับยอดของหลังนั้นได้เลย
+  // ไม่ต้องเข้าหน้าประวัติบิลไปเลือกเดือนแล้วค้นบ้านเลขที่ซ้ำ
+  //
+  // ลูกบ้านมักมาจ่ายเงินพร้อมกับให้ตรวจข้อมูลบ้านตัวเอง จึงกดรับชำระได้จากหน้านี้ด้วย
+  // ใช้ปลายทางเดียวกับหน้าประวัติบิล (PATCH /bills/:id/status) และถามยืนยันก่อนเสมอ
+  // ด้วยเหตุผลเดียวกัน: เป็น "ชำระแล้ว" จะจดมิเตอร์ทับใบนั้นไม่ได้อีก ส่วนการกดกลับ
+  // เป็น "รอชำระเงิน" ทำให้ยอดค้างของเดือนนั้นเพี้ยนทันที
+  //
+  // ปุ่มพิมพ์ถูกถอดออกตามที่เจ้าของโปรเจกต์สั่ง — งานพิมพ์อยู่ที่หน้าประวัติบิลที่เดียว
+  // ถ้าจะเอากลับมา ให้เรียก BillPrintService.printSingle() เหมือนหน้านั้น อย่าเขียน
+  // template ใบเสร็จของหน้านี้เอง ไม่งั้นบิลใบเดียวกันพิมพ์จากคนละหน้าแล้วได้คนละหน้าตา
+  // ==========================================
+
+  /** บ้านที่กำลังเปิดดูบิลอยู่ (null = ยังไม่ได้กด) */
+  billsMember: any = null;
+  memberBills: any[] = [];
+  isLoadingBills = false;
+  billsLoadFailed = false;
+
+  openBills(member: any): void {
+    this.billsMember = member;
+    this.memberBills = [];
+    this.billsLoadFailed = false;
+    this.isLoadingBills = true;
+    this.cdr.detectChanges();
+
+    // โหลดใหม่ทุกครั้งที่เปิด ไม่เก็บกองไว้ — บิลออกเพิ่มระหว่างเปิดหน้านี้ค้างไว้ได้
+    this.meterReadingService.getBills().subscribe({
+      next: (bills: any) => {
+        const all = bills ?? [];
+        // ช่วงวันของรอบต้องรู้วันจดของใบก่อนหน้า จึงต้องทำดัชนีจากบิล "ทั้งกอง"
+        // ไม่ใช่เฉพาะของบ้านหลังนี้ (ดู BillPrintService.indexCycles)
+        this.print.indexCycles(all);
+
+        this.memberBills = all
+          // id จากหลังบ้านมาเป็น string ได้ในบางเส้นทาง เทียบเป็นตัวเลขไว้ก่อน
+          .filter((b: any) => Number(b?.member?.id ?? b?.members_id) === Number(member.id))
+          .sort((a: any, b: any) => this.billOrder(b) - this.billOrder(a));
+
+        this.isLoadingBills = false;
+        this.cdr.detectChanges();
       },
-      error: (err: any) => {
-        console.error('Update member error:', err);
-        toast.error(extractErrorMessage(err, 'แก้ไขข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-update-error' });
+      error: (err) => {
+        console.error('Load member bills error:', err);
+        this.isLoadingBills = false;
+        this.billsLoadFailed = true;
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'ดึงบิลของบ้านหลังนี้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-bills-error' });
       }
     });
   }
 
-  // --- 🗑️ ถามยืนยันก่อนลบ (แทน confirm() ของเบราว์เซอร์) ---
-  askDelete(member: any) {
+  closeBills(): void {
+    // ปิดหน้าต่างบิลทั้งที่ยังถามยืนยันรับเงินค้างอยู่ = คำถามลอยอยู่โดยไม่มีรายการให้ดู
+    if (this.isTogglingStatus) return;
+    this.billToToggle = null;
+    this.billsMember = null;
+    this.memberBills = [];
+  }
+
+  /** บิลที่กำลังจะเปลี่ยนสถานะ (null = ยังไม่ได้กด) — ต้องยืนยันก่อนเสมอ กดพลาดมีผลจริงทั้งสองทาง */
+  billToToggle: any = null;
+  isTogglingStatus = false;
+
+  /** สถานะที่บิลจะกลายเป็นถ้ายืนยัน — ใช้ทั้งตอนถามและตอนส่งขึ้นหลังบ้าน */
+  get toggleTargetStatus(): string {
+    return this.billToToggle?.payment_status === 'Paid' ? 'Pending' : 'Paid';
+  }
+
+  askToggleStatus(bill: any): void {
+    this.billToToggle = bill;
+  }
+
+  cancelToggleStatus(): void {
+    // กำลังยิงอยู่ห้ามปิด ไม่งั้นจะไม่รู้ว่าตกลงเปลี่ยนสำเร็จไหม
+    if (this.isTogglingStatus) return;
+    this.billToToggle = null;
+  }
+
+  /** ยอดที่ต้องเก็บจริง = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา (สูตรเดียวกับใบเสร็จ) */
+  payable(bill: any): number {
+    return this.print.payable(bill);
+  }
+
+  arrears(bill: any): number {
+    return this.print.arrears(bill);
+  }
+
+  hasArrears(bill: any): boolean {
+    return this.print.hasArrears(bill);
+  }
+
+  confirmToggleStatus(): void {
+    const bill = this.billToToggle;
+    if (!bill || this.isTogglingStatus) return;
+
+    const newStatus = this.toggleTargetStatus;
+    this.isTogglingStatus = true;
+    this.cdr.detectChanges();
+
+    // รับเงินต้องยิง /pay เพราะยอดที่ลูกบ้านจ่ายคือ grand_total ซึ่งรวมยอดค้างของ
+    // บิลเก่าไว้แล้ว หลังบ้านจะปิดใบเก่าที่ถูกทบให้ทั้งชุด — ถ้าใช้ /status ใบเก่า
+    // จะค้างอยู่ แล้วเดือนหน้าทบซ้ำ = เก็บเงินซ้ำ
+    // ส่วนการกดกลับเป็น Pending คือแก้ที่กดผิด ไม่ใช่ธุรกรรม ใช้ /status ตามเดิม
+    const request$ =
+      newStatus === 'Paid'
+        ? this.meterReadingService.payBill(bill.id)
+        : this.meterReadingService.updatePaymentStatus(bill.id, newStatus);
+
+    request$.subscribe({
+      next: (res: any) => {
+        bill.payment_status = newStatus;
+        this.isTogglingStatus = false;
+        this.billToToggle = null;
+
+        // ใบเก่าที่หลังบ้านปิดให้พร้อมกัน ต้องอัปเดตในรายการที่เปิดค้างอยู่ด้วย
+        const settled: number[] = Array.isArray(res?.settled_bill_ids) ? res.settled_bill_ids : [];
+        for (const other of this.memberBills) {
+          if (settled.includes(other.id)) other.payment_status = 'Paid';
+        }
+
+        this.cdr.detectChanges();
+        toast.success(
+          newStatus === 'Paid'
+            ? settled.length
+              ? `รับชำระเงินเรียบร้อย — ปิดบิลค้างเก่าให้อีก ${settled.length} ใบ`
+              : 'รับชำระเงินเรียบร้อย'
+            : 'เปลี่ยนเป็น "รอชำระเงิน" เรียบร้อย',
+          { id: 'status-updated' }
+        );
+      },
+      error: (err) => {
+        console.error('Update status error:', err);
+        this.isTogglingStatus = false;
+        // ไม่ปิดหน้าต่าง เพื่อให้กดลองใหม่ได้ทันทีโดยไม่ต้องหาบิลใบเดิมอีกรอบ
+        this.cdr.detectChanges();
+        toast.error(extractErrorMessage(err, 'เปลี่ยนสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'status-error' });
+      }
+    });
+  }
+
+  /** เรียงใหม่สุดขึ้นก่อน — 2569-08 ต้องมาก่อน 2569-07 ไม่ใช่เรียงตามวันที่กดออกบิล */
+  private billOrder(bill: any): number {
+    return Number(bill?.billing_year ?? 0) * 12 + Number(bill?.billing_month ?? 0);
+  }
+
+  // ข้อความบนจอใช้ตัวเดียวกับที่พิมพ์ลงกระดาษ ให้ตรงกันทั้งสองที่
+  monthLabel(month: string | number, year: string | number): string {
+    return this.print.monthLabel(month, year);
+  }
+
+  statusLabel(status: string): string {
+    return this.print.statusLabel(status);
+  }
+
+  // ==========================================
+  // ลบบ้าน — กดครั้งเดียว ระบบเคลียร์ของที่ผูกอยู่ให้เอง
+  // ==========================================
+  memberToDelete: any = null;
+  isDeleting = false;
+  /** บอกว่าตอนนี้ทำอะไรอยู่ระหว่างลบ (ล้างบิลนานกว่าที่คิด ต้องมีอะไรให้ดู) */
+  deleteStep: string | null = null;
+  /** ลบไม่ผ่านจริง ๆ — เก็บสาเหตุไว้บอกว่าต้องไปทำอะไรต่อ */
+  deleteBlockedReason: string | null = null;
+
+  askDelete(member: any): void {
     this.memberToDelete = member;
+    this.deleteBlockedReason = null;
+    this.deleteStep = null;
   }
 
-  cancelDelete() {
+  cancelDelete(): void {
+    if (this.isDeleting) return;
     this.memberToDelete = null;
+    this.deleteBlockedReason = null;
+    this.deleteStep = null;
   }
 
-  confirmDelete() {
-    if (!this.memberToDelete) return;
+  confirmDelete(): void {
+    if (!this.memberToDelete || this.isDeleting) return;
 
-    const id = this.memberToDelete.id;
-    this.memberToDelete = null;
-    this.deleteMember(id);
+    this.isDeleting = true;
+    this.deleteStep = 'กำลังลบข้อมูลบ้าน...';
+    this.deleteBlockedReason = null;
+    this.cdr.detectChanges();
+
+    this.removeMember(this.memberToDelete, true);
   }
 
-  // --- 🗑️ ฟังก์ชันสำหรับ ลบข้อมูล (Delete) ---
-  deleteMember(id: number) {
-    this.memberService.deleteMember(id).subscribe({
+  /**
+   * ลบบ้านหนึ่งครั้ง — ถ้าติดข้อมูลที่ผูกอยู่ (หลังบ้านตอบ 5xx) ให้ล้างบิลแล้วลองซ้ำเอง
+   *
+   * `allowRetry` กันวนไม่จบ: ล้างบิลได้ครั้งเดียว ถ้ารอบสองยังไม่ผ่านแปลว่าติดที่อื่น
+   * ซึ่งกดซ้ำอีกกี่ทีก็ไม่หาย ต้องให้คนแก้ระบบเข้าไปดู
+   */
+  private removeMember(member: any, allowRetry: boolean): void {
+    this.memberService.deleteMember(member.id).subscribe({
       next: () => {
-        toast.success('ลบข้อมูลบ้านเรียบร้อยแล้ว', { id: 'member-deleted' });
+        this.isDeleting = false;
+        this.deleteStep = null;
+        this.memberToDelete = null;
+        toast.success(`ลบบ้านเลขที่ ${member.house_no} เรียบร้อยแล้ว`, { id: 'member-deleted' });
         this.loadMembers();
       },
-      error: (err: any) => {
-        console.error('Delete member error:', err);
-        toast.error(extractErrorMessage(err, 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'member-delete-error' });
+      error: (err) => {
+        // เก็บของดิบไว้ให้คนแก้ระบบดู ส่วนบนจอบอกว่าต้องทำอะไรต่อ
+        console.error('Delete member error:', err?.status, err?.error ?? err);
+
+        if (allowRetry && err?.status >= 500) {
+          this.clearBillsThenRetry(member);
+          return;
+        }
+
+        this.isDeleting = false;
+        this.deleteStep = null;
+        this.deleteBlockedReason = this.deleteErrorMessage(err, allowRetry, member);
+        this.cdr.detectChanges();
       }
     });
+  }
+
+  /**
+   * บิลเป็นตัวเดียวที่หน้าเว็บลบเองได้ (DELETE /bills/:id) ส่วนประวัติจดมิเตอร์
+   * หลังบ้านจัดการต่อเองตอนลบบ้าน — ล้างบิลออกให้หมดแล้วค่อยสั่งลบบ้านอีกที
+   */
+  private clearBillsThenRetry(member: any): void {
+    this.deleteStep = 'กำลังล้างบิลของบ้านหลังนี้...';
+    this.cdr.detectChanges();
+
+    this.meterReadingService.getBills().subscribe({
+      next: (bills: any) => {
+        const ids = (bills ?? []).filter((b: any) => b?.member?.id === member.id).map((b: any) => b.id);
+        if (!ids.length) {
+          // ไม่มีบิลให้ล้าง แปลว่าติดที่อื่น ลองลบซ้ำก็ไม่ช่วย
+          this.isDeleting = false;
+          this.deleteStep = null;
+          this.deleteBlockedReason =
+            `บ้านหลังนี้ไม่มีบิลค้างให้ล้างแล้วครับ แต่หลังบ้านยังลบไม่ผ่าน รบกวนแจ้งผู้ดูแลระบบพร้อมบ้านเลขที่ ${member.house_no}`;
+          this.cdr.detectChanges();
+          return;
+        }
+
+        this.clearNextBill(member, ids, 0);
+      },
+      error: (err) => {
+        console.error('Load bills before delete error:', err);
+        this.isDeleting = false;
+        this.deleteStep = null;
+        this.deleteBlockedReason = extractErrorMessage(err, 'ดึงรายการบิลของบ้านหลังนี้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** ลบบิลทีละใบตามคิว ใบไหนพังก็ไปต่อ แล้วค่อยลองลบบ้านซ้ำตอนจบ */
+  private clearNextBill(member: any, ids: number[], index: number): void {
+    if (index >= ids.length) {
+      this.deleteStep = 'ล้างบิลเสร็จแล้ว กำลังลบข้อมูลบ้าน...';
+      this.cdr.detectChanges();
+      this.removeMember(member, false);
+      return;
+    }
+
+    this.deleteStep = `กำลังล้างบิลของบ้านหลังนี้ (เหลือ ${ids.length - index} ใบ)...`;
+    this.cdr.detectChanges();
+
+    this.meterReadingService.deleteBill(ids[index]).subscribe({
+      next: () => this.clearNextBill(member, ids, index + 1),
+      error: (err) => {
+        console.error('Delete bill error:', err);
+        this.clearNextBill(member, ids, index + 1);
+      }
+    });
+  }
+
+  /**
+   * ลบไม่ผ่านมีได้หลายสาเหตุ และแต่ละสาเหตุคนละคนเป็นคนแก้
+   * ถ้าขึ้นข้อความกลาง ๆ เหมือนกันหมด เจ้าหน้าที่จะได้แต่กดซ้ำไปเรื่อย ๆ
+   */
+  private deleteErrorMessage(err: any, firstTry: boolean, member: any): string {
+    if (err?.status === 404) {
+      return 'ระบบหลังบ้านยังไม่มีคำสั่งลบบ้าน (อาจยังไม่ได้อัปเดตหรือรีสตาร์ท) รบกวนแจ้งผู้ดูแลระบบครับ';
+    }
+    if (err?.status === 401 || err?.status === 403) {
+      return 'บัญชีนี้ไม่มีสิทธิ์ลบบ้านครับ ต้องเข้าด้วยบัญชีเจ้าหน้าที่';
+    }
+    if (err?.status >= 500) {
+      return firstTry
+        ? 'หลังบ้านลบไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง'
+        : `ล้างบิลให้หมดแล้วแต่ยังลบไม่ผ่านครับ แปลว่ายังมีข้อมูลอื่นผูกอยู่กับบ้านหลังนี้ รบกวนแจ้งผู้ดูแลระบบพร้อมบ้านเลขที่ ${member.house_no}`;
+    }
+    return extractErrorMessage(err, 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
   }
 }

@@ -102,7 +102,7 @@
                       class="chip"
                       [class.chip-success]="bill.payment_status === 'Paid'"
                       [class.chip-warning]="bill.payment_status !== 'Paid'"
-                      (click)="$event.stopPropagation(); toggleStatus(bill)"
+                      (click)="$event.stopPropagation(); askToggleStatus(bill)"
                     >
                       {{ statusLabel(bill.payment_status) }}
                     </button>
@@ -133,7 +133,7 @@
                 class="chip"
                 [class.chip-success]="bill.payment_status === 'Paid'"
                 [class.chip-warning]="bill.payment_status !== 'Paid'"
-                (click)="$event.stopPropagation(); toggleStatus(bill)"
+                (click)="$event.stopPropagation(); askToggleStatus(bill)"
               >
                 {{ statusLabel(bill.payment_status) }}
               </button>
@@ -149,7 +149,11 @@
               </div>
               <div>
                 <span class="bill-label">ยอดชำระ</span>
-                <p class="big-value">{{ bill.total_amount | number:'1.2-2' }} <span class="value-unit">บาท</span></p>
+                <!-- ยอดที่ต้องเก็บจริง = ค่าน้ำเดือนนี้ + ยอดค้างที่ทบมา (ดู payable()) -->
+                <p class="big-value">{{ payable(bill) | number:'1.2-2' }} <span class="value-unit">บาท</span></p>
+                @if (hasArrears(bill)) {
+                  <span class="chip chip-warning">รวมยอดค้างเก่า {{ arrears(bill) | number:'1.2-2' }} บาท</span>
+                }
               </div>
             </div>
 
@@ -184,7 +188,7 @@
         <div class="empty-art">💧</div>
         <h2 class="empty-title">ยังไม่มีบิลในระบบ</h2>
         <p class="empty-text">เริ่มจากการสแกนมิเตอร์น้ำสักหลัง แล้วบิลจะมาแสดงที่หน้านี้ให้เองครับ</p>
-        <button type="button" class="btn btn-primary" routerLink="/scan">
+        <button type="button" class="btn btn-primary" routerLink="/scan-batch">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
           ไปสแกนมิเตอร์
         </button>
@@ -210,15 +214,23 @@
       <!-- ยอดเงิน: สิ่งที่ต้องเห็นก่อนเสมอ -->
       <div class="detail-total">
         <div class="detail-total-label">ยอดที่ต้องชำระ</div>
-        <div class="detail-amount">{{ selectedBill.total_amount | number:'1.2-2' }} บาท</div>
-        <div class="detail-words">({{ bahtText(selectedBill.total_amount) }})</div>
+        <div class="detail-amount">{{ payable(selectedBill) | number:'1.2-2' }} บาท</div>
+        <div class="detail-words">({{ bahtText(payable(selectedBill)) }})</div>
+
+        @if (hasArrears(selectedBill)) {
+          <!-- ต้องบอกให้ชัดว่ายอดนี้ไม่ใช่ค่าน้ำเดือนเดียว ไม่งั้นลูกบ้านจะทักว่าคิดเกิน -->
+          <p class="detail-due">
+            รวมค่าน้ำเดือนนี้ {{ selectedBill.total_amount | number:'1.2-2' }} บาท
+            + ยอดค้างยกมา {{ arrears(selectedBill) | number:'1.2-2' }} บาท
+          </p>
+        }
 
         <button
           type="button"
           class="chip"
           [class.chip-success]="selectedBill.payment_status === 'Paid'"
           [class.chip-warning]="selectedBill.payment_status !== 'Paid'"
-          (click)="toggleStatus(selectedBill)"
+          (click)="askToggleStatus(selectedBill)"
         >
           {{ statusLabel(selectedBill.payment_status) }}
         </button>
@@ -276,11 +288,75 @@
             </div>
           }
           <div class="detail-row">
-            <dt>รวมเป็นเงิน</dt>
+            <dt>ค่าน้ำเดือนนี้</dt>
             <dd class="cell-strong">{{ selectedBill.total_amount | number:'1.2-2' }} บาท</dd>
           </div>
+          @if (hasArrears(selectedBill)) {
+            <div class="detail-row">
+              <dt>ยอดค้างยกมา</dt>
+              <dd class="cell-strong">{{ arrears(selectedBill) | number:'1.2-2' }} บาท</dd>
+            </div>
+            <div class="detail-row">
+              <dt>รวมที่ต้องชำระ</dt>
+              <dd class="cell-strong">{{ payable(selectedBill) | number:'1.2-2' }} บาท</dd>
+            </div>
+          }
         </dl>
       </div>
+
+      <!-- รูปหน้าปัดตอนจด — หลักฐานว่าเลขที่คิดเงินมาจากมิเตอร์ใบไหน ตอนไหน ที่ไหน -->
+      @if (detail) {
+        <div class="detail-block">
+          <div class="detail-heading">รูปมิเตอร์ตอนจด</div>
+
+          @if (detail.photo && !photoBroken) {
+            <button type="button" class="photo-open" (click)="openPhoto()">
+              <img class="meter-photo" [src]="detail.photo" alt="รูปหน้าปัดมิเตอร์ตอนจด" (error)="onPhotoError()" />
+              <span class="photo-hint">แตะที่รูปเพื่อดูใหญ่</span>
+            </button>
+          } @else if (detail.photoPurged) {
+            <p class="photo-missing">
+              รูปของบิลใบนี้ถูกลบตามนโยบายเก็บหลักฐาน 1 ปีแล้วครับ (บิลชำระแล้วและเกินกำหนดเก็บ)
+              — ข้อมูลการจดยังอยู่ครบ
+            </p>
+          } @else if (photoBroken) {
+            <p class="photo-missing">เปิดรูปไม่ขึ้นครับ ไฟล์รูปของบิลใบนี้อาจถูกย้ายหรือลบไปแล้ว</p>
+          } @else {
+            <p class="photo-missing">บิลใบนี้ไม่มีรูปมิเตอร์เก็บไว้ครับ</p>
+          }
+
+          <dl class="detail-list">
+            @if (detail.captured) {
+              <div class="detail-row">
+                <dt>วันเวลาที่ถ่ายรูป</dt>
+                <dd>{{ detail.captured }}</dd>
+              </div>
+            }
+            @if (detail.confidence !== null) {
+              <div class="detail-row">
+                <dt>AI อ่านเลขได้ชัด</dt>
+                <dd>
+                  <span
+                    class="chip"
+                    [class.chip-success]="detail.confidence >= 85"
+                    [class.chip-warning]="detail.confidence < 85"
+                  >{{ detail.confidence }}%</span>
+                </dd>
+              </div>
+            }
+            @if (detail.coords) {
+              <div class="detail-row">
+                <dt>จุดที่ถ่ายรูป</dt>
+                <dd>
+                  <a class="detail-phone" [href]="detail.mapsUrl" target="_blank" rel="noopener">
+                    {{ detail.coords }}
+                  </a>
+                </dd>
+              </div>
+            }
+          </dl>
+        </div>
+      }
 
       <!-- ข้อมูลเอกสาร -->
       <div class="detail-block">
@@ -290,6 +366,13 @@
             <dt>วันที่จดมาตร</dt>
             <dd>{{ dateLabel(selectedBill.meter_reading?.reading_date) }}</dd>
           </div>
+          <!-- รอบจริงของบ้านหลังนี้ ไม่ใช่เดือนบนปฏิทิน — ใบแรกของบ้านไม่มีรอบให้เทียบ -->
+          @if (cycleLabel(selectedBill); as cycle) {
+            <div class="detail-row">
+              <dt>รอบที่คิดค่าน้ำ</dt>
+              <dd>{{ cycle }}</dd>
+            </div>
+          }
           <div class="detail-row">
             <dt>วันที่ออกบิล</dt>
             <dd>{{ dateLabel(selectedBill.create_date) }}</dd>
@@ -297,13 +380,162 @@
         </dl>
       </div>
 
+      <!-- ประวัติการแก้ไข — ยอดที่เปลี่ยนต้องตอบได้เสมอว่าใครแก้ เมื่อไหร่ เพราะอะไร -->
+      @if (editLogs.length > 0) {
+        <div class="detail-block">
+          <div class="detail-heading">ประวัติการแก้ไข</div>
+          <ul class="edit-log-list">
+            @for (log of editLogs; track log.id) {
+              <li class="edit-log">
+                <div class="edit-log-head">
+                  <strong>{{ logUnit(log.old_unit) }} → {{ logUnit(log.new_unit) }}</strong>
+                  <span class="text-muted">{{ dateLabel(log.edited_at) }}</span>
+                </div>
+                <div class="edit-log-meta">
+                  โดย {{ editorName(log) }}
+                  @if (log.reason) {
+                    — {{ log.reason }}
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" (click)="closeDetail()">ปิด</button>
+        @if (canEdit(selectedBill)) {
+          <button type="button" class="btn btn-secondary" (click)="openEdit(selectedBill)">
+            แก้ไขเลขมิเตอร์
+          </button>
+        }
         <button type="button" class="btn btn-primary" (click)="printSingleBill(selectedBill)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
           พิมพ์บิลใบนี้
         </button>
       </div>
+    </div>
+  </div>
+}
+
+<!-- รูปเต็มจอ — ซ้อนทับหน้ารายละเอียดไว้ ปิดแล้วกลับมาที่เดิมโดยไม่เสียตำแหน่ง -->
+@if (photoZoomed && detail?.photo; as zoomPhoto) {
+  <div class="photo-zoom" (click)="closePhoto()">
+    <img [src]="zoomPhoto" alt="รูปหน้าปัดมิเตอร์ ขนาดเต็ม" (click)="$event.stopPropagation()" />
+    <button type="button" class="photo-zoom-close" (click)="closePhoto()" aria-label="ปิดรูป">✕</button>
+  </div>
+}
+
+<!-- แก้ไขเลขมิเตอร์ — ซ้อนบนหน้ารายละเอียด ปิดแล้วกลับมาที่ใบเดิม -->
+@if (editBill) {
+  <div class="modal-overlay" (click)="closeEdit()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">แก้ไขเลขมิเตอร์</h2>
+          <p class="text-muted detail-sub">
+            บ้านเลขที่ {{ editBill.member?.house_no || '—' }} · {{ monthLabel(editBill.billing_month, editBill.billing_year) }}
+          </p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeEdit()" aria-label="ปิด">✕</button>
+      </div>
+
+      <!-- กำลังครอปรูปใหม่อยู่ — ซ่อนช่องอื่นไว้ก่อนเพื่อให้กรอบรูปใหญ่พอลากบนมือถือ -->
+      @if (editPhotoFile) {
+        <div class="edit-crop">
+          <image-cropper
+            [imageFile]="editPhotoFile"
+            [maintainAspectRatio]="false"
+            [transform]="editCropTransform"
+            format="jpeg"
+            (imageCropped)="onEditCropped($event)"
+          ></image-cropper>
+        </div>
+
+        <p class="field-hint">
+          ครอปให้เหลือหน้าปัดกับเลขซีเรียลของมิเตอร์ครับ ถ้าเหลือแต่ตัวเลขจะย้อนมาตรวจไม่ได้ว่าเป็นมิเตอร์ตัวไหน
+        </p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(-1)">↺ หมุนซ้าย</button>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(1)">↻ หมุนขวา</button>
+          <button type="button" class="btn btn-secondary" (click)="cancelEditCrop()">ยกเลิกรูปนี้</button>
+          <button type="button" class="btn btn-primary" (click)="useEditCrop()" [disabled]="!editPhotoFile">
+            ใช้กรอบนี้
+          </button>
+        </div>
+      } @else {
+        <div class="detail-block">
+          <label class="field-label" for="edit-unit">เลขมิเตอร์ใหม่</label>
+          <input
+            id="edit-unit"
+            type="number"
+            class="field-input"
+            inputmode="numeric"
+            [(ngModel)]="editUnit"
+            [disabled]="isSavingEdit"
+          />
+          <p class="field-hint">
+            เดิม {{ logUnit(editBill.meter_reading?.meter_unit) }} หน่วย — ระบบจะลบกับเลขเดือนก่อนแล้วคิดยอดใหม่ให้เองครับ
+          </p>
+
+          <label class="field-label" for="edit-reason">เหตุผลที่แก้</label>
+          <input
+            id="edit-reason"
+            type="text"
+            class="field-input"
+            placeholder="เช่น จดเลขสลับหลัก"
+            [(ngModel)]="editReason"
+            [disabled]="isSavingEdit"
+          />
+
+          <label class="field-label">รูปมิเตอร์ใหม่ (ถ้ามี)</label>
+          @if (editPhoto) {
+            <div class="edit-photo-picked">
+              <span>เลือกรูปใหม่ไว้แล้ว</span>
+              <button type="button" class="btn btn-ghost btn-sm" (click)="clearEditPhoto()" [disabled]="isSavingEdit">
+                เอาออก
+              </button>
+            </div>
+            <p class="field-hint">
+              บันทึกแล้วรูปเดิมจะถูกลบออกจากระบบถาวรครับ
+            </p>
+          } @else {
+            <input
+              type="file"
+              class="field-input"
+              accept="image/*"
+              (change)="onEditPhotoPicked($event)"
+              [disabled]="isSavingEdit"
+            />
+          }
+        </div>
+
+        @if (editBlocker) {
+          <div class="alert alert-warning">
+            <span>⚠️</span>
+            <span>
+              {{ editBlockerMessage }}
+              กดบันทึกอีกครั้งเพื่อยืนยันว่าเลขนี้ถูกต้องนะครับ
+            </span>
+          </div>
+        }
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="closeEdit()" [disabled]="isSavingEdit">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="isSavingEdit">
+            @if (isSavingEdit) {
+              <span class="btn-spinner"></span>
+              กำลังบันทึก...
+            } @else if (editBlocker) {
+              ยืนยันและบันทึก
+            } @else {
+              บันทึกและคิดยอดใหม่
+            }
+          </button>
+        </div>
+      }
     </div>
   </div>
 }
@@ -333,6 +565,91 @@
         <button type="button" class="btn btn-danger" (click)="confirmDelete()">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
           ลบเลย
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- หน้าต่างยืนยันก่อนเปลี่ยนสถานะการชำระ — บอกผลที่ตามมาให้ครบ ไม่ใช่ถามลอย ๆ -->
+@if (billToToggle) {
+  <div class="modal-overlay" (click)="cancelToggleStatus()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          @if (toggleTargetStatus === 'Paid') {
+            รับเงินบิลนี้แล้วใช่ไหมครับ?
+          } @else {
+            เปลี่ยนกลับเป็นรอชำระเงินใช่ไหมครับ?
+          }
+        </h2>
+        <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด">✕</button>
+      </div>
+
+      <div class="alert alert-info">
+        <span>🧾</span>
+        <span>
+          บิลของบ้านเลขที่ <strong>{{ billToToggle.member?.house_no || '—' }}</strong>
+          ({{ ownerName(billToToggle) }})
+          ประจำเดือน{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+          ยอด <strong>{{ payable(billToToggle) | number: '1.2-2' }}</strong> บาท
+        </span>
+      </div>
+
+      @if (toggleTargetStatus === 'Paid') {
+        @if (hasArrears(billToToggle)) {
+          <!-- คนเก็บเงินต้องเห็นก่อนกดว่ายอดนี้รวมของเดือนก่อนมาด้วย ไม่งั้นจะเก็บขาด -->
+          <div class="alert alert-warning">
+            <span>💰</span>
+            <span>
+              ยอดนี้รวม<strong>ยอดค้างเก่า {{ arrears(billToToggle) | number: '1.2-2' }} บาท</strong>ไว้แล้ว
+              (ค่าน้ำเดือนนี้ {{ billToToggle.total_amount | number: '1.2-2' }} บาท)
+              — กดรับเงินแล้ว<strong>บิลค้างเก่าจะถูกปิดให้ทั้งชุด</strong>อัตโนมัติครับ
+            </span>
+          </div>
+        }
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
+            ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะที่หน้านี้ก่อนนะครับ
+          </span>
+        </div>
+      } @else {
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <span>
+            บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
+            และลูกบ้านจะเห็นว่ายังไม่ได้จ่ายครับ
+          </span>
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="cancelToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          ยังไม่เปลี่ยน
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="confirmToggleStatus()"
+          [disabled]="isTogglingStatus"
+        >
+          @if (isTogglingStatus) {
+            <span class="btn-spinner"></span>
+            กำลังเปลี่ยน...
+          } @else if (toggleTargetStatus === 'Paid') {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            ยืนยัน รับเงินแล้ว
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
+            ยืนยัน กลับเป็นรอชำระ
+          }
         </button>
       </div>
     </div>

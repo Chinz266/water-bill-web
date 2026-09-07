@@ -1,8 +1,9 @@
 import { Routes } from '@angular/router';
-import { MeterCropperComponent } from './features/meter-reading/components/meter-cropper/meter-cropper';
 import { BillingHistoryComponent } from './features/meter-reading/components/billing-history/billing-history';
 import { HomeComponent } from './features/home/home';
 import { authGuard, guestGuard, memberGuard } from './features/auth/guards/auth.guard';
+import { batchScanLeaveGuard } from './features/meter-reading/components/batch-scan/batch-scan.guard';
+import { batchRegisterLeaveGuard } from './features/member/components/batch-register/batch-register.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -18,20 +19,50 @@ export const routes: Routes = [
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/components/login/login').then(m => m.LoginComponent),
   },
+  // 🔐 เปิดบัญชีผู้ดูแลใหม่ = งานของแอดมินที่ล็อกอินอยู่ ไม่ใช่หน้าสมัครสาธารณะ
+  //    (หลังบ้านถอด @Public() ออกจาก POST /auth/register แล้ว — ของเดิมใครก็สมัคร
+  //     เป็นแอดมินเองได้แล้วเข้าหลังบ้านได้ทันที) เข้าได้จากหน้าตั้งค่าผู้ดูแล
   {
     path: 'register',
-    canActivate: [guestGuard],
+    canActivate: [authGuard],
     loadComponent: () => import('./features/auth/components/register/register').then(m => m.RegisterComponent),
   },
 
   // 🌟 หน้าที่ต้องล็อกอินก่อนถึงจะเข้าได้
   { path: 'home', component: HomeComponent, canActivate: [authGuard] },
-  { path: 'scan', component: MeterCropperComponent, canActivate: [authGuard] },
+  // โหมดจดทีละหลังถูกยุบรวมเข้ากับหน้าสแกนแล้ว (เลือกรูปเดียวก็เดินทางเดิมได้ ครอปได้ในแถว)
+  // เหลือ redirect ไว้เพราะลิงก์เก่า/บุ๊กมาร์กของเจ้าหน้าที่ยังชี้มาที่ /scan
+  { path: 'scan', redirectTo: 'scan-batch', pathMatch: 'full' },
   { path: 'history', component: BillingHistoryComponent, canActivate: [authGuard] },
+  {
+    // หน้าสแกนมิเตอร์หน้าเดียวของระบบ — ถ่ายทีละหลังหรืออัปทั้งโฟลเดอร์ก็ทางนี้
+    path: 'scan-batch',
+    canActivate: [authGuard],
+    // กันเดินออกกลางคิว ไม่งั้นบิลจะออกไปครึ่งกองแล้วรายการที่เหลือหายไปกับหน้า
+    canDeactivate: [batchScanLeaveGuard],
+    loadComponent: () => import('./features/meter-reading/components/batch-scan/batch-scan').then(m => m.BatchScanComponent),
+  },
   {
     path: 'members',
     canActivate: [authGuard],
     loadComponent: () => import('./features/member/components/member-list/member-list').then(m => m.MemberListComponent),
+  },
+  {
+    // ลงทะเบียนหลายบ้านจากรูปที่ถ่ายมา — แยกหน้าจากการเพิ่มทีละหลัง เพราะขั้นตอนกลับด้านกัน
+    // (ถ่ายให้ครบก่อนแล้วค่อยกรอก แทนที่จะยืนกรอกอยู่หน้ามิเตอร์ทีละหลัง)
+    path: 'members/batch',
+    canActivate: [authGuard],
+    // กันเดินออกกลางคิว ไม่งั้นบ้านจะถูกสร้างไปครึ่งกองแล้วที่เหลือหายไปกับหน้า
+    canDeactivate: [batchRegisterLeaveGuard],
+    loadComponent: () => import('./features/member/components/batch-register/batch-register').then(m => m.BatchRegisterComponent),
+  },
+  {
+    // ทะเบียนมิเตอร์ของบ้านหลังเดียว — เรื่องที่เกิดกลางรอบบิล และถ้าไม่บันทึก
+    // ตอนเกิด ข้อมูลจะหายถาวร (เลขปิดของมิเตอร์ตัวเก่าอยู่บนหน้าปัดที่ถอดไปแล้ว)
+    path: 'members/:membersId/manage',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/member/components/member-manage/member-manage').then(m => m.MemberManageComponent),
   },
   {
     path: 'village-settings',
@@ -42,6 +73,22 @@ export const routes: Routes = [
     path: 'account',
     canActivate: [authGuard],
     loadComponent: () => import('./features/account/components/account-settings/account-settings').then(m => m.AccountSettingsComponent),
+  },
+  {
+    // คิวรูปที่คนเดินจดตัดสินหน้างานไม่ได้ — ต้องมีคนนั่งดูทีหลังแล้วจับคู่กับบ้าน
+    path: 'unassigned',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/meter-reading/components/unassigned-queue/unassigned-queue').then(
+        m => m.UnassignedQueueComponent
+      ),
+  },
+  {
+    // ข้อตรวจพบตอนออกบิล (และใบที่เจ้าหน้าที่ยืนยันผ่าน) + การลบข้อมูลที่พ้นกำหนดจัดเก็บ
+    path: 'audit',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/audit/components/audit-board/audit-board').then(m => m.AuditBoardComponent),
   },
   {
     path: 'reports',

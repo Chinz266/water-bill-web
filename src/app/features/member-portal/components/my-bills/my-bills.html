@@ -19,7 +19,7 @@
   </button>
 </header>
 
-<!-- สลับไปมาระหว่างหน้าบิลกับหน้าแจ้งเรื่อง -->
+<!-- ลูกบ้านมีสองหน้า — ไม่มีแถบนี้จะติดอยู่หน้าบิล ไปหน้าแจ้งเรื่องไม่ได้เลย -->
 <nav class="portal-tabs" aria-label="เมนูลูกบ้าน">
   <a routerLink="/member/bills" routerLinkActive="is-active">🧾 บิลของฉัน</a>
   <a routerLink="/member/reports" routerLinkActive="is-active">📣 แจ้งเรื่อง</a>
@@ -90,6 +90,35 @@
           <p class="paid-title">ชำระครบทุกรายการแล้ว</p>
           <p class="text-muted">ขอบคุณที่ชำระตรงเวลานะครับ</p>
         </div>
+      </div>
+    }
+
+    <!-- กราฟปริมาณการใช้น้ำย้อนหลัง -->
+    @if (usageChart.length > 1) {
+      <div class="card usage-card">
+        <h2 class="usage-title">ปริมาณการใช้น้ำย้อนหลัง</h2>
+        <p class="text-muted usage-sub">หน่วยเป็น ลูกบาศก์เมตร (ลบ.ม.) ต่อเดือน</p>
+
+        <svg
+          class="usage-svg"
+          [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH"
+          role="img"
+          aria-label="กราฟปริมาณการใช้น้ำย้อนหลังรายเดือน"
+        >
+          <!-- เส้นฐาน -->
+          <line
+            [attr.x1]="0" [attr.x2]="chartW"
+            [attr.y1]="chartBaseline" [attr.y2]="chartBaseline"
+            class="usage-axis"
+          />
+          @for (bar of usageChart; track bar.label) {
+            <path [attr.d]="bar.d" class="usage-bar">
+              <title>{{ bar.label }}: ใช้น้ำ {{ bar.usage | number }} ลบ.ม.</title>
+            </path>
+            <text [attr.x]="bar.cx" [attr.y]="bar.valueY" class="usage-value">{{ bar.usage | number }}</text>
+            <text [attr.x]="bar.cx" [attr.y]="bar.monthY" class="usage-month">{{ bar.label }}</text>
+          }
+        </svg>
       </div>
     }
 
@@ -184,9 +213,17 @@
       <div class="detail-total card-soft">
         <span class="due-label">ยอดที่ต้องชำระ</span>
         <p class="detail-amount">
-          <span class="big-value">{{ selectedBill.total_amount | number:'1.2-2' }}</span>
+          <span class="big-value">{{ payable(selectedBill) | number:'1.2-2' }}</span>
           <span class="value-unit">บาท</span>
         </p>
+        @if (hasArrears(selectedBill)) {
+          <!-- ลูกบ้านที่เห็นยอดไม่ตรงกับค่าน้ำเดือนนั้นจะโทรมาถามทันที บอกที่มาไปเลย -->
+          <p class="field-hint">
+            รวมค่าน้ำรอบนี้ {{ selectedBill.total_amount | number:'1.2-2' }} บาท
+            + ยอดค้างจากรอบก่อน {{ arrears(selectedBill) | number:'1.2-2' }} บาท
+            — จ่ายใบนี้ใบเดียวถือว่าเคลียร์ยอดค้างครบแล้วครับ
+          </p>
+        }
         <span
           class="chip"
           [class.chip-success]="selectedBill.payment_status === 'Paid'"
@@ -205,6 +242,13 @@
           <dt>วันที่จดมิเตอร์</dt>
           <dd>{{ dateLabel(selectedBill.meter_reading?.reading_date) }}</dd>
         </div>
+        <!-- ลูกบ้านถามบ่อยว่าทำไมบางเดือนใช้น้ำเยอะกว่าเดิม บอกช่วงวันจริงไปเลยจะได้เทียบเองได้ -->
+        @if (cycleLabel(selectedBill); as cycle) {
+          <div class="detail-row">
+            <dt>รอบที่คิดค่าน้ำ</dt>
+            <dd>{{ cycle }}</dd>
+          </div>
+        }
         <div class="detail-row">
           <dt>เลขมิเตอร์ครั้งก่อน</dt>
           <dd>{{ selectedBill.previous_unit }} ลบ.ม.</dd>

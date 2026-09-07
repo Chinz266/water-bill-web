@@ -1,0 +1,224 @@
+<div class="reg">
+  <div class="page-head">
+    <h1 class="page-title">ลงทะเบียนหลายบ้านจากรูป</h1>
+    <p class="page-subtitle">
+      ถ่ายรูปหน้าปัดให้ครบก่อน แล้วกลับมากรอกทีเดียวครับ
+      รูปที่ถ่ายตอน<strong>เปิดตำแหน่ง</strong> จะพกวันเวลาและตำแหน่งมาในไฟล์ ระบบดึงให้เองครับ
+      <br />{{ photoCoordsHint }}
+    </p>
+
+    <nav class="reg-modes" aria-label="วิธีเพิ่มบ้าน">
+      <a class="reg-mode" routerLink="/members">
+        <span class="reg-mode-title">🏠 เพิ่มทีละหลัง</span>
+        <span class="reg-mode-sub">ยืนอยู่หน้ามิเตอร์แล้วกรอกเลย</span>
+      </a>
+      <span class="reg-mode is-active">
+        <span class="reg-mode-title">🗂️ หลายหลังจากรูป</span>
+        <span class="reg-mode-sub">ถ่ายมาทั้งวันแล้วกรอกทีเดียว</span>
+      </span>
+    </nav>
+  </div>
+
+  <!-- ขั้นที่ 1: หมู่บ้าน + เลือกรูป -->
+  <section class="card step">
+    <div class="step-head">
+      <span class="step-no">1</span>
+      <h2 class="step-title">เลือกหมู่บ้านและรูปหน้าปัด</h2>
+    </div>
+
+    @if (villages.length > 1) {
+      <label class="row-field village-field">
+        <span class="row-cap">หมู่บ้าน</span>
+        <select class="field-input" [(ngModel)]="villagesId" [disabled]="isSaving">
+          <option [ngValue]="null" disabled>— เลือกหมู่บ้าน —</option>
+          @for (v of villages; track v.id) {
+            <option [ngValue]="v.id">{{ v.village_name }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    <div class="pick-row">
+      <label class="btn btn-primary pick-btn" for="reg-files">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v13"/></svg>
+        เลือกหลายรูป
+      </label>
+      <input id="reg-files" type="file" accept="image/*" multiple (change)="onFilesPicked($event)" hidden />
+
+      <!-- เลือกทั้งโฟลเดอร์ได้เฉพาะบนคอม (มือถือไม่รองรับ) จึงเป็นปุ่มรอง -->
+      <label class="btn btn-secondary pick-btn" for="reg-folder">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        เลือกทั้งโฟลเดอร์
+      </label>
+      <input id="reg-folder" type="file" accept="image/*" multiple webkitdirectory (change)="onFilesPicked($event)" hidden />
+
+      @if (rows.length) {
+        <button type="button" class="btn btn-ghost" (click)="clearAll()" [disabled]="isSaving">ล้างทั้งหมด</button>
+      }
+    </div>
+
+    <p class="field-hint">
+      ครั้งละไม่เกิน {{ maxFiles }} รูป · ในคิวมี {{ rows.length }} รูป
+      · เรียงตามเวลาถ่าย บ้านเลขที่จะไล่ตามที่เดินจริง
+    </p>
+  </section>
+
+  @if (rows.length) {
+    <!-- ขั้นที่ 2: กรอกข้อมูลแต่ละหลัง -->
+    <section class="card step">
+      <div class="step-head">
+        <span class="step-no">2</span>
+        <h2 class="step-title">กรอกบ้านเลขที่และเลขมิเตอร์ตั้งต้น</h2>
+      </div>
+
+      <div class="summary">
+        <div class="summary-cell">
+          <span class="summary-cap">รูปทั้งหมด</span>
+          <span class="summary-val">{{ rows.length }}</span>
+        </div>
+        <div class="summary-cell">
+          <span class="summary-cap">พร้อมลงทะเบียน</span>
+          <span class="summary-val ok">{{ savableRows.length }}</span>
+        </div>
+        <div class="summary-cell">
+          <span class="summary-cap">ต้องแก้ก่อน</span>
+          <span class="summary-val warn">{{ needsAttention }}</span>
+        </div>
+        <div class="summary-cell">
+          <span class="summary-cap">ลงทะเบียนแล้ว</span>
+          <span class="summary-val done">{{ savedCount }}</span>
+        </div>
+      </div>
+
+      <!-- กองรูปนี้ถ่ายมาจากแถวนี้จริงไหม — ดูอย่างเดียว ไม่มีผลกับพิกัดที่จะลงทะเบียน
+           หยิบอัลบั้มผิดวัน/ผิดหมู่บ้านจะเห็นเป็นระยะหลักกิโลทันที ก่อนจะกรอกทั้งกองเสร็จ -->
+      <app-device-location [photo]="batchCenter" subject="ใจกลางกองรูป" />
+
+      @if (isSaving) {
+        <div class="progress">
+          <div class="progress-bar">
+            <span class="progress-fill" [style.width.%]="progressPercent"></span>
+          </div>
+          <p class="field-hint">กำลังลงทะเบียน {{ progress.done }} / {{ progress.total }} หลัง — อย่าเพิ่งปิดหน้านี้ครับ</p>
+        </div>
+      }
+
+      <div class="rows">
+        @for (row of rows; track row.seq) {
+          <article class="reg-row" [class.is-blocked]="blockingIssue(row)" [class.is-saved]="row.status === 'saved'">
+            @if (row.brokenImage || !row.previewUrl) {
+              <div class="row-photo row-photo-broken">เปิดรูปไม่ขึ้น</div>
+            } @else {
+              <img class="row-photo" [src]="row.previewUrl" [alt]="'รูปมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
+            }
+
+            <div class="row-body">
+              <div class="row-head">
+                <span class="row-seq">#{{ row.seq }}</span>
+
+                <!-- วันถ่ายกับพิกัดคือของที่รูปให้มา ต้องเห็นทุกแถวว่าได้ครบไหม -->
+                @if (row.capturedAt) {
+                  <span class="row-meta">📅 {{ dateLabel(row.capturedAt) }}</span>
+                } @else {
+                  <span class="row-meta warn">📅 ไม่มีวันถ่าย — จะลงเป็นวันนี้</span>
+                }
+
+                @if (row.latitude !== null) {
+                  <span class="row-meta">📍 {{ row.latitude | number: '1.5-5' }}, {{ row.longitude | number: '1.5-5' }}</span>
+                } @else {
+                  <span class="row-meta warn">📍 ไม่มีพิกัด</span>
+                }
+
+                @switch (row.status) {
+                  @case ('saving') { <span class="chip chip-info">กำลังลงทะเบียน...</span> }
+                  @case ('saved') { <span class="chip chip-success">ลงทะเบียนแล้ว</span> }
+                  @case ('failed') { <span class="chip chip-warning">ไม่สำเร็จ</span> }
+                }
+
+                @if (row.status !== 'saved') {
+                  <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isSaving" aria-label="เอารูปนี้ออก">✕</button>
+                }
+              </div>
+
+              @if (row.status === 'saved') {
+                <p class="row-saved">
+                  เพิ่มบ้านเลขที่ {{ row.houseNo }} เลขตั้งต้น {{ row.initialUnit }} แล้วครับ
+                </p>
+              } @else {
+                <div class="row-fields">
+                  <label class="row-field">
+                    <span class="row-cap">บ้านเลขที่</span>
+                    <input class="field-input" type="text" [(ngModel)]="row.houseNo" [disabled]="isSaving" placeholder="เช่น 99/1" />
+                  </label>
+
+                  <label class="row-field">
+                    <span class="row-cap">เลขมิเตอร์ตั้งต้น</span>
+                    <input
+                      class="field-input"
+                      type="number"
+                      inputmode="numeric"
+                      min="0"
+                      [(ngModel)]="row.initialUnit"
+                      [disabled]="isSaving"
+                      placeholder="อ่านจากหน้าปัด"
+                    />
+                  </label>
+
+                  <label class="row-field">
+                    <span class="row-cap">ชื่อเจ้าของบ้าน</span>
+                    <input class="field-input" type="text" [(ngModel)]="row.ownerName" [disabled]="isSaving" placeholder="เช่น สมชาย ใจดี" />
+                  </label>
+
+                  <label class="row-field">
+                    <span class="row-cap">เบอร์โทร (ไม่บังคับ)</span>
+                    <input class="field-input" type="tel" inputmode="tel" [(ngModel)]="row.phone" [disabled]="isSaving" placeholder="0812345678" />
+                  </label>
+                </div>
+
+                @if (nearbyMember(row); as nearby) {
+                  <p class="row-note">
+                    💡 ห่างจากบ้านเลขที่ <strong>{{ nearby.house_no }}</strong> ที่ลงทะเบียนแล้ว
+                    {{ nearby.meters | number: '1.0-0' }} เมตร เช็คว่าไม่ใช่หลังเดิมครับ
+                  </p>
+                }
+
+                @if (blockingIssue(row); as issue) {
+                  <p class="row-issue">⚠️ {{ issue }}</p>
+                }
+
+                @if (row.error) {
+                  <p class="row-issue">❌ {{ row.error }}</p>
+                }
+              }
+            </div>
+          </article>
+        }
+      </div>
+
+      <div class="reg-actions">
+        <button type="button" class="btn btn-primary" (click)="saveAll()" [disabled]="isSaving || savableRows.length === 0">
+          @if (isSaving) {
+            <span class="btn-spinner"></span>
+            กำลังลงทะเบียน...
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            ลงทะเบียน {{ savableRows.length }} หลัง
+          }
+        </button>
+
+        @if (isSaving) {
+          <button type="button" class="btn btn-secondary" (click)="stopQueue()">หยุดคิว</button>
+        }
+
+        @if (savedCount > 0 && !isSaving) {
+          <a class="btn btn-ghost" routerLink="/members">ดูทะเบียนลูกบ้าน</a>
+        }
+      </div>
+
+      <p class="field-hint">
+        เลขมิเตอร์ตั้งต้นกรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
+        · วันจดตั้งต้นใช้วันที่ถ่ายรูป = วันเริ่มรอบบิลใบแรก
+      </p>
+    </section>
+  }
+</div>

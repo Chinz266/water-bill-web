@@ -1,0 +1,180 @@
+/* ── virtual scroll ──
+   ความสูงของ viewport ต้องกำหนดตายตัว ไม่งั้น cdk คิดไม่ออกว่าจอเห็นได้กี่ใบ
+   80vh เพราะหน้านี้เป็นงานที่คนนั่งไล่ทีละใบ ให้เห็นได้มากที่สุดเท่าที่จอมี */
+.queue-viewport {
+  height: 80vh;
+  max-height: 720px;
+}
+
+/* ⚠️ ความสูงรวม (148 + 12 margin) ต้องตรงกับ itemSize ใน unassigned-queue.ts
+      แก้ที่ไหนต้องแก้อีกที่ทันที ไม่งั้นการ์ดจะซ้อนกันหรือมีช่องโหว่ */
+.queue-item {
+  display: flex;
+  gap: 14px;
+  height: 148px;
+  margin-bottom: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  /* กันเนื้อหาที่ยาวเกินคาดดันการ์ดให้สูงกว่า itemSize */
+  overflow: hidden;
+  background: var(--card);
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+
+/* การ์ดที่หน้าจอเพิ่งเลื่อนมาหา — ต้องเด่นพอให้ตาจับได้ว่ากระโดดมาที่ไหน แล้วดับเอง */
+.queue-item.is-linked {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+/* ทุกบรรทัดในการ์ดเป็นบรรทัดเดียวเสมอ — ข้อความที่ตัดบรรทัดเองจะทำให้การ์ดสูงไม่เท่ากัน
+   ซึ่ง virtual scroll รับไม่ได้ (มันวางตำแหน่งจาก itemSize ไม่ได้วัดของจริง) */
+.queue-line {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.queue-chain {
+  min-height: 22px;
+  font-size: 13px;
+}
+
+.chain-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.queue-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: auto;
+  overflow: hidden;
+}
+
+/* รูปคือข้อมูลชิ้นเดียวที่ใช้ตัดสิน จึงต้องใหญ่พอให้เห็นเลขบนหน้าปัดตั้งแต่หน้ารายการ */
+.queue-photo {
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.queue-photo img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.queue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.queue-unit {
+  margin: 0;
+  font-size: 16px;
+}
+
+.queue-meta {
+  margin: 0;
+  font-size: 13px;
+}
+
+.queue-body .btn {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+.modal-wide {
+  max-width: 640px;
+}
+
+.detail-photo {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #000;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.candidate-item.is-selected {
+  border-color: var(--primary, #4c8dff);
+}
+
+.candidate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.candidate-house {
+  font-size: 15px;
+}
+
+.candidate-meta {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .queue-photo img {
+    width: 72px;
+    height: 72px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ป้ายทิศทางสัมพัทธ์ในรายการบ้านที่เป็นไปได้ — โทนกลาง ๆ ไม่ใช่สีเตือน
+   เพราะมันคือข้อมูลประกอบ ไม่ใช่คำเตือนที่ต้องลงมือทำอะไร */
+.candidate-direction {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}

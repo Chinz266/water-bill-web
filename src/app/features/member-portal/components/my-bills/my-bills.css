@@ -1,5 +1,4 @@
-/* สไตล์แถบบน/เนื้อหาของพอร์ทัล ย้ายไปไว้ที่ ../../portal-shared.css แล้ว
-   เพราะหน้าแจ้งเรื่อง (my-reports) ใช้แถบบนหน้าตาเดียวกัน */
+/* แถบบน (.portal-*) แถบสลับหน้า และ svg มาจาก ../../portal-shared.css */
 
 .house-picker {
   margin-bottom: 16px;
@@ -77,6 +76,55 @@
   font-size: 17px;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+/* ---------- กราฟปริมาณการใช้น้ำ ---------- */
+.usage-card {
+  margin-bottom: 24px;
+}
+
+.usage-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.usage-sub {
+  margin: 2px 0 8px;
+  font-size: 14px;
+}
+
+.usage-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* เส้นฐานจาง ๆ ไม่แย่งสายตากับแท่ง */
+.usage-axis {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+/* แท่งเดียวโทนน้ำเงินหลัก — ปริมาณมาก = สูง */
+.usage-bar {
+  fill: var(--primary);
+}
+
+/* ตัวเลขและชื่อเดือนใช้สีตัวอักษร ไม่ใช้สีแท่ง (identity ไม่พึ่งสีอย่างเดียว) */
+.usage-value {
+  fill: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.usage-month {
+  fill: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
 }
 
 .bill-list {
