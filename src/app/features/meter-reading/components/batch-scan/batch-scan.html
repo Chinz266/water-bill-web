@@ -697,6 +697,37 @@
                   </p>
                 }
 
+                <!-- ด่านติ๊กยืนยันของใบที่อ่านมาไม่ถึงเกณฑ์ — ตัวเลขความแม่นยำมาจากการ
+                     ทดลองภาคสนามจริง (ดู measurement.constants.ts) ไม่ใช่คำเตือนลอย ๆ
+                     คนจะได้รู้ว่ากำลังเสี่ยงแค่ไหนก่อนตัดสินใจติ๊ก -->
+                @if (needsStaffVerify(row)) {
+                  <div class="verify-box" [class.is-done]="row.verifiedByStaff">
+                    <p class="verify-head">
+                      @if (row.confidence === null) {
+                        ระบบไม่ได้ให้ค่าความเชื่อมั่นของภาพนี้
+                      } @else {
+                        ระบบอ่านได้ {{ row.confidence }}% ซึ่งต่ำกว่าเกณฑ์ {{ trustedConfidence }}%
+                      }
+                      — ภาพกลุ่มนี้จากการทดลองอ่านถูกเพียง
+                      <strong>{{ expectedAccuracyPercent(row) }}%</strong>
+                    </p>
+
+                    <label class="verify-check">
+                      <input type="checkbox" [(ngModel)]="row.verifiedByStaff" [disabled]="isBusy" />
+                      <span>ข้าพเจ้าเทียบตัวเลขกับหน้าปัดในภาพแล้ว ยืนยันว่าถูกต้อง</span>
+                    </label>
+
+                    <details class="verify-tips">
+                      <summary>ถ่ายอย่างไรให้ระบบอ่านแม่นขึ้น</summary>
+                      <ul>
+                        @for (tip of captureTips; track tip) {
+                          <li>{{ tip }}</li>
+                        }
+                      </ul>
+                    </details>
+                  </div>
+                }
+
                 @if (blockingIssue(row); as issue) {
                   <p class="row-issue">⚠️ {{ issue }}</p>
                 }

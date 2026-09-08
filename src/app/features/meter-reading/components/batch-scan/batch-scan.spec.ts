@@ -391,9 +391,12 @@ describe('BatchScanComponent', () => {
     });
 
     it('ย่อรูปยังไม่เสร็จ แต่เลขมาจาก AI → ออกบิลไปโดยไม่มีรูป ดีกว่าค้างคิวไว้', () => {
-      // ocrUnit เท่ากับ unit = เลขยังเป็นค่าที่ AI อ่านมาเป๊ะ ๆ ซึ่งตรวจย้อนหลังได้จาก
+      // ocrUnit เท่ากับ unit = เลขยังเป็นค่าที่ระบบอ่านมาเป๊ะ ๆ ซึ่งตรวจย้อนหลังได้จาก
       // ค่า confidence/จำนวนหลักที่บันทึกไว้ รูปจึงไม่ใช่หลักฐานชิ้นเดียวที่เหลือ
-      component.rows = [row({ seq: 1, memberId: 1, unit: 1250, ocrUnit: 1250, photoData: null })] as any;
+      // (confidence 92% = เหนือเกณฑ์ ไม่ต้องผ่านด่านติ๊กยืนยัน ซึ่งเป็นคนละเรื่องกับเทสต์นี้)
+      component.rows = [
+        row({ seq: 1, memberId: 1, unit: 1250, ocrUnit: 1250, confidence: 92, photoData: null })
+      ] as any;
 
       component.saveAll();
       http.expectOne(r => r.url.endsWith('/water-rates/active')).flush({ id: 5 });

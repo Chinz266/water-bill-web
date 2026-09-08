@@ -109,11 +109,57 @@ describe('BatchScanComponent — ด่านความชัดของก�
       expect(component.blockingIssue(target)).toBeNull();
     });
 
-    it('80% พอดีผ่าน — เกณฑ์คือ "ต่ำกว่า 80" ไม่ใช่ "ไม่ถึง 81"', () => {
+    it('80% พอดีผ่านด่านห้ามออกบิล — เกณฑ์คือ "ต่ำกว่า 80" ไม่ใช่ "ไม่ถึง 81"', () => {
       const target = row({ confidence: 80 }) as any;
       component.rows = [target];
 
+      // ไม่ติดด่านตายแล้ว แต่ยังอยู่ใต้เกณฑ์ 85% จึงต้องให้คนติ๊กยืนยันก่อน
+      expect(component.blockingIssue(target)).not.toContain('80%');
+      target.verifiedByStaff = true;
       expect(component.blockingIssue(target)).toBeNull();
+    });
+
+    /**
+     * ตัวเลขความแม่นยำมาจากการทดลองภาคสนาม (meter-bill.xlsx): ต่ำกว่าเกณฑ์อ่านถูก 30.5%
+     * และภาพที่ระบบไม่ให้ค่าความเชื่อมั่นเลยอ่านถูก 0% — สองกลุ่มนี้ห้ามออกบิลโดยไม่มีคนดู
+     */
+    describe('ด่านติ๊กยืนยันของใบที่อ่านมาไม่ถึงเกณฑ์', () => {
+      it('ต่ำกว่า 85% → ต้องติ๊กยืนยันก่อน ติ๊กแล้วออกบิลได้', () => {
+        const target = row({ confidence: 82 }) as any;
+        component.rows = [target];
+
+        expect(component.needsStaffVerify(target)).toBe(true);
+        expect(component.blockingIssue(target)).toContain('ติ๊กยืนยัน');
+        expect(component.savableRows).toEqual([]);
+
+        target.verifiedByStaff = true;
+        expect(component.blockingIssue(target)).toBeNull();
+        expect(component.savableRows).toEqual([target]);
+      });
+
+      it('ระบบอ่านเลขมาให้แต่ไม่มีค่าความเชื่อมั่น → กลุ่ม 0% ต้องติ๊กเหมือนกัน', () => {
+        const target = row({ confidence: null, ocrConfidence: null, unit: 1250, ocrUnit: 1250 }) as any;
+        component.rows = [target];
+
+        expect(component.needsStaffVerify(target)).toBe(true);
+        expect(component.expectedAccuracyPercent(target)).toBe(0);
+      });
+
+      it('คนพิมพ์เลขเองทับ → ไม่ต้องติ๊ก เพราะเลขมาจากตาคนแล้ว', () => {
+        const target = row({ confidence: 40, unit: 1258, ocrUnit: 1250 }) as any;
+        component.rows = [target];
+
+        expect(component.needsStaffVerify(target)).toBe(false);
+        expect(component.blockingIssue(target)).toBeNull();
+      });
+
+      it('อ่านได้ตั้งแต่ 85% ขึ้นไป → ไม่ต้องติ๊ก และความแม่นยำที่คาดคือ 94%', () => {
+        const target = row({ confidence: 92 }) as any;
+        component.rows = [target];
+
+        expect(component.needsStaffVerify(target)).toBe(false);
+        expect(component.expectedAccuracyPercent(target)).toBe(94);
+      });
     });
 
     it('ยังไม่ได้อ่านเลข (confidence null) → ไม่ใช่ด่านนี้ ปล่อยให้ด่านอื่นว่ากัน', () => {

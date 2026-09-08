@@ -29,7 +29,11 @@ import { Village, VillageService } from '../../../village/services/village.servi
 import { StoredQueue, StoredRow, clearQueue, loadQueue, saveQueue } from '../../services/batch-queue.store';
 import { DeviceLocationComponent } from '../device-location/device-location';
 import { PHOTO_COORDS_HINT } from '../../services/photo-coords-help';
-import { OCR_CONFIDENCE_PERCENT } from '../../../../core/measurement.constants';
+import {
+  CAPTURE_TIPS,
+  OCR_ACCURACY_BY_CONFIDENCE,
+  OCR_CONFIDENCE_PERCENT
+} from '../../../../core/measurement.constants';
 
 /**
  * สถานะของแต่ละแถว — แยก "อ่านไม่ผ่าน" กับ "ออกบิลไม่ผ่าน" ออกจากกัน
@@ -243,6 +247,14 @@ interface ScanRow {
   oldMeterFinalUnit: number | null;
   /** ยืนยันแล้วว่าใช้รูปถูกใบ ทั้งที่วันถ่ายเก่ากว่ารอบที่ออก */
   confirmStalePhoto: boolean;
+  /**
+   * เจ้าหน้าที่ติ๊กแล้วว่าเทียบตัวเลขกับหน้าปัดในภาพเอง — ใช้กับใบที่ระบบอ่านมาไม่ถึงเกณฑ์
+   *
+   * จากการทดลอง (meter-bill.xlsx) ภาพกลุ่มที่ค่าความเชื่อมั่นต่ำกว่าเกณฑ์อ่านถูกเพียง
+   * 30.5% และกลุ่มที่ระบบไม่ให้ค่าความเชื่อมั่นเลยอ่านถูก 0% — ปล่อยให้ออกบิลด้วย
+   * ตัวเลขพวกนี้โดยไม่มีคนดูคือออกบิลผิดเป็นส่วนใหญ่
+   */
+  verifiedByStaff: boolean;
   /** เลขของแถวนี้มาจากการครอปแล้วอ่านใหม่ ไม่ใช่การอ่านรูปเต็มใบตอนแรก */
   croppedRead: boolean;
 
@@ -624,6 +636,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       confirmDuplicateLocation: false,
       confirmStalePhoto: false,
       confirmMeterReset: false,
+      verifiedByStaff: false,
       oldMeterFinalUnit: null,
       croppedRead: false,
       ocrUnit: null,
@@ -1469,6 +1482,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     // ปล่อยผ่านทันทีที่คนพิมพ์เลขเองทับ เพราะตอนนั้นเลขมาจากตาคน ไม่ใช่คะแนนของโมเดล
     const unreadable = this.unreadableIssue(row);
     if (unreadable) return unreadable;
+    // อ่านได้ไม่ถึงเกณฑ์ แต่ยังไม่ถึงขั้นห้ามออกบิล — ให้คนติ๊กยืนยันว่าเทียบหน้าปัดแล้ว
+    if (this.needsStaffVerify(row) && !row.verifiedByStaff) {
+      return 'กรุณาเทียบตัวเลขกับหน้าปัดในภาพ แล้วติ๊กยืนยันก่อนออกบิลครับ';
+    }
     if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
     // มิเตอร์ที่ติดกันเป็นกลุ่ม: ออกบิลข้ามลำดับ = ไม่มีอะไรยืนยันได้เลยว่าเลขนี้มาจากตัวไหน
     // (พิกัดใช้ไม่ได้ในระยะ 30 ซม. — ดู clusterLockMessage) จึงต้องกันตั้งแต่ก่อนยิง
@@ -1514,6 +1531,47 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       'จึงออกบิลด้วยตัวเลขนี้ไม่ได้ครับ — กรุณาตรวจสอบจากภาพถ่ายแล้วบันทึกตัวเลขเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
     );
   }
+
+  /**
+   * ใบนี้ต้องให้เจ้าหน้าที่ติ๊กยืนยันก่อนออกบิลไหม
+   *
+   * เกณฑ์มาจากการทดลองภาคสนาม ไม่ใช่ความรู้สึก — ภาพที่ค่าความเชื่อมั่นต่ำกว่า 85%
+   * อ่านถูกแค่ 30.5% และภาพที่ระบบไม่ให้ค่าเลยอ่านถูก 0% สองกลุ่มนี้จึงต้องมีคนดู
+   * ก่อนเสมอ (ดู OCR_ACCURACY_BY_CONFIDENCE)
+   *
+   * ⚠️ พอคนพิมพ์เลขเองทับ ตัวเลขก็มาจากตาคนแล้ว ด่านนี้ปล่อยผ่านทันที — เงื่อนไข
+   *    เดียวกับ unreadableIssue() ไม่งั้นคนที่แก้เลขให้ถูกแล้วยังโดนบังคับติ๊กอีก
+   *    ทั้งที่ไม่มีอะไรให้ยืนยันเพิ่ม
+   */
+  needsStaffVerify(row: ScanRow): boolean {
+    if (row.status === 'saved' || row.status === 'unknown') return false;
+    // ไม่มีรูปแล้วก็ไม่มีอะไรให้เทียบ (แถวที่กู้มาจากคิวเก่า) — ด่าน needsRetake คุมอยู่แล้ว
+    if (!this.hasPhoto(row)) return false;
+    // ระบบไม่ได้อ่านเลขให้เลย = เลขในช่องมาจากคนอยู่แล้วตั้งแต่ต้น ไม่มีอะไรให้ยืนยันเพิ่ม
+    if (row.ocrUnit === null) return false;
+    // เลขในช่องไม่ใช่ของระบบแล้ว = มีคนอ่านหน้าปัดมาเอง
+    if (row.unit !== row.ocrUnit) return false;
+
+    // confidence === null ทั้งที่ระบบอ่านเลขมาให้ = กลุ่มที่การทดลองวัดได้ 0% (อ่านถูก 0 จาก 125 ภาพ)
+    return row.confidence === null || row.confidence < this.trustedConfidence;
+  }
+
+  /**
+   * ความแม่นยำที่วัดได้จริงของภาพกลุ่มเดียวกับใบนี้ — บอกให้คนรู้ว่าควรเชื่อแค่ไหน
+   * ก่อนจะติ๊กยืนยัน ไม่ใช่ให้ติ๊กผ่าน ๆ เพราะเห็นแค่เปอร์เซ็นต์ความเชื่อมั่นลอย ๆ
+   */
+  expectedAccuracyPercent(row: ScanRow): number {
+    if (row.confidence === null) {
+      return Math.round(OCR_ACCURACY_BY_CONFIDENCE.withoutConfidence * 100);
+    }
+    if (row.confidence >= this.trustedConfidence) {
+      return Math.round(OCR_ACCURACY_BY_CONFIDENCE.atOrAboveThreshold * 100);
+    }
+    return Math.round(OCR_ACCURACY_BY_CONFIDENCE.belowThreshold * 100);
+  }
+
+  /** วิธีถ่ายที่การทดลองชี้ว่าช่วยให้อ่านแม่นขึ้น เรียงตามน้ำหนักของผล */
+  readonly captureTips = CAPTURE_TIPS;
 
   /** เรื่องที่ควรรู้แต่ไม่ถึงกับห้ามบันทึก (รวมคำเตือนที่หลังบ้านส่งมาด้วย) */
   notes(row: ScanRow): string[] {
@@ -3110,6 +3168,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       // คิวที่กู้มาไม่มีตัวเลือกบ้านติดมาแล้ว จึงไม่เหลืออะไรให้ยืนยันกับตัวเลขไหน
       confirmStalePhoto: false,
       confirmMeterReset: false,
+      // ไม่มีรูปให้เทียบแล้ว ด่านติ๊กยืนยันจึงไม่ทำงานกับแถวนี้ (ดู needsStaffVerify)
+      verifiedByStaff: false,
       oldMeterFinalUnit: null,
       croppedRead: false,
       // ตัวรูปไม่ได้ถูกเก็บไว้ ผลที่ AI เคยอ่านจึงยืนยันอะไรไม่ได้แล้ว
