@@ -170,11 +170,6 @@ svg {
   display: none;
 }
 
-.more-backdrop,
-.more-menu {
-  display: none;
-}
-
 @media (max-width: 900px) {
   .topbar {
     gap: 12px;
