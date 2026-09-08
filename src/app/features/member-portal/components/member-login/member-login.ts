@@ -50,7 +50,7 @@ export class MemberLoginComponent {
 
     this.auth.loginMember(this.form.getRawValue()).subscribe({
       next: () => {
-        toast.success('ยินดีต้อนรับครับ', { id: 'member-login-success' });
+        toast.success('ยินดีต้อนรับ', { id: 'member-login-success' });
         // ถ้าถูกเด้งมาจากหน้าที่ต้องล็อกอิน ให้พากลับไปหน้านั้น ไม่งั้นเข้าหน้าบิลของตัวเอง
         const redirectTo = this.route.snapshot.queryParamMap.get('redirectTo');
         this.router.navigateByUrl(redirectTo || '/member/bills');

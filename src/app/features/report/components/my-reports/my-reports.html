@@ -30,7 +30,7 @@
   @if (isLoading) {
     <div class="card">
       <p class="loading-note">
-        <span class="loading-dot"></span> กำลังโหลดเรื่องที่แจ้งไว้ รอสักครู่นะครับ...
+        <span class="loading-dot"></span> กำลังโหลดเรื่องที่แจ้งไว้ รอสักครู่...
       </p>
       <div class="skeleton skeleton-row"></div>
       <div class="skeleton skeleton-row"></div>
@@ -44,7 +44,7 @@
         <p class="empty-title">ยังไม่มีเรื่องที่แจ้งไว้</p>
         <p class="empty-text">
           ถ้าน้ำไม่ไหล น้ำขุ่น ท่อรั่ว หรือบิลมีอะไรไม่ถูกต้อง<br />
-          กดปุ่ม "แจ้งเรื่องใหม่" ด้านบนได้เลยครับ
+          กดปุ่ม "แจ้งเรื่องใหม่" ด้านบนได้ทันที
         </p>
       </div>
     } @else {
@@ -80,7 +80,7 @@
                 {{ statusLabel(report.status) }}
               </span>
               @if (report.photo) {
-                <span class="report-haspic">📎 มีรูป</span>
+                <span class="report-haspic">📎 มีภาพ</span>
               }
             </span>
           </button>
@@ -147,7 +147,7 @@
           id="report-detail"
           class="field-input report-textarea"
           rows="4"
-          placeholder="เล่าให้ผู้ดูแลฟังหน่อยครับ ว่าเกิดอะไรขึ้น ตั้งแต่เมื่อไหร่"
+          placeholder="อธิบายเหตุการณ์ที่เกิดขึ้นและช่วงเวลาที่พบปัญหา"
           [(ngModel)]="form.detail"
         ></textarea>
         <span class="field-hint">{{ form.detail.length }} / {{ detailMax }} ตัวอักษร</span>
@@ -157,12 +157,12 @@
       </div>
 
       <div class="field">
-        <span class="field-label">แนบรูป (ถ้ามี)</span>
+        <span class="field-label">แนบภาพ (ถ้ามี)</span>
         @if (photo) {
           <div class="photo-preview">
-            <img [src]="photo" alt="รูปที่แนบ" />
+            <img [src]="photo" alt="ภาพที่แนบ" />
             <button type="button" class="btn btn-danger-soft btn-sm" (click)="removePhoto()">
-              ลบรูป
+              ลบภาพ
             </button>
           </div>
         } @else {
@@ -170,7 +170,7 @@
                เปิดกล้องหลังให้เลย ไม่ต้องผ่านแผ่นให้เลือกว่าจะถ่ายหรือหยิบจากคลัง -->
           <label class="photo-picker" for="report-camera">
             <span class="photo-picker-icon">📷</span>
-            <span>แตะเพื่อถ่ายรูป</span>
+            <span>แตะเพื่อถ่ายภาพ</span>
           </label>
           <input
             id="report-camera"
@@ -182,7 +182,7 @@
 
           <label class="gallery-link" for="report-gallery">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-            หรือเลือกรูปจากคลังภาพ
+            หรือเลือกภาพจากคลังภาพ
           </label>
           <input
             id="report-gallery"
@@ -191,7 +191,7 @@
             (change)="onPhotoSelected($event)"
           />
 
-          <span class="field-hint">มีรูปประกอบจะช่วยให้ผู้ดูแลเห็นภาพและแก้ได้เร็วขึ้นครับ</span>
+          <span class="field-hint">มีภาพประกอบจะช่วยให้ผู้ดูแลเห็นภาพและแก้ได้เร็วขึ้น</span>
         }
       </div>
 
@@ -238,8 +238,8 @@
 
       @if (selectedReport.photo) {
         <div class="detail-block">
-          <span class="detail-label">รูปประกอบ</span>
-          <img class="detail-photo" [src]="selectedReport.photo" alt="รูปประกอบเรื่องที่แจ้ง" />
+          <span class="detail-label">ภาพประกอบ</span>
+          <img class="detail-photo" [src]="selectedReport.photo" alt="ภาพประกอบเรื่องที่แจ้ง" />
         </div>
       }
 
@@ -259,7 +259,7 @@
         </div>
       } @else {
         <div class="alert alert-warning">
-          ผู้ดูแลยังไม่ได้ตอบกลับ เรื่องนี้อยู่ในคิวแล้วครับ
+          ผู้ดูแลยังไม่ได้ตอบกลับ เรื่องนี้อยู่ในคิวรอดำเนินการ
         </div>
       }
 

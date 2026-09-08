@@ -1,7 +1,7 @@
 <div class="page-head">
-  <h1 class="page-title">รูปที่รอตรวจสอบ</h1>
+  <h1 class="page-title">ภาพที่รอตรวจสอบ</h1>
   <p class="page-subtitle">
-    ภาพที่เจ้าหน้าที่ตัดสินหน้างานไม่ได้ — ระบบอ่านตัวเลขไม่ออก · เข้าเกณฑ์หลายบ้านพอ ๆ กัน ·
+    ภาพที่เจ้าหน้าที่ตัดสินหน้างานไม่ได้ — ระบบอ่านตัวเลขไม่ออก · เข้าเกณฑ์หลายบ้านใกล้เคียงกัน ·
     หรือทราบบ้านแล้วแต่ตัวเลขผิดปกติจนระบบระงับไว้
   </p>
 </div>
@@ -11,7 +11,7 @@
   <span>
     <strong>ของที่ค้างนานคือของที่ต้องรีบ</strong> — พอข้ามเดือนไปแล้วจะออกบิลย้อนหลังไม่ได้
     (ระบบแจ้งว่า "มีบิลใหม่กว่าอยู่แล้ว") และปริมาณน้ำของภาพนั้นจะถูกรวมไปกับเดือนถัดไปแทน
-    ระบบตีทิ้งให้อัตโนมัติเมื่อค้างเกิน 90 วันครับ
+    ระบบตีทิ้งให้อัตโนมัติเมื่อค้างเกิน 90 วัน
   </span>
 </div>
 
@@ -19,7 +19,7 @@
   @if (isLoading()) {
     <p class="text-muted">กำลังโหลด...</p>
   } @else if (!rows().length) {
-    <p class="text-muted">ไม่มีรูปค้างในคิวครับ 🎉</p>
+    <p class="text-muted">ไม่มีภาพค้างในคิว 🎉</p>
   } @else {
     <!-- ═══ virtual scroll ═══
          คิวโตได้เป็นร้อยใบตอนต้นเดือน การ์ดทุกใบมีรูปของตัวเอง — เรนเดอร์ทั้งหมด
@@ -37,7 +37,7 @@
       >
         <button type="button" class="queue-photo" (click)="open(row)">
           <!-- lazy: คิวยาว ๆ มีรูปเป็นร้อย โหลดเฉพาะที่เลื่อนมาถึงจริง -->
-          <img [src]="photoUrl(row)" [alt]="'รูปมิเตอร์รอตรวจ รหัส ' + row.id" loading="lazy" />
+          <img [src]="photoUrl(row)" [alt]="'ภาพมิเตอร์รอตรวจ รหัส ' + row.id" loading="lazy" />
         </button>
 
         <div class="queue-body">
@@ -91,11 +91,11 @@
   <div class="modal-overlay" (click)="close()">
     <div class="modal-card modal-wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">จับคู่รูปนี้กับบ้าน</h2>
+        <h2 class="modal-title">จับคู่ภาพนี้กับบ้าน</h2>
         <button type="button" class="modal-close" (click)="close()" aria-label="ปิด">✕</button>
       </div>
 
-      <img class="detail-photo" [src]="photoUrl(row)" alt="รูปหน้าปัดมิเตอร์" />
+      <img class="detail-photo" [src]="photoUrl(row)" alt="ภาพหน้าปัดมิเตอร์" />
 
       <!-- ═══ ใบที่ถูกด่านตีกลับ ═══
            ต้องเห็นทั้งเหตุผลและบ้านที่คนหน้างานเลือกไว้ ก่อนจะเริ่มดูตัวเลข
@@ -120,7 +120,7 @@
             }
             @if (row.chain?.cluster_group_id) {
               <br />⚠️ มิเตอร์กลุ่มนี้ติดกันบนกำแพงเดียวกัน (ห่างกันราว 30 ซม.)
-              พิกัดแยกตัวซ้าย/ตัวขวาไม่ได้ — กรุณาเทียบเลขบนรูปกับเลขตั้งต้นให้แน่ใจก่อนครับ
+              พิกัดแยกตัวซ้าย/ตัวขวาไม่ได้ — กรุณาเทียบเลขบนภาพกับเลขตั้งต้นให้แน่ใจก่อน
             }
           </span>
         </div>
@@ -184,7 +184,7 @@
 
       <div class="field">
         <label class="field-label" for="manual-unit">
-          เลขมิเตอร์ที่อ่านได้จากรูป
+          เลขมิเตอร์ที่อ่านได้จากภาพ
           @if (row.meter_unit !== null) {
             <span class="text-muted">(ระบบอ่านได้ {{ row.meter_unit }} — พิมพ์ทับได้หากไม่ตรง)</span>
           }
@@ -199,7 +199,7 @@
           [placeholder]="row.meter_unit !== null ? row.meter_unit : 'กรอกเลขที่เห็นบนหน้าปัด'"
         />
         <p class="field-hint">
-          กรอกเฉพาะ<strong>เลขสีดำ</strong> (ลูกบาศก์เมตร) ไม่ต้องใส่เลขแดงหลังจุดครับ
+          กรอกเฉพาะ<strong>เลขสีดำ</strong> (ลูกบาศก์เมตร) ไม่ต้องใส่เลขแดงหลังจุด
         </p>
       </div>
 
@@ -209,7 +209,7 @@
         <p class="text-muted">กำลังคิดรายชื่อบ้าน...</p>
       } @else if (!candidates().length) {
         <p class="text-muted">
-          ไม่มีบ้านที่เข้าเค้าเลย — มักแปลว่าเลขที่อ่านได้ยังไม่ถูก ลองพิมพ์เลขใหม่ดูครับ
+          ไม่พบบ้านที่เข้าเกณฑ์ — โดยมากหมายความว่าตัวเลขที่อ่านได้ยังไม่ถูกต้อง กรุณาแก้ไขตัวเลขแล้วลองอีกครั้ง
         </p>
       } @else {
         <ul class="candidate-list">
@@ -258,14 +258,14 @@
           </button>
         } @else {
           <p class="field-hint">
-            กรณีนี้ข้ามไม่ได้ครับ ต้องแก้ไขที่ต้นเหตุก่อน (เช่น ถ่ายภาพใหม่ หรือปรับสถานะบิลใบเดิม)
+            กรณีนี้ข้ามไม่ได้ ต้องแก้ไขที่ต้นเหตุก่อน (เช่น ถ่ายภาพใหม่ หรือปรับสถานะบิลใบเดิม)
           </p>
         }
       }
 
       <div class="modal-actions">
         <button type="button" class="btn btn-danger-soft" (click)="rowToDiscard.set(row)">
-          ตีทิ้งรูปนี้
+          ตีทิ้งภาพนี้
         </button>
         <button type="button" class="btn btn-ghost" (click)="close()" [disabled]="isAssigning()">ปิด</button>
         <button type="button" class="btn btn-primary" (click)="assign()" [disabled]="!canAssign()">
@@ -285,13 +285,13 @@
   <div class="modal-overlay" (click)="rowToDiscard.set(null)">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">ตีทิ้งรูปนี้ใช่ไหมครับ?</h2>
+        <h2 class="modal-title">ตีทิ้งภาพนี้หรือไม่?</h2>
         <button type="button" class="modal-close" (click)="rowToDiscard.set(null)" aria-label="ปิด">✕</button>
       </div>
 
       <div class="alert alert-warning">
         <span>⚠️</span>
-        <span>ไฟล์รูปจะถูก<strong>ลบทิ้งถาวร</strong> กู้คืนไม่ได้ครับ</span>
+        <span>ไฟล์ภาพจะถูก<strong>ลบทิ้งถาวร</strong> กู้คืนไม่ได้</span>
       </div>
 
       <div class="field">

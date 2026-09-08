@@ -182,7 +182,7 @@ export class BillingHistoryComponent implements OnInit {
 
     const unit = this.toNumber(this.editUnit);
     if (unit === null) {
-      toast.error('กรุณากรอกเลขมิเตอร์ใหม่ครับ', { id: 'edit-reading' });
+      toast.error('กรุณากรอกเลขมิเตอร์ใหม่', { id: 'edit-reading' });
       return;
     }
 
@@ -190,7 +190,7 @@ export class BillingHistoryComponent implements OnInit {
     // ซึ่งเป็นคำถามเดียวที่ตารางประวัติมีไว้ตอบ
     const reason = this.editReason.trim();
     if (reason.length < 3) {
-      toast.error('กรุณาระบุเหตุผลที่แก้ไขครับ', { id: 'edit-reading' });
+      toast.error('กรุณาระบุเหตุผลที่แก้ไข', { id: 'edit-reading' });
       return;
     }
 
@@ -218,8 +218,8 @@ export class BillingHistoryComponent implements OnInit {
         const total = this.toNumber(res?.total_amount);
         toast.success(
           total === null
-            ? 'แก้ไขเรียบร้อยครับ'
-            : `แก้เป็น ${unit} แล้ว ยอดใหม่ ${total.toFixed(2)} บาทครับ`,
+            ? 'แก้ไขเรียบร้อย'
+            : `แก้เป็น ${unit} แล้ว ยอดใหม่ ${total.toFixed(2)} บาท`,
           { id: 'edit-reading' }
         );
       },

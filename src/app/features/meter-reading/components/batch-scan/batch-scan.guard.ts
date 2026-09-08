@@ -10,6 +10,6 @@ import type { BatchScanComponent } from './batch-scan';
 export const batchScanLeaveGuard: CanDeactivateFn<BatchScanComponent> = (component) => {
   if (!component.isBusy) return true;
 
-  toast.error('กำลังทำงานอยู่ครับ กดปุ่ม "หยุดคิว" ก่อนออกจากหน้านี้นะครับ', { id: 'batch-leave' });
+  toast.error('กำลังทำงานอยู่ กดปุ่ม "หยุดคิว" ก่อนออกจากหน้านี้', { id: 'batch-leave' });
   return false;
 };

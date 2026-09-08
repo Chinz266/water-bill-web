@@ -11,6 +11,6 @@ import type { BatchRegisterComponent } from './batch-register';
 export const batchRegisterLeaveGuard: CanDeactivateFn<BatchRegisterComponent> = (component) => {
   if (!component.isBusy) return true;
 
-  toast.error('กำลังลงทะเบียนอยู่ครับ กดปุ่ม "หยุดคิว" ก่อนออกจากหน้านี้นะครับ', { id: 'reg-leave' });
+  toast.error('กำลังลงทะเบียนอยู่ กดปุ่ม "หยุดคิว" ก่อนออกจากหน้านี้', { id: 'reg-leave' });
   return false;
 };

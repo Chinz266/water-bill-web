@@ -142,7 +142,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
     const images = picked.filter((file) => file.type.startsWith('image/'));
     if (!images.length) {
-      if (picked.length) toast.error('ไม่พบไฟล์รูปในที่ที่เลือกครับ', { id: 'reg-no-image' });
+      if (picked.length) toast.error('ไม่พบไฟล์ภาพในที่ที่เลือก', { id: 'reg-no-image' });
       return;
     }
 
@@ -152,7 +152,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
     const room = this.maxFiles - this.rows.length;
 
     if (room <= 0) {
-      toast.error(`ใส่ได้ครั้งละไม่เกิน ${this.maxFiles} รูปครับ`, { id: 'reg-limit' });
+      toast.error(`ใส่ได้ครั้งละไม่เกิน ${this.maxFiles} ภาพ`, { id: 'reg-limit' });
       return;
     }
 
@@ -166,10 +166,10 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     if (images.length > fresh.length) {
-      toast.success(`ข้ามรูปที่อยู่ในคิวอยู่แล้ว ${images.length - fresh.length} รูปครับ`, { id: 'reg-dup-file' });
+      toast.success(`ข้ามภาพที่อยู่ในคิวอยู่แล้ว ${images.length - fresh.length} ภาพ`, { id: 'reg-dup-file' });
     }
     if (fresh.length > taking.length) {
-      toast.error(`ใส่ได้อีกแค่ ${room} รูป ส่วนที่เหลือยังไม่ได้ใส่ครับ`, { id: 'reg-limit' });
+      toast.error(`ใส่ได้อีกแค่ ${room} ภาพ ส่วนที่เหลือยังไม่ได้ใส่`, { id: 'reg-limit' });
     }
   }
 
@@ -237,27 +237,27 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
     if (row.latitude === null || row.longitude === null) {
       return NO_PHOTO_COORDS_MESSAGE;
     }
-    if (!row.houseNo.trim()) return 'ยังไม่ได้กรอกบ้านเลขที่ครับ';
-    if (!row.ownerName.trim()) return 'ยังไม่ได้กรอกชื่อเจ้าของบ้านครับ';
+    if (!row.houseNo.trim()) return 'ยังไม่ได้กรอกบ้านเลขที่';
+    if (!row.ownerName.trim()) return 'ยังไม่ได้กรอกชื่อเจ้าของบ้าน';
 
     // เช็ค null อย่างเดียว — มิเตอร์ที่เพิ่งติดใหม่อ่านได้ 0 ซึ่งต้องลงทะเบียนได้
     if (row.initialUnit === null || !Number.isFinite(Number(row.initialUnit))) {
-      return 'ยังไม่ได้กรอกเลขมิเตอร์ตั้งต้นครับ';
+      return 'ยังไม่ได้กรอกเลขมิเตอร์ตั้งต้น';
     }
-    if (Number(row.initialUnit) < 0) return 'เลขมิเตอร์ติดลบไม่ได้ครับ';
+    if (Number(row.initialUnit) < 0) return 'เลขมิเตอร์ติดลบไม่ได้';
 
     if (row.phone.trim() && !/^0\d{8,9}$/.test(row.phone.replace(/-/g, ''))) {
       return 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 9-10 หลัก เช่น 0812345678)';
     }
 
-    if (!this.villagesId) return 'ยังไม่ได้เลือกหมู่บ้านด้านบนครับ';
+    if (!this.villagesId) return 'ยังไม่ได้เลือกหมู่บ้านด้านบน';
 
     const houseNo = this.normalizeHouseNo(row.houseNo);
     if (this.rows.some((other) => other !== row && this.normalizeHouseNo(other.houseNo) === houseNo)) {
-      return 'บ้านเลขที่นี้ซ้ำกับอีกแถวในคิวครับ';
+      return 'บ้านเลขที่นี้ซ้ำกับอีกแถวในคิว';
     }
     if (this.members.some((m) => this.normalizeHouseNo(m?.house_no) === houseNo)) {
-      return 'บ้านเลขที่นี้มีอยู่ในระบบแล้วครับ';
+      return 'บ้านเลขที่นี้มีอยู่ในระบบแล้ว';
     }
 
     return null;
@@ -328,7 +328,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
   stopQueue(): void {
     if (!this.isSaving) return;
     this.stopRequested = true;
-    toast.success('จะหยุดหลังลงทะเบียนหลังที่ค้างอยู่เสร็จนะครับ', { id: 'reg-stop' });
+    toast.success('จะหยุดหลังลงทะเบียนหลังที่ค้างอยู่เสร็จ', { id: 'reg-stop' });
   }
 
   // ==========================================
@@ -340,7 +340,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
     const queue = this.savableRows;
     if (!queue.length) {
-      toast.error('ยังไม่มีแถวไหนพร้อมลงทะเบียนครับ', { id: 'reg-none' });
+      toast.error('ยังไม่มีแถวไหนพร้อมลงทะเบียน', { id: 'reg-none' });
       return;
     }
 
@@ -362,14 +362,14 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
       if (this.stopRequested) {
         this.stopRequested = false;
-        toast.success(`หยุดแล้วครับ ลงทะเบียนไปทั้งหมด ${done.length - failed} หลัง`, { id: 'reg-done' });
+        toast.success(`หยุดแล้ว ลงทะเบียนไปทั้งหมด ${done.length - failed} หลัง`, { id: 'reg-done' });
         return;
       }
 
       toast.success(
         failed
-          ? `ลงทะเบียนสำเร็จ ${done.length - failed} หลัง ไม่สำเร็จ ${failed} หลังครับ`
-          : `ลงทะเบียนครบ ${queue.length} หลังแล้วครับ`,
+          ? `ลงทะเบียนสำเร็จ ${done.length - failed} หลัง ไม่สำเร็จ ${failed} หลัง`
+          : `ลงทะเบียนครบ ${queue.length} หลังแล้ว`,
         { id: 'reg-done' }
       );
       return;

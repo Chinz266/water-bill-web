@@ -2,18 +2,18 @@
   <div class="page-head">
     <h1 class="page-title">สแกนมิเตอร์น้ำ</h1>
     <p class="page-subtitle">
-      เลือกรูปแล้วปล่อยได้เลย — ระบบออกบิลเองเฉพาะใบที่ยืนยันบ้านได้ครับ
+      เลือกภาพแล้วระบบจะอ่านตัวเลขให้อัตโนมัติ และออกบิลให้เฉพาะใบที่ยืนยันบ้านได้
     </p>
   </div>
 
   <!-- คิวที่ค้างจากครั้งก่อน (ไฟดับ/เน็ตหลุด/ปิดแท็บ) — ถามก่อน ไม่ยัดกลับมาเอง -->
   @if (pendingRestore && pendingRestoreLeft) {
     <section class="card step restore-card">
-      <h2 class="step-title">มีคิวค้างจากครั้งที่แล้วครับ</h2>
+      <h2 class="step-title">มีคิวค้างจากครั้งที่แล้ว</h2>
       <!-- ต้องบอกว่าไม่มีรูปให้เทียบแล้ว ไม่งั้นคนกดทำต่อโดยคิดว่ายังตรวจหน้าปัดซ้ำได้ -->
       <p class="restore-text">
-        ค้างอีก <strong>{{ pendingRestoreLeft }}</strong> ใบ ทำต่อได้เลย —
-        แต่<strong>ไม่ได้เก็บรูปไว้</strong> เทียบหน้าปัดไม่ได้แล้วครับ
+        ค้างอีก <strong>{{ pendingRestoreLeft }}</strong> ใบ ทำต่อได้ทันที —
+        แต่<strong>ไม่ได้เก็บภาพไว้</strong> เทียบหน้าปัดไม่ได้แล้ว
       </p>
       <div class="restore-actions">
         <button type="button" class="btn btn-primary" (click)="resumeQueue()">ทำต่อจากที่ค้างไว้</button>
@@ -26,7 +26,7 @@
   <section class="card step">
     <div class="step-head">
       <span class="step-no">1</span>
-      <h2 class="step-title">รอบบิลและรูปที่จะอ่าน</h2>
+      <h2 class="step-title">รอบบิลและภาพที่จะอ่าน</h2>
     </div>
 
     <div class="pick-fields">
@@ -61,7 +61,7 @@
         </label>
       }
     </div>
-    <p class="field-hint">ภาพทั้งชุดใช้รอบบิลเดียวกัน — ระบบกำหนดตามวันที่ถ่ายภาพให้ และเปลี่ยนได้ครับ</p>
+    <p class="field-hint">ภาพทั้งชุดใช้รอบบิลเดียวกัน — ระบบกำหนดตามวันที่ถ่ายภาพให้ และเปลี่ยนได้</p>
 
     <div class="pick-row">
       <!-- ถ่ายสด ๆ ทีละหลัง (capture=environment = กล้องหลัง) — เดิมเป็นอีกหน้าหนึ่ง
@@ -74,7 +74,7 @@
 
       <label class="btn btn-secondary pick-btn" for="batch-files">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v13"/></svg>
-        เลือกหลายรูป
+        เลือกหลายภาพ
       </label>
       <input id="batch-files" type="file" accept="image/*" multiple (change)="onFilesPicked($event)" hidden />
 
@@ -95,12 +95,12 @@
       }
     </div>
 
-    <p class="field-hint">ครั้งละไม่เกิน {{ maxFiles }} รูป · ในคิวตอนนี้ {{ rows.length }} รูป</p>
+    <p class="field-hint">ครั้งละไม่เกิน {{ maxFiles }} ภาพ · ในคิวตอนนี้ {{ rows.length }} ภาพ</p>
 
     @if (membersFailed) {
       <div class="alert alert-danger">
         <span>⚠️</span>
-        <span>โหลดรายชื่อบ้านไม่สำเร็จ ยังเลือกบ้านให้รูปไม่ได้ครับ</span>
+        <span>โหลดรายชื่อบ้านไม่สำเร็จ จึงยังเลือกบ้านให้ภาพนี้ไม่ได้</span>
       </div>
       <button type="button" class="btn btn-secondary btn-sm" (click)="loadMembers()" [disabled]="isLoadingMembers">
         ลองโหลดรายชื่อบ้านใหม่
@@ -108,7 +108,7 @@
     } @else if (!isLoadingMembers && members.length === 0) {
       <div class="alert alert-warning">
         <span>⚠️</span>
-        <span>ยังไม่มีบ้านในระบบ ไปเพิ่มที่หน้า "ลูกบ้าน" ก่อนครับ</span>
+        <span>ยังไม่มีข้อมูลบ้านในระบบ กรุณาเพิ่มที่หน้า "ลูกบ้าน" ก่อน</span>
       </div>
     }
   </section>
@@ -123,7 +123,7 @@
 
       <div class="summary">
         <div class="summary-cell">
-          <span class="summary-cap">รูปทั้งหมด</span>
+          <span class="summary-cap">ภาพทั้งหมด</span>
           <span class="summary-val">{{ rows.length }}</span>
         </div>
         <div class="summary-cell">
@@ -145,7 +145,7 @@
         <div class="alert alert-warning">
           <span>📍</span>
           <span>
-            มี <strong>{{ rowsMissingCoords }}</strong> รูปไม่มีพิกัด จับคู่บ้านเองไม่ได้ครับ
+            มี <strong>{{ rowsMissingCoords }}</strong> ภาพไม่มีพิกัด ระบบจับคู่บ้านให้ไม่ได้
             — {{ photoCoordsHint }}
           </span>
         </div>
@@ -154,14 +154,14 @@
       <!-- ของประกอบสายตาล้วน: กองรูปนี้อยู่ห่างจากที่ยืนอยู่ตอนนี้แค่ไหน
            หยิบรูปผิดกอง (คนละวัน/คนละหมู่บ้าน) จะเห็นเป็นหลักกิโลตั้งแต่ก่อนกดอ่านเลข
            ค่าจากเครื่องไม่เข้าด่านของ autoSavable() และไม่ถูกส่งไปกับบิลใบไหนทั้งนั้น -->
-      <app-device-location [photo]="batchCenter" subject="ใจกลางกองรูป" />
+      <app-device-location [photo]="batchCenter" subject="ใจกลางกองภาพ" />
 
       @if (isSaving) {
         <div class="progress">
           <div class="progress-bar">
             <span class="progress-fill" [style.width.%]="progressPercent"></span>
           </div>
-          <p class="field-hint">กำลังออกบิล {{ progress.done }} / {{ progress.total }} ใบ — อย่าเพิ่งปิดหน้านี้ครับ</p>
+          <p class="field-hint">กำลังออกบิล {{ progress.done }} / {{ progress.total }} ใบ — กรุณาอย่าปิดหน้านี้</p>
           <button type="button" class="btn btn-secondary btn-sm" (click)="stopQueue()">
             หยุดคิว (ทำใบที่ค้างให้จบ)
           </button>
@@ -175,14 +175,14 @@
           <span>⚡</span>
           <div class="force-body">
             <p class="force-text">
-              ออก<strong>บิลใบที่เหลืออีก {{ forceConfirm.total }} ใบ</strong>ที่เลือกบ้านไว้เลยไหมครับ
+              ออก<strong>บิลใบที่เหลืออีก {{ forceConfirm.total }} ใบ</strong>ที่เลือกบ้านไว้แล้วหรือไม่
             </p>
             <!-- ตัวเลขนี้ตัดไม่ได้ นี่คือจุดเดียวที่คนรู้ว่ากำลังปล่อยใบที่ระบบยังไม่ยืนยันบ้านผ่านไปกี่ใบ -->
             @if (forceConfirm.skipped) {
               <p class="force-text warn">
                 ⚠️ มี <strong>{{ forceConfirm.skipped }} ใบที่ระบบยังไม่ยืนยันบ้านให้</strong>
                 (พิกัดระบุบ้านไม่ได้ · ความชัดเจนต่ำกว่า 85% · ไม่มีวันที่ถ่ายภาพ · คนละรอบบิล · ปริมาณการใช้น้ำสูงผิดปกติ)
-                จะออกไปด้วย เลือกบ้านผิด = ลูกบ้านได้บิลผิดหลังครับ
+                จะออกไปด้วย หากเลือกบ้านผิด ลูกบ้านจะได้รับบิลผิดหลัง
               </p>
             }
             <div class="force-actions">
@@ -202,17 +202,17 @@
       <button type="button" class="btn btn-secondary btn-block" (click)="analyze()" [disabled]="isBusy || !analyzableRows.length">
         @if (isAnalyzing) {
           <span class="btn-spinner"></span>
-          กำลังอ่าน {{ progress.total }} รูป...
+          กำลังอ่าน {{ progress.total }} ภาพ...
         } @else {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-          อ่านเลขอีกครั้ง ({{ analyzableRows.length }} รูป)
+          อ่านเลขอีกครั้ง ({{ analyzableRows.length }} ภาพ)
         }
       </button>
 
       @if (isAnalyzing) {
-        <p class="field-hint">รูปเยอะอาจใช้เวลาหลายนาที รอจนขึ้นผลครับ</p>
+        <p class="field-hint">ภาพจำนวนมากอาจใช้เวลาหลายนาที กรุณารอจนกว่าผลจะแสดง</p>
       } @else if (analyzableRows.length) {
-        <p class="field-hint">ระบบเริ่มอ่านเองในไม่กี่วินาที กดปุ่มถ้าอยากเริ่มเลยครับ</p>
+        <p class="field-hint">ระบบจะเริ่มอ่านอัตโนมัติภายในไม่กี่วินาที หรือกดปุ่มเพื่อเริ่มทันที</p>
       }
     </section>
 
@@ -231,7 +231,7 @@
             @if (!row.previewUrl || row.brokenImage) {
               <label class="row-photo row-photo-retake" [for]="'retake-photo-' + row.seq">
                 <span class="retake-icon">📸</span>
-                <span>{{ row.previewUrl ? 'เปิดรูปไม่ขึ้น' : 'ไม่มีรูป' }}<br />ถ่าย/อัปโหลดใหม่</span>
+                <span>{{ row.previewUrl ? 'เปิดภาพไม่ขึ้น' : 'ไม่มีภาพ' }}<br />ถ่าย/อัปโหลดใหม่</span>
               </label>
               <input
                 [id]="'retake-photo-' + row.seq"
@@ -243,7 +243,7 @@
                 (change)="onRetakePicked($event, row)"
               />
             } @else {
-              <img class="row-photo" [src]="row.previewUrl" [alt]="'รูปมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
+              <img class="row-photo" [src]="row.previewUrl" [alt]="'ภาพมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
             }
 
             <div class="row-body">
@@ -271,7 +271,7 @@
                     </span>
                   }
                 } @else {
-                  <span class="row-date warn">📍 ไม่มีพิกัดในรูป</span>
+                  <span class="row-date warn">📍 ไม่มีพิกัดในภาพ</span>
                 }
 
                 @switch (row.status) {
@@ -306,12 +306,12 @@
                 }
 
                 @if (row.status !== 'saved') {
-                  <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isBusy" aria-label="เอารูปนี้ออก">✕</button>
+                  <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isBusy" aria-label="เอาภาพนี้ออก">✕</button>
                 }
               </div>
 
               @if (row.status === 'saved') {
-                <p class="row-saved">ออกบิลให้ {{ memberLabel(row.memberId) }} แล้วครับ</p>
+                <p class="row-saved">ออกบิลให้ {{ memberLabel(row.memberId) }} แล้ว</p>
               } @else {
                 <div class="row-fields">
                   <div class="row-field row-field-house">
@@ -338,7 +338,7 @@
                       (ngModelChange)="onRowEdited()"
                       [disabled]="isBusy"
                       [class.is-invalid]="unitCheck(row)?.level === 'error'"
-                      placeholder="กรอกเอง"
+                      placeholder="กรอกตัวเลขด้วยตนเอง"
                     />
                   </label>
                 </div>
@@ -366,7 +366,7 @@
                      ต้องกรอกเลขปิดของตัวเก่าด้วย ไม่งั้นหน่วยของรอบนี้จะหายไปทั้งก้อน -->
                 @if (meterResetPending(row)) {
                   <div class="meter-reset">
-                    <span class="row-cap">ถ้าบ้านหลังนี้เพิ่งเปลี่ยนมิเตอร์ใหม่ ให้กรอกเลขปิดของมิเตอร์ตัวเก่าครับ</span>
+                    <span class="row-cap">หากบ้านหลังนี้เพิ่งเปลี่ยนมิเตอร์ใหม่ กรุณากรอกเลขปิดของมิเตอร์ตัวเดิม</span>
                     <div class="meter-reset-row">
                       <input
                         class="field-input"
@@ -405,16 +405,16 @@
                     <span class="row-cap">
                       @if (!hasPhoto(row)) {
                         <!-- ไม่มีรูปให้เทียบแล้ว เหลือเลขสะสมของแต่ละหลังเป็นตัวชี้ขาดว่าจดของหลังไหน -->
-                        ไม่มีรูปให้เทียบแล้ว — ดู<strong>เลขเดือนที่แล้ว</strong>ของแต่ละหลัง
-                        แล้วเลือกหลังที่หน่วยสมเหตุสมผลครับ
+                        ไม่มีภาพให้เทียบแล้ว — ดู<strong>เลขเดือนที่แล้ว</strong>ของแต่ละหลัง
+                        แล้วเลือกหลังที่จำนวนหน่วยสมเหตุสมผล
                       } @else if (row.memberId) {
-                        ใกล้กันหลายหลัง เทียบรูปแล้วเลือกหลังที่ถ่ายจริงครับ
+                        มีหลายหลังอยู่ใกล้กัน กรุณาเทียบกับภาพแล้วเลือกหลังที่ถ่ายจริง
                       } @else if (freeNearbyCount(row) === 1) {
                         <!-- หลังอื่นถูกรูปใบอื่นในกองใช้ไปแล้ว (บ้านหนึ่งหลังมีบิลได้รอบละใบเดียว)
                              เหลือทางเดียวก็จริง แต่ยังต้องให้คนกดเอง เผื่อรูปใบที่ไปจองไว้เลือกผิด -->
-                        เหลือหลังเดียวที่ว่าง ถ้าตรงกับรูปนี้กดได้เลยครับ
+                        เหลือบ้านว่างเพียงหลังเดียว หากตรงกับภาพนี้ กรุณากดเลือก
                       } @else {
-                        จุดถ่ายรูปอยู่ใกล้บ้านพวกนี้ครับ
+                        จุดถ่ายภาพอยู่ใกล้บ้านพวกนี้
                       }
                     </span>
                     <div class="nearby-list">
@@ -454,7 +454,7 @@
                                เทียบพิกัดในรูปกับหมุดที่ลงทะเบียนไว้ ไม่ใช่หมุดเทียบหมุด -->
                           @if (photoSide(row, near.member); as side) {
                             <span class="nearby-side">
-                              รูปอยู่ทาง<strong>{{ side.label }}</strong>ของหมุด
+                              ภาพอยู่ทาง<strong>{{ side.label }}</strong>ของหมุด
                               {{ side.meters | number: '1.0-0' }} ม.@if (!side.certain) { · ยังไม่ยืนยัน }
                             </span>
                           }
@@ -474,7 +474,7 @@
                           }
                           <span class="nearby-name">{{ near.member.fname }} {{ near.member.lname }}</span>
                           @if (near.takenBySeq !== null) {
-                            <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม. · รูป #{{ near.takenBySeq }} ใช้แล้ว</span>
+                            <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม. · ภาพ #{{ near.takenBySeq }} ใช้แล้ว</span>
                           } @else {
                             <span class="nearby-meters">ห่าง {{ near.meters | number: '1.0-0' }} ม.</span>
                           }
@@ -498,11 +498,11 @@
                     <div class="lab">
                       <div class="lab-head">
                         @if (row.previewUrl) {
-                          <img class="lab-thumb" [src]="row.previewUrl" alt="รูปมิเตอร์ใบที่ {{ row.seq }}" />
+                          <img class="lab-thumb" [src]="row.previewUrl" alt="ภาพมิเตอร์ใบที่ {{ row.seq }}" />
                         }
                         <div class="lab-head-text">
-                          <strong>รูปที่ {{ row.seq }}</strong>
-                          <span class="lab-key">ตัวเลขทั้งหมดข้างล่างเป็นของรูปใบนี้ใบเดียว</span>
+                          <strong>ภาพที่ {{ row.seq }}</strong>
+                          <span class="lab-key">ตัวเลขทั้งหมดข้างล่างเป็นของภาพใบนี้ใบเดียว</span>
                         </div>
                       </div>
 
@@ -519,12 +519,12 @@
                           </div>
                         </div>
                         <button type="button" class="btn btn-sm btn-secondary lab-copy" (click)="copyPhotoCoords(row)">
-                          📋 คัดลอกสองค่านี้ (วางทีเดียวได้ทั้งสองช่อง)
+                          📋 คัดลอกสองค่านี้ (วางครั้งเดียวได้ทั้งสองช่อง)
                         </button>
                       </section>
 
                       <section class="lab-sec">
-                        <h4 class="lab-sec-title"><span class="lab-num">2</span> ตาราง A — รูป x มิเตอร์</h4>
+                        <h4 class="lab-sec-title"><span class="lab-num">2</span> ตาราง A — ภาพ x มิเตอร์</h4>
                         <div class="lab-row">
                           @for (m of lab.meters; track m.houseNo) {
                             <div class="lab-box" [class.is-nearest]="m.isNearest" [class.is-picked]="m.isPicked">
@@ -537,7 +537,7 @@
                         </div>
                         <div class="lab-row">
                           <div class="lab-box lab-box-wide">
-                            <span class="lab-key">ความคลาดเคลื่อน — ระยะจากรูปถึงมิเตอร์ตัวที่เลือกไว้</span>
+                            <span class="lab-key">ความคลาดเคลื่อน — ระยะจากภาพถึงมิเตอร์ตัวที่เลือกไว้</span>
                             @if (lab.errorMeters !== null) {
                               <span class="lab-val">{{ lab.errorMeters | number: '1.1-1' }} <small>ม.</small></span>
                             } @else {
@@ -552,7 +552,7 @@
                       @if (pairPhotos(row); as pair) {
                         <section class="lab-sec">
                           <h4 class="lab-sec-title">
-                            <span class="lab-num">3</span> เทียบรูปมิเตอร์สองตัว ({{ pair.axis }})
+                            <span class="lab-num">3</span> เทียบภาพมิเตอร์สองตัว ({{ pair.axis }})
                           </h4>
 
                           <div class="lab-pair">
@@ -560,11 +560,11 @@
                               @if (pair.first.previewUrl) {
                                 <img [src]="pair.first.previewUrl" alt="มิเตอร์ {{ pair.first.houseNo }}" />
                               } @else {
-                                <div class="lab-pair-empty">ยังไม่มีรูปของหลังนี้ในกอง</div>
+                                <div class="lab-pair-empty">ยังไม่มีภาพของหลังนี้ในกอง</div>
                               }
                               <figcaption>
                                 <strong>{{ pair.first.houseNo }}</strong>
-                                @if (pair.first.seq !== null) { <span>รูป #{{ pair.first.seq }}</span> }
+                                @if (pair.first.seq !== null) { <span>ภาพ #{{ pair.first.seq }}</span> }
                               </figcaption>
                             </figure>
 
@@ -576,11 +576,11 @@
                               @if (pair.second.previewUrl) {
                                 <img [src]="pair.second.previewUrl" alt="มิเตอร์ {{ pair.second.houseNo }}" />
                               } @else {
-                                <div class="lab-pair-empty">ยังไม่มีรูปของหลังนี้ในกอง</div>
+                                <div class="lab-pair-empty">ยังไม่มีภาพของหลังนี้ในกอง</div>
                               }
                               <figcaption>
                                 <strong>{{ pair.second.houseNo }}</strong>
-                                @if (pair.second.seq !== null) { <span>รูป #{{ pair.second.seq }}</span> }
+                                @if (pair.second.seq !== null) { <span>ภาพ #{{ pair.second.seq }}</span> }
                               </figcaption>
                             </figure>
                           </div>
@@ -589,7 +589,7 @@
                           @if (!pair.certain) {
                             <p class="lab-warn">
                               ⚠️ ลำดับซ้าย-ขวาที่เห็นนี้ยังยืนยันไม่ได้ — มิเตอร์สองตัวใกล้กันกว่าเขตที่ GPS
-                              บอกทิศได้ ตัวที่ตอบได้จริงคือลำดับตำแหน่งบนกำแพงที่จดไว้ล่วงหน้าครับ
+                              บอกทิศได้ ตัวที่ตอบได้จริงคือลำดับตำแหน่งบนกำแพงที่จดไว้ล่วงหน้า
                             </p>
                           }
                         </section>
@@ -647,7 +647,7 @@
                 @if (needsCoordsRepair(row)) {
                   <p class="row-note">
                     🛠️ พิกัดของบ้านหลังนี้ใช้ไม่ได้ ออกบิลได้ตามปกติ
-                    แต่รบกวนไปเติมที่หน้าทะเบียนลูกบ้านครับ
+                    แต่รบกวนไปเติมที่หน้าทะเบียนลูกบ้าน
                   </p>
                 }
 
@@ -656,11 +656,11 @@
                 @if (distanceToSelected(row); as meters) {
                   @if (isConfirmedByCoords(row)) {
                     <p class="row-note ok">
-                      📍 พิกัดในรูปตรงกับบ้านที่เลือก (ห่าง {{ meters | number: '1.0-0' }} ม.)
+                      📍 พิกัดในภาพตรงกับบ้านที่เลือก (ห่าง {{ meters | number: '1.0-0' }} ม.)
                     </p>
                   } @else {
                     <p class="row-issue">
-                      📍 ห่างมิเตอร์ของบ้านที่เลือก {{ meters | number: '1.0-0' }} ม. เช็คว่าถูกหลังไหมครับ
+                      📍 ห่างมิเตอร์ของบ้านที่เลือก {{ meters | number: '1.0-0' }} ม. กรุณาตรวจสอบว่าเป็นบ้านหลังที่ถูกต้อง
                     </p>
                   }
                 }
@@ -675,12 +675,12 @@
                      บิลออกไปแล้ว — และใบที่ยังไม่ยืนยันบ้านต้องต่างจากใบที่ยืนยันได้ชัด ๆ -->
                 @if (blockingIssue(row) === null) {
                   @if (autoSavable(row) && isConfirmedByCoords(row)) {
-                    <p class="row-note ok">⚡ พิกัดตรงแปะ ออกบิลให้เองทันทีครับ</p>
+                    <p class="row-note ok">⚡ พิกัดตรงแปะ ออกบิลให้อัตโนมัติทันที</p>
                   } @else if (autoSavable(row)) {
-                    <p class="row-note ok">⚡ เลขมิเตอร์ชี้บ้านได้ กดยืนยันแล้วออกบิลให้ครับ</p>
+                    <p class="row-note ok">⚡ เลขมิเตอร์ชี้บ้านได้ กดยืนยันแล้วออกบิลให้</p>
                   } @else {
                     <p class="row-issue">
-                      ⚡ <strong>ระบบยังยืนยันบ้านให้ไม่ได้</strong> แต่รายการนี้จะถูกออกบิลไปด้วยหากยืนยันทั้งชุด — กรุณาตรวจสอบก่อนครับ
+                      ⚡ <strong>ระบบยังยืนยันบ้านให้ไม่ได้</strong> แต่รายการนี้จะถูกออกบิลไปด้วยหากยืนยันทั้งชุด — กรุณาตรวจสอบก่อน
                     </p>
                   }
                 }
@@ -693,7 +693,7 @@
                      ต่างจากแถวที่ไม่มีรูป ซึ่ง blockingIssue กันไว้จนกว่าจะแนบรูปใหม่ -->
                 @if (lowConfidenceWarning(row)) {
                   <p class="row-issue">
-                    ⚠️ ระบบอ่านตัวเลขได้ไม่ชัดเจน ({{ row.confidence }}%) กรุณาตรวจสอบกับภาพถ่าย และแก้ไขให้ตรงก่อนออกบิลครับ
+                    ⚠️ ระบบอ่านตัวเลขได้ไม่ชัดเจน ({{ row.confidence }}%) กรุณาตรวจสอบกับภาพถ่าย และแก้ไขให้ตรงก่อนออกบิล
                   </p>
                 }
 
@@ -736,7 +736,7 @@
                      ปุ่มจึงต้องอยู่ติดกับข้อความ ไม่ใช่ปล่อยให้ไปหาเองว่าจะแนบรูปใหม่ตรงไหน -->
                 @if (needsRetake(row)) {
                   <label class="btn btn-secondary btn-sm row-crop" [for]="'retake-cta-' + row.seq">
-                    📸 อัปโหลด/ถ่ายรูปใหม่
+                    📸 อัปโหลด/ถ่ายภาพใหม่
                   </label>
                   <input
                     [id]="'retake-cta-' + row.seq"
@@ -819,7 +819,7 @@
                 <table class="lab-table">
                   <thead>
                     <tr>
-                      <th>รูป</th>
+                      <th>ภาพ</th>
                       <th>D · ชื่อไฟล์</th>
                       <th>E · วัน-เวลาที่ถ่าย</th>
                       <th>F · ละติจูด</th>
@@ -849,13 +849,13 @@
                 <span class="lab-num">M</span> ผลการอ่านตัวเลขของระบบ — วางทีละคอลัมน์
               </h4>
               <p class="lab-key">
-                ระหว่าง G กับ M มีคอลัมน์ที่คุณกรอกเอง (ระยะถ่าย · มุม · สภาพแสง · คุณภาพรูป)
-                คั่นอยู่ ถ้าคัดลอกรวบเป็นก้อนเดียวช่องว่างจะไปทับของที่กรอกไว้แล้ว จึงแยกปุ่มครับ
+                ระหว่าง G กับ M มีคอลัมน์ที่คุณกรอกด้วยตนเอง (ระยะถ่าย · มุม · สภาพแสง · คุณภาพภาพ)
+                คั่นอยู่ ถ้าคัดลอกรวบเป็นก้อนเดียวช่องว่างจะไปทับของที่กรอกไว้แล้ว จึงแยกปุ่ม
               </p>
               <div class="lab-table-wrap">
                 <table class="lab-table">
                   <thead>
-                    <tr><th>รูป</th><th>M · read_unit</th><th>P · confidence</th></tr>
+                    <tr><th>ภาพ</th><th>M · read_unit</th><th>P · confidence</th></tr>
                   </thead>
                   <tbody>
                     @for (p of labPhotoRows(); track p.seq) {
@@ -879,8 +879,8 @@
             </section>
 
             <p class="lab-key lab-foot">
-              คอลัมน์ที่เหลือในแผ่น Photos (รหัสคู่ · ด้าน · รหัสรูป · ระยะถ่าย · มุม · สภาพแสง ·
-              คุณภาพรูป · full_reading · เลขจริงบนหน้าปัด · อ่านถูก? 1/0) หน้าเว็บไม่รู้ ต้องกรอกเองครับ
+              คอลัมน์ที่เหลือในแผ่น Photos (รหัสคู่ · ด้าน · รหัสภาพ · ระยะถ่าย · มุม · สภาพแสง ·
+              คุณภาพภาพ · full_reading · เลขจริงบนหน้าปัด · อ่านถูก? 1/0) หน้าเว็บไม่รู้ ต้องกรอกด้วยตนเอง
             </p>
           </div>
         }
@@ -899,8 +899,8 @@
       <div class="alert alert-info auto-note">
         <span>⚡</span>
         <span>
-          ใบที่<strong>พิกัดตรงแปะ</strong> (ห่างมิเตอร์ไม่เกิน 25 ม. และไม่มีบ้านอื่นใกล้พอ ๆ กัน)
-          ระบบออกบิลให้เองทันที ใบที่เหลือถามก่อนเสมอครับ
+          ใบที่<strong>พิกัดตรงแปะ</strong> (ห่างมิเตอร์ไม่เกิน 25 ม. และไม่มีบ้านอื่นอยู่ใกล้ในระยะใกล้เคียงกัน)
+          ระบบจะออกบิลให้อัตโนมัติ ส่วนใบที่เหลือจะสอบถามก่อนทุกครั้ง
           @if (savableRows.length) {
             — <strong>พร้อมยิง {{ savableRows.length }} ใบ (ตรงแปะ {{ instantRows.length }} ใบ)</strong>
           }
@@ -919,7 +919,7 @@
 
       @if (needsAttention) {
         <p class="field-hint">
-          อีก {{ needsAttention }} รูปยังออกบิลไม่ได้ แก้ตามข้อความในแถวแล้วกดปุ่มนี้ใหม่ครับ
+          อีก {{ needsAttention }} ภาพยังออกบิลไม่ได้ แก้ตามข้อความในแถวแล้วกดปุ่มนี้ใหม่
         </p>
       }
     </section>
@@ -931,7 +931,7 @@
     <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="เลือกบ้าน">
       <div class="modal-card picker-card">
         <div class="modal-header">
-          <h2 class="modal-title">เลือกบ้านของรูปที่ {{ row.seq }}</h2>
+          <h2 class="modal-title">เลือกบ้านของภาพที่ {{ row.seq }}</h2>
           <button type="button" class="modal-close" (click)="closeHousePicker()" aria-label="ปิด">✕</button>
         </div>
 
@@ -965,7 +965,7 @@
                   <!-- ล็อกเพราะยังไม่ได้จดตัวที่อยู่ทางซ้าย ไม่ใช่เพราะบ้านหลังนี้มีปัญหา -->
                   🔒 {{ locked }}
                 } @else if (option.takenBySeq !== null) {
-                  รูป #{{ option.takenBySeq }} เลือกหลังนี้ไปแล้ว
+                  ภาพ #{{ option.takenBySeq }} เลือกหลังนี้ไปแล้ว
                 } @else {
                   @if (option.meters !== null) {
                     ห่างจุดถ่าย {{ option.meters | number: '1.0-0' }} ม.
@@ -979,7 +979,7 @@
               </span>
             </button>
           } @empty {
-            <p class="field-hint">ไม่พบบ้านที่ค้นหาครับ</p>
+            <p class="field-hint">ไม่พบบ้านที่ค้นหา</p>
           }
         </div>
 
@@ -1000,7 +1000,7 @@
     <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="ครอบเฉพาะช่องตัวเลข">
       <div class="modal-card">
         <div class="modal-header">
-          <h2 class="modal-title">ครอบเฉพาะช่องตัวเลข (รูปที่ {{ row.seq }})</h2>
+          <h2 class="modal-title">ครอบเฉพาะช่องตัวเลข (ภาพที่ {{ row.seq }})</h2>
           <button type="button" class="modal-close" (click)="closeCrop()" [disabled]="isRereading" aria-label="ปิด">✕</button>
         </div>
 

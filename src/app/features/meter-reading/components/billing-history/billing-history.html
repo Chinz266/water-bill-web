@@ -18,7 +18,7 @@
   @if (isLoading) {
     <div class="card">
       <p class="loading-note">
-        <span class="loading-dot"></span> กำลังโหลดประวัติบิล รอสักครู่นะครับ...
+        <span class="loading-dot"></span> กำลังโหลดประวัติบิล รอสักครู่...
       </p>
       <div class="skeleton skeleton-row"></div>
       <div class="skeleton skeleton-row"></div>
@@ -172,7 +172,7 @@
         <div class="empty-state">
           <div class="empty-art">🔍</div>
           <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
-          <p class="empty-text">ลองพิมพ์บ้านเลขที่หรือชื่อใหม่อีกครั้ง หรือเลือกเดือนอื่นดูนะครับ</p>
+          <p class="empty-text">ลองพิมพ์บ้านเลขที่หรือชื่อใหม่อีกครั้ง หรือเลือกเดือนอื่นดู</p>
           <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">
             ล้างคำค้นหา
           </button>
@@ -187,7 +187,7 @@
       <div class="empty-state">
         <div class="empty-art">💧</div>
         <h2 class="empty-title">ยังไม่มีบิลในระบบ</h2>
-        <p class="empty-text">เริ่มจากการสแกนมิเตอร์น้ำสักหลัง แล้วบิลจะมาแสดงที่หน้านี้ให้เองครับ</p>
+        <p class="empty-text">เริ่มจากการสแกนมิเตอร์น้ำสักหลัง แล้วบิลจะมาแสดงที่หน้านี้ให้อัตโนมัติ</p>
         <button type="button" class="btn btn-primary" routerLink="/scan-batch">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
           ไปสแกนมิเตอร์
@@ -307,28 +307,28 @@
       <!-- รูปหน้าปัดตอนจด — หลักฐานว่าเลขที่คิดเงินมาจากมิเตอร์ใบไหน ตอนไหน ที่ไหน -->
       @if (detail) {
         <div class="detail-block">
-          <div class="detail-heading">รูปมิเตอร์ตอนจด</div>
+          <div class="detail-heading">ภาพมิเตอร์ตอนจด</div>
 
           @if (detail.photo && !photoBroken) {
             <button type="button" class="photo-open" (click)="openPhoto()">
-              <img class="meter-photo" [src]="detail.photo" alt="รูปหน้าปัดมิเตอร์ตอนจด" (error)="onPhotoError()" />
-              <span class="photo-hint">แตะที่รูปเพื่อดูใหญ่</span>
+              <img class="meter-photo" [src]="detail.photo" alt="ภาพหน้าปัดมิเตอร์ตอนจด" (error)="onPhotoError()" />
+              <span class="photo-hint">แตะที่ภาพเพื่อดูใหญ่</span>
             </button>
           } @else if (detail.photoPurged) {
             <p class="photo-missing">
-              รูปของบิลใบนี้ถูกลบตามนโยบายเก็บหลักฐาน 1 ปีแล้วครับ (บิลชำระแล้วและเกินกำหนดเก็บ)
+              ภาพของบิลใบนี้ถูกลบตามนโยบายเก็บหลักฐาน 1 ปีแล้ว (บิลชำระแล้วและเกินกำหนดเก็บ)
               — ข้อมูลการจดยังอยู่ครบ
             </p>
           } @else if (photoBroken) {
-            <p class="photo-missing">เปิดรูปไม่ขึ้นครับ ไฟล์รูปของบิลใบนี้อาจถูกย้ายหรือลบไปแล้ว</p>
+            <p class="photo-missing">เปิดภาพไม่ขึ้น ไฟล์ภาพของบิลใบนี้อาจถูกย้ายหรือลบไปแล้ว</p>
           } @else {
-            <p class="photo-missing">บิลใบนี้ไม่มีรูปมิเตอร์เก็บไว้ครับ</p>
+            <p class="photo-missing">บิลใบนี้ไม่มีภาพมิเตอร์เก็บไว้</p>
           }
 
           <dl class="detail-list">
             @if (detail.captured) {
               <div class="detail-row">
-                <dt>วันเวลาที่ถ่ายรูป</dt>
+                <dt>วันเวลาที่ถ่ายภาพ</dt>
                 <dd>{{ detail.captured }}</dd>
               </div>
             }
@@ -346,7 +346,7 @@
             }
             @if (detail.coords) {
               <div class="detail-row">
-                <dt>จุดที่ถ่ายรูป</dt>
+                <dt>จุดที่ถ่ายภาพ</dt>
                 <dd>
                   <a class="detail-phone" [href]="detail.mapsUrl" target="_blank" rel="noopener">
                     {{ detail.coords }}
@@ -422,8 +422,8 @@
 <!-- รูปเต็มจอ — ซ้อนทับหน้ารายละเอียดไว้ ปิดแล้วกลับมาที่เดิมโดยไม่เสียตำแหน่ง -->
 @if (photoZoomed && detail?.photo; as zoomPhoto) {
   <div class="photo-zoom" (click)="closePhoto()">
-    <img [src]="zoomPhoto" alt="รูปหน้าปัดมิเตอร์ ขนาดเต็ม" (click)="$event.stopPropagation()" />
-    <button type="button" class="photo-zoom-close" (click)="closePhoto()" aria-label="ปิดรูป">✕</button>
+    <img [src]="zoomPhoto" alt="ภาพหน้าปัดมิเตอร์ ขนาดเต็ม" (click)="$event.stopPropagation()" />
+    <button type="button" class="photo-zoom-close" (click)="closePhoto()" aria-label="ปิดภาพ">✕</button>
   </div>
 }
 
@@ -454,13 +454,13 @@
         </div>
 
         <p class="field-hint">
-          ครอปให้เหลือหน้าปัดกับเลขซีเรียลของมิเตอร์ครับ ถ้าเหลือแต่ตัวเลขจะย้อนมาตรวจไม่ได้ว่าเป็นมิเตอร์ตัวไหน
+          ครอปให้เหลือหน้าปัดกับเลขซีเรียลของมิเตอร์ ถ้าเหลือแต่ตัวเลขจะย้อนมาตรวจไม่ได้ว่าเป็นมิเตอร์ตัวไหน
         </p>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(-1)">↺ หมุนซ้าย</button>
           <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(1)">↻ หมุนขวา</button>
-          <button type="button" class="btn btn-secondary" (click)="cancelEditCrop()">ยกเลิกรูปนี้</button>
+          <button type="button" class="btn btn-secondary" (click)="cancelEditCrop()">ยกเลิกภาพนี้</button>
           <button type="button" class="btn btn-primary" (click)="useEditCrop()" [disabled]="!editPhotoFile">
             ใช้กรอบนี้
           </button>
@@ -477,7 +477,7 @@
             [disabled]="isSavingEdit"
           />
           <p class="field-hint">
-            เดิม {{ logUnit(editBill.meter_reading?.meter_unit) }} หน่วย — ระบบจะลบกับเลขเดือนก่อนแล้วคิดยอดใหม่ให้เองครับ
+            เดิม {{ logUnit(editBill.meter_reading?.meter_unit) }} หน่วย — ระบบจะหักกับเลขของเดือนก่อนหน้า แล้วคำนวณยอดใหม่ให้อัตโนมัติ
           </p>
 
           <label class="field-label" for="edit-reason">เหตุผลที่แก้</label>
@@ -490,16 +490,16 @@
             [disabled]="isSavingEdit"
           />
 
-          <label class="field-label">รูปมิเตอร์ใหม่ (ถ้ามี)</label>
+          <label class="field-label">ภาพมิเตอร์ใหม่ (ถ้ามี)</label>
           @if (editPhoto) {
             <div class="edit-photo-picked">
-              <span>เลือกรูปใหม่ไว้แล้ว</span>
+              <span>เลือกภาพใหม่ไว้แล้ว</span>
               <button type="button" class="btn btn-ghost btn-sm" (click)="clearEditPhoto()" [disabled]="isSavingEdit">
                 เอาออก
               </button>
             </div>
             <p class="field-hint">
-              บันทึกแล้วรูปเดิมจะถูกลบออกจากระบบถาวรครับ
+              บันทึกแล้วภาพเดิมจะถูกลบออกจากระบบถาวร
             </p>
           } @else {
             <input
@@ -517,7 +517,7 @@
             <span>⚠️</span>
             <span>
               {{ editBlockerMessage }}
-              กดบันทึกอีกครั้งเพื่อยืนยันว่าเลขนี้ถูกต้องนะครับ
+              กดบันทึกอีกครั้งเพื่อยืนยันว่าเลขนี้ถูกต้อง
             </span>
           </div>
         }
@@ -545,7 +545,7 @@
   <div class="modal-overlay" (click)="cancelDelete()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">ลบบิลนี้ใช่ไหมครับ?</h2>
+        <h2 class="modal-title">ลบบิลนี้หรือไม่?</h2>
         <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="ปิด">✕</button>
       </div>
 
@@ -554,7 +554,7 @@
         <span>
           บิลของบ้านเลขที่ <strong>{{ billToDelete.member?.house_no || '—' }}</strong>
           ยอด <strong>{{ billToDelete.total_amount | number:'1.2-2' }}</strong> บาท
-          จะถูกลบออกจากระบบถาวร กู้คืนไม่ได้นะครับ
+          จะถูกลบออกจากระบบถาวร กู้คืนไม่ได้
         </span>
       </div>
 
@@ -578,9 +578,9 @@
       <div class="modal-header">
         <h2 class="modal-title">
           @if (toggleTargetStatus === 'Paid') {
-            รับเงินบิลนี้แล้วใช่ไหมครับ?
+            ยืนยันการรับชำระเงินของบิลใบนี้
           } @else {
-            เปลี่ยนกลับเป็นรอชำระเงินใช่ไหมครับ?
+            ยืนยันการเปลี่ยนสถานะกลับเป็นรอชำระเงิน
           }
         </h2>
         <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด">✕</button>
@@ -604,7 +604,7 @@
             <span>
               ยอดนี้รวม<strong>ยอดค้างเก่า {{ arrears(billToToggle) | number: '1.2-2' }} บาท</strong>ไว้แล้ว
               (ค่าน้ำเดือนนี้ {{ billToToggle.total_amount | number: '1.2-2' }} บาท)
-              — กดรับเงินแล้ว<strong>บิลค้างเก่าจะถูกปิดให้ทั้งชุด</strong>อัตโนมัติครับ
+              — กดรับเงินแล้ว<strong>บิลค้างเก่าจะถูกปิดให้ทั้งชุด</strong>อัตโนมัติ
             </span>
           </div>
         }
@@ -612,7 +612,7 @@
           <span>⚠️</span>
           <span>
             พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
-            ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะที่หน้านี้ก่อนนะครับ
+            ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะที่หน้านี้ก่อน
           </span>
         </div>
       } @else {
@@ -620,7 +620,7 @@
           <span>⚠️</span>
           <span>
             บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
-            และลูกบ้านจะเห็นว่ายังไม่ได้จ่ายครับ
+            และลูกบ้านจะเห็นว่ายังไม่ได้จ่าย
           </span>
         </div>
       }
@@ -645,7 +645,7 @@
             กำลังเปลี่ยน...
           } @else if (toggleTargetStatus === 'Paid') {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-            ยืนยัน รับเงินแล้ว
+            ยืนยันการรับชำระเงิน
           } @else {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
             ยืนยัน กลับเป็นรอชำระ

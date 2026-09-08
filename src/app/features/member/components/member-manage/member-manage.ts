@@ -41,7 +41,7 @@ export class MemberManageComponent implements OnInit {
 
     const id = Number(this.route.snapshot.paramMap.get('membersId'));
     if (!Number.isFinite(id) || id <= 0) {
-      toast.error('ไม่พบรหัสบ้านใน URL ครับ', { id: 'manage-no-id' });
+      toast.error('ไม่พบรหัสบ้านใน URL', { id: 'manage-no-id' });
       return;
     }
 
@@ -165,7 +165,7 @@ export class MemberManageComponent implements OnInit {
         toast.success(
           residual > 0
             ? `บันทึกการเปลี่ยนมิเตอร์แล้ว — น้ำที่ใช้ก่อนถอด ${residual} หน่วย จะถูกบวกเข้าบิลใบถัดไปให้อัตโนมัติ`
-            : 'บันทึกทะเบียนมิเตอร์เรียบร้อยครับ',
+            : 'บันทึกทะเบียนมิเตอร์เรียบร้อย',
           { id: 'meter-saved' }
         );
         this.reload();
@@ -239,13 +239,13 @@ export class MemberManageComponent implements OnInit {
 
     // ดักคู่ที่กรอกไม่ครบตั้งแต่หน้าเว็บ — ข้อความเดียวกับหลังบ้าน แค่ไม่ต้องรอ round trip
     if (group && (seq === null || `${seq}` === '')) {
-      toast.error('อยู่ในกลุ่มมิเตอร์แล้วต้องระบุตำแหน่งด้วยครับ — พิกัดแยกตัวซ้าย/ขวาไม่ได้', {
+      toast.error('อยู่ในกลุ่มมิเตอร์แล้วต้องระบุตำแหน่งด้วย — พิกัดแยกตัวซ้าย/ขวาไม่ได้', {
         id: 'cluster-need-seq'
       });
       return;
     }
     if (!group && seq !== null && `${seq}` !== '') {
-      toast.error('กรอกตำแหน่งแล้วแต่ยังไม่ได้ระบุกลุ่มมิเตอร์ครับ', { id: 'cluster-need-group' });
+      toast.error('กรอกตำแหน่งแล้วแต่ยังไม่ได้ระบุกลุ่มมิเตอร์', { id: 'cluster-need-group' });
       return;
     }
 
@@ -264,8 +264,8 @@ export class MemberManageComponent implements OnInit {
           this.isSavingCluster.set(false);
           toast.success(
             group
-              ? `บันทึกแล้ว — บ้านหลังนี้คือตัวที่ ${seq} จากซ้ายของกลุ่ม ${group} ครับ`
-              : 'ล้างข้อมูลกลุ่มมิเตอร์แล้ว — บ้านหลังนี้กลับไปใช้พิกัดตามปกติครับ',
+              ? `บันทึกแล้ว — บ้านหลังนี้คือตัวที่ ${seq} จากซ้ายของกลุ่ม ${group}`
+              : 'ล้างข้อมูลกลุ่มมิเตอร์แล้ว — บ้านหลังนี้กลับไปใช้พิกัดตามปกติ',
             { id: 'cluster-saved' }
           );
           this.reload();

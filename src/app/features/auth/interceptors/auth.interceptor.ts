@@ -36,7 +36,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (error.status === 401 && isApiCall && isBrowser) {
         authService.logout();
         // บอกผู้ใช้ด้วยว่าทำไมถูกพากลับมาหน้าล็อกอิน ไม่งั้นจะงงว่าหลุดเองเฉย ๆ
-        toast.error('เซสชันหมดอายุแล้ว กรุณาเข้าสู่ระบบอีกครั้งนะครับ', { id: 'session-expired' });
+        toast.error('เซสชันหมดอายุแล้ว กรุณาเข้าสู่ระบบอีกครั้ง', { id: 'session-expired' });
         // ใช้ชื่อ param ว่า redirectTo ให้ตรงกับที่ login.ts อ่านอยู่แล้ว
         void router.navigate(['/login'], {
           queryParams: { redirectTo: router.url },

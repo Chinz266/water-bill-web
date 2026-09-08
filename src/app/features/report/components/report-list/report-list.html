@@ -4,7 +4,7 @@
     @if (openCount > 0) {
       มี {{ openCount }} เรื่องที่ยังไม่เสร็จ — กดที่เรื่องเพื่อตอบกลับลูกบ้าน
     } @else {
-      ดูแลครบทุกเรื่องแล้วครับ 👍
+      ดูแลครบทุกเรื่องแล้ว 👍
     }
   </p>
 </div>
@@ -44,7 +44,7 @@
 
 @if (isLoading) {
   <div class="card">
-    <p class="loading-note"><span class="loading-dot"></span> กำลังโหลดข้อมูล รอสักครู่นะครับ...</p>
+    <p class="loading-note"><span class="loading-dot"></span> กำลังโหลดข้อมูล รอสักครู่...</p>
     <div class="skeleton skeleton-row"></div>
     <div class="skeleton skeleton-row"></div>
   </div>
@@ -65,7 +65,7 @@
         @if (reports.length === 0) {
           เมื่อลูกบ้านแจ้งเรื่องผ่านหน้าพอร์ทัล เรื่องจะมาโผล่ที่นี่ทันที
         } @else {
-          ลองเปลี่ยนคำค้นหา หรือกดดู "ทั้งหมด" ดูนะครับ
+          ลองเปลี่ยนคำค้นหา หรือกดดู "ทั้งหมด" ดู
         }
       </p>
     </div>
@@ -89,7 +89,7 @@
           <p class="rc-detail">{{ report.detail }}</p>
 
           @if (report.photo) {
-            <img class="rc-photo" [src]="report.photo" alt="รูปประกอบเรื่องที่แจ้ง" />
+            <img class="rc-photo" [src]="report.photo" alt="ภาพประกอบเรื่องที่แจ้ง" />
           }
 
           <div class="rc-meta">
@@ -164,7 +164,7 @@
       </div>
 
       @if (selectedReport.photo) {
-        <img class="rc-photo" [src]="selectedReport.photo" alt="รูปประกอบเรื่องที่แจ้ง" />
+        <img class="rc-photo" [src]="selectedReport.photo" alt="ภาพประกอบเรื่องที่แจ้ง" />
       }
 
       <div class="field">
@@ -173,7 +173,7 @@
           id="admin-reply"
           class="field-input reply-textarea"
           rows="4"
-          placeholder="เช่น ช่างเข้าไปตรวจแล้วครับ คาดว่าน้ำจะไหลปกติภายในเย็นนี้"
+          placeholder="เช่น ช่างเข้าไปตรวจแล้ว คาดว่าน้ำจะไหลปกติภายในเย็นนี้"
           [(ngModel)]="replyText"
         ></textarea>
         <span class="field-hint">
@@ -212,7 +212,7 @@
 
       <div class="alert alert-danger">
         ลบเรื่อง "{{ categoryLabel(reportToDelete.category) }}" ของบ้านเลขที่
-        {{ reportToDelete.member?.house_no ?? '—' }} ใช่ไหมครับ?<br />
+        {{ reportToDelete.member?.house_no ?? '—' }} หรือไม่?<br />
         ลบแล้วเรียกคืนไม่ได้ และลูกบ้านจะไม่เห็นเรื่องนี้อีก
       </div>
 

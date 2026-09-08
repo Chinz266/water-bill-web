@@ -88,7 +88,7 @@
   <div class="modal-overlay" (click)="cancelSaveRate()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">เปลี่ยนเรทค่าน้ำใช่ไหมครับ?</h2>
+        <h2 class="modal-title">เปลี่ยนเรทค่าน้ำหรือไม่?</h2>
         <button type="button" class="modal-close" (click)="cancelSaveRate()" aria-label="ปิด">✕</button>
       </div>
 
@@ -199,7 +199,7 @@
           (change)="onDistrictChange()"
         >
           <option [ngValue]="null" disabled>
-            {{ form.controls.provinces_id.value ? '— เลือกอำเภอ —' : 'เลือกจังหวัดก่อนนะครับ' }}
+            {{ form.controls.provinces_id.value ? '— เลือกอำเภอ —' : 'เลือกจังหวัดก่อน' }}
           </option>
           @for (district of districts(); track district.id) {
             <option [ngValue]="district.id">{{ district.name_in_thai }}</option>
@@ -213,7 +213,7 @@
         <label class="field-label" for="subdistricts_id">ตำบล <span class="field-required">*</span></label>
         <select id="subdistricts_id" class="field-input" formControlName="subdistricts_id">
           <option [ngValue]="null" disabled>
-            {{ form.controls.districts_id.value ? '— เลือกตำบล —' : 'เลือกอำเภอก่อนนะครับ' }}
+            {{ form.controls.districts_id.value ? '— เลือกตำบล —' : 'เลือกอำเภอก่อน' }}
           </option>
           @for (subdistrict of subdistricts(); track subdistrict.id) {
             <option [ngValue]="subdistrict.id">{{ subdistrict.name_in_thai }}</option>

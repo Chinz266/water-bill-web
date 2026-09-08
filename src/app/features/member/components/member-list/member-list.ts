@@ -327,7 +327,7 @@ export class MemberListComponent implements OnInit {
      */
     const data = await photoDataUrl(file);
     if (!data) {
-      toast.error('อ่านไฟล์รูปไม่สำเร็จ ลองเลือกใหม่อีกครั้งครับ', { id: 'photo-read-error' });
+      toast.error('อ่านไฟล์ภาพไม่สำเร็จ ลองเลือกใหม่อีกครั้ง', { id: 'photo-read-error' });
       return;
     }
 
@@ -383,13 +383,13 @@ export class MemberListComponent implements OnInit {
     if (!this.validateMember(this.newMember, this.addErrors)) return;
 
     if (!this.newMember.villages_id) {
-      toast.error('กรุณาเลือกหมู่บ้านก่อนบันทึกนะครับ', { id: 'need-village' });
+      toast.error('กรุณาเลือกหมู่บ้านก่อนบันทึก', { id: 'need-village' });
       return;
     }
 
     const coords = toCoords(this.newMember.latitude, this.newMember.longitude);
     if (!coords) {
-      toast.error('ต้องแนบรูปหน้าปัดที่ถ่ายตอนเปิด GPS ไว้ก่อนครับ ระบบใช้พิกัดในรูปเป็นตำแหน่งมิเตอร์ ไม่งั้นจับคู่รูปกับบ้านหลังนี้ไม่ได้', { id: 'need-coords' });
+      toast.error('ต้องแนบภาพหน้าปัดที่ถ่ายตอนเปิด GPS ไว้ก่อน ระบบใช้พิกัดในภาพเป็นตำแหน่งมิเตอร์ ไม่งั้นจับคู่ภาพกับบ้านหลังนี้ไม่ได้', { id: 'need-coords' });
       return;
     }
 
@@ -401,7 +401,7 @@ export class MemberListComponent implements OnInit {
       !Number.isFinite(initialUnit) ||
       initialUnit < 0
     ) {
-      toast.error('กรุณากรอกเลขมิเตอร์ ณ วันลงทะเบียนครับ (ไม่ติดลบ)', { id: 'need-initial' });
+      toast.error('กรุณากรอกเลขมิเตอร์ ณ วันลงทะเบียน (ไม่ติดลบ)', { id: 'need-initial' });
       return;
     }
 
@@ -472,7 +472,7 @@ export class MemberListComponent implements OnInit {
       .subscribe({
         next: () => {
           this.locatingMemberId = null;
-          toast.success(`บันทึกพิกัดจากรูปของบ้านเลขที่ ${member.house_no} แล้วครับ`, { id: 'member-coords-saved' });
+          toast.success(`บันทึกพิกัดจากภาพของบ้านเลขที่ ${member.house_no} แล้ว`, { id: 'member-coords-saved' });
           this.loadMembers();
         },
         error: (err) => {
@@ -560,14 +560,14 @@ export class MemberListComponent implements OnInit {
 
     const unit = Number(this.initialUnitInput);
     if (!Number.isInteger(unit) || unit < 0) {
-      this.initialReadingError = 'เลขมิเตอร์ตั้งต้นต้องเป็นจำนวนเต็มไม่ติดลบครับ';
+      this.initialReadingError = 'เลขมิเตอร์ตั้งต้นต้องเป็นจำนวนเต็มไม่ติดลบ';
       return;
     }
 
     const reason = this.initialReasonInput.trim();
     if (!reason) {
       // หลังบ้านก็ตีกลับถ้าไม่มีเหตุผล แต่บอกตั้งแต่ตรงนี้ดีกว่าให้ยิงไปแล้วค่อยเด้งกลับ
-      this.initialReadingError = 'กรุณากรอกเหตุผลที่แก้ครับ — การแก้นี้กระทบทุกบิลของบ้านหลังนี้';
+      this.initialReadingError = 'กรุณากรอกเหตุผลที่แก้ — การแก้นี้กระทบทุกบิลของบ้านหลังนี้';
       return;
     }
 
@@ -624,7 +624,7 @@ export class MemberListComponent implements OnInit {
     this.editLocationError = null;
     this.cdr.detectChanges();
 
-    this.persistCoords('บันทึกพิกัดจากรูปเรียบร้อยแล้ว');
+    this.persistCoords('บันทึกพิกัดจากภาพเรียบร้อยแล้ว');
   }
 
   /**
@@ -928,7 +928,7 @@ export class MemberListComponent implements OnInit {
           this.isDeleting = false;
           this.deleteStep = null;
           this.deleteBlockedReason =
-            `บ้านหลังนี้ไม่มีบิลค้างให้ล้างแล้วครับ แต่หลังบ้านยังลบไม่ผ่าน รบกวนแจ้งผู้ดูแลระบบพร้อมบ้านเลขที่ ${member.house_no}`;
+            `บ้านหลังนี้ไม่มีบิลค้างให้ล้างแล้ว แต่หลังบ้านยังลบไม่ผ่าน รบกวนแจ้งผู้ดูแลระบบพร้อมบ้านเลขที่ ${member.house_no}`;
           this.cdr.detectChanges();
           return;
         }
@@ -972,15 +972,15 @@ export class MemberListComponent implements OnInit {
    */
   private deleteErrorMessage(err: any, firstTry: boolean, member: any): string {
     if (err?.status === 404) {
-      return 'ระบบหลังบ้านยังไม่มีคำสั่งลบบ้าน (อาจยังไม่ได้อัปเดตหรือรีสตาร์ท) รบกวนแจ้งผู้ดูแลระบบครับ';
+      return 'ระบบหลังบ้านยังไม่มีคำสั่งลบบ้าน (อาจยังไม่ได้อัปเดตหรือรีสตาร์ท) รบกวนแจ้งผู้ดูแลระบบ';
     }
     if (err?.status === 401 || err?.status === 403) {
-      return 'บัญชีนี้ไม่มีสิทธิ์ลบบ้านครับ ต้องเข้าด้วยบัญชีเจ้าหน้าที่';
+      return 'บัญชีนี้ไม่มีสิทธิ์ลบบ้าน ต้องเข้าด้วยบัญชีเจ้าหน้าที่';
     }
     if (err?.status >= 500) {
       return firstTry
-        ? 'หลังบ้านลบไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง'
-        : `ล้างบิลให้หมดแล้วแต่ยังลบไม่ผ่านครับ แปลว่ายังมีข้อมูลอื่นผูกอยู่กับบ้านหลังนี้ รบกวนแจ้งผู้ดูแลระบบพร้อมบ้านเลขที่ ${member.house_no}`;
+        ? 'หลังบ้านลบไม่สำเร็จ รบกวนลองใหม่อีกครั้ง'
+        : `ล้างบิลให้หมดแล้วแต่ยังลบไม่ผ่าน แปลว่ายังมีข้อมูลอื่นผูกอยู่กับบ้านหลังนี้ รบกวนแจ้งผู้ดูแลระบบพร้อมบ้านเลขที่ ${member.house_no}`;
     }
     return extractErrorMessage(err, 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
   }

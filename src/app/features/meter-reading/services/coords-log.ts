@@ -33,12 +33,12 @@ const gapLabel = (meters: number): string =>
  */
 export function logCoordsMismatch(report: CoordsReport): void {
   const saved = report.saved
-    ? `${point(report.saved)} (ห่างจากรูป ${gapLabel(distanceMeters(report.saved, report.photo))})`
+    ? `${point(report.saved)} (ห่างจากภาพ ${gapLabel(distanceMeters(report.saved, report.photo))})`
     : 'ยังไม่มี';
 
   console.warn(
-    `[coords] พิกัดทะเบียนไม่ตรงกับรูป | บ้าน ${report.houseNo} (id ${report.memberId})` +
-      ` | ทะเบียน ${saved} | รูป ${point(report.photo)} | ${report.source}` +
+    `[coords] พิกัดทะเบียนไม่ตรงกับภาพ | บ้าน ${report.houseNo} (id ${report.memberId})` +
+      ` | ทะเบียน ${saved} | ภาพ ${point(report.photo)} | ${report.source}` +
       ' | แก้ที่หน้าทะเบียนลูกบ้าน'
   );
 }
@@ -67,7 +67,7 @@ export function logAmbiguousMatch(report: AmbiguousReport): void {
   console.info(
     `[coords] พิกัดชี้ได้หลายหลัง | ${report.nearest.houseNo} (${gapLabel(report.nearest.meters)})` +
       ` กับ ${report.rival.houseNo} (${gapLabel(report.rival.meters)}) ต่างกัน ${gapLabel(gap)}` +
-      ` | รูป ${point(report.photo)} | ${report.source}` +
+      ` | ภาพ ${point(report.photo)} | ${report.source}` +
       ' | ถ้าเจอซ้ำทุกเดือน ให้ไปวัดพิกัดสองหลังนี้ใหม่ที่หน้าทะเบียนลูกบ้าน'
   );
 }

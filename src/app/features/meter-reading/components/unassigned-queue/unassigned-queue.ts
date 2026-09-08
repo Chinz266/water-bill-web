@@ -120,7 +120,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       case 'PHOTO_REUSED':
         return 'ภาพนี้ถูกใช้ออกบิลไปแล้ว';
       case 'MANUAL_PHOTO_REQUIRED':
-        return 'บันทึกตัวเลขเองต้องแนบภาพถ่าย';
+        return 'บันทึกตัวเลขด้วยตนเองต้องแนบภาพถ่าย';
       default:
         return code ? 'ระบบระงับไว้ กรุณาเปิดดูรายละเอียด' : null;
     }
@@ -248,7 +248,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isLoading.set(false);
-        toast.error(extractErrorMessage(err, 'ดึงคิวรูปที่รอจับคู่ไม่สำเร็จ'), { id: 'unassigned-error' });
+        toast.error(extractErrorMessage(err, 'ดึงคิวภาพที่รอจับคู่ไม่สำเร็จ'), { id: 'unassigned-error' });
       }
     });
   }
@@ -346,9 +346,9 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       case 'LOW_CONFIDENCE':
         return { flag: 'confirm_low_confidence', label: 'ยืนยันว่าเลขที่อ่านได้ตรงกับหน้าปัด' };
       case 'DUPLICATE_LOCATION':
-        return { flag: 'confirm_duplicate_location', label: 'ยืนยันว่าเป็นรูปที่ถ่ายใหม่จริง' };
+        return { flag: 'confirm_duplicate_location', label: 'ยืนยันว่าเป็นภาพที่ถ่ายใหม่จริง' };
       case 'STALE_PHOTO':
-        return { flag: 'confirm_stale_photo', label: 'ยืนยันว่าใช้รูปถูกใบ' };
+        return { flag: 'confirm_stale_photo', label: 'ยืนยันว่าใช้ภาพถูกใบ' };
       case 'METER_ROLLBACK':
         return { flag: 'confirm_meter_reset', label: 'ยืนยันว่าเปลี่ยนมิเตอร์ / มิเตอร์วนรอบ' };
       case 'BILL_EXISTS':
@@ -369,7 +369,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       next: (rate: any) => {
         if (!rate?.id) {
           this.isAssigning.set(false);
-          toast.error('ยังไม่มีเรทค่าน้ำในระบบ ตั้งเรทที่หน้าตั้งค่าหมู่บ้านก่อนครับ', { id: 'no-rate' });
+          toast.error('ยังไม่มีเรทค่าน้ำในระบบ ตั้งเรทที่หน้าตั้งค่าหมู่บ้านก่อน', { id: 'no-rate' });
           return;
         }
 
@@ -388,7 +388,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
             next: () => {
               this.isAssigning.set(false);
               this.selected.set(null);
-              toast.success('จับคู่รูปกับบ้านและออกบิลเรียบร้อยครับ', { id: 'assign-ok' });
+              toast.success('จับคู่ภาพกับบ้านและออกบิลเรียบร้อย', { id: 'assign-ok' });
               // ใบที่เชื่อมกับใบนี้เพิ่งรู้บ้านไปด้วยโดยอัตโนมัติ — พาไปดูเลย
               // ไม่งั้นมันจะจมอยู่กลางคิวยาว ๆ แล้วไม่มีใครรู้ว่าตอนนี้ตอบได้แล้ว
               this.reload(() => this.revealChained(row.id));
@@ -439,7 +439,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
     }, 250);
 
     toast.info(
-      `คิว #${target.id} เป็นมิเตอร์ตัวเดียวกัน — ตรวจเลขแล้วกดยืนยันบ้านเดียวกันได้เลยครับ`,
+      `คิว #${target.id} เป็นมิเตอร์ตัวเดียวกัน — ตรวจเลขแล้วกดยืนยันบ้านเดียวกันได้ทันที`,
       { id: 'chain-reveal' }
     );
   }
@@ -457,7 +457,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
         this.rowToDiscard.set(null);
         this.discardNote = '';
         this.selected.set(null);
-        toast.success('ตีทิ้งรูปนี้แล้วครับ', { id: 'discard-ok' });
+        toast.success('ตีทิ้งภาพนี้แล้ว', { id: 'discard-ok' });
         this.reload();
       },
       error: (err) => {

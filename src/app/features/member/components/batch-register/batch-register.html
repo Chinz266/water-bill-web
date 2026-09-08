@@ -1,9 +1,9 @@
 <div class="reg">
   <div class="page-head">
-    <h1 class="page-title">ลงทะเบียนหลายบ้านจากรูป</h1>
+    <h1 class="page-title">ลงทะเบียนหลายบ้านจากภาพ</h1>
     <p class="page-subtitle">
-      ถ่ายรูปหน้าปัดให้ครบก่อน แล้วกลับมากรอกทีเดียวครับ
-      รูปที่ถ่ายตอน<strong>เปิดตำแหน่ง</strong> จะพกวันเวลาและตำแหน่งมาในไฟล์ ระบบดึงให้เองครับ
+      ถ่ายภาพหน้าปัดให้ครบทุกหลัง แล้วจึงบันทึกข้อมูลพร้อมกันในครั้งเดียว
+      ภาพที่ถ่ายตอน<strong>เปิดตำแหน่ง</strong> จะพกวันเวลาและตำแหน่งมาในไฟล์ ระบบจะดึงข้อมูลให้อัตโนมัติ
       <br />{{ photoCoordsHint }}
     </p>
 
@@ -13,7 +13,7 @@
         <span class="reg-mode-sub">ยืนอยู่หน้ามิเตอร์แล้วกรอกเลย</span>
       </a>
       <span class="reg-mode is-active">
-        <span class="reg-mode-title">🗂️ หลายหลังจากรูป</span>
+        <span class="reg-mode-title">🗂️ หลายหลังจากภาพ</span>
         <span class="reg-mode-sub">ถ่ายมาทั้งวันแล้วกรอกทีเดียว</span>
       </span>
     </nav>
@@ -23,7 +23,7 @@
   <section class="card step">
     <div class="step-head">
       <span class="step-no">1</span>
-      <h2 class="step-title">เลือกหมู่บ้านและรูปหน้าปัด</h2>
+      <h2 class="step-title">เลือกหมู่บ้านและภาพหน้าปัด</h2>
     </div>
 
     @if (villages.length > 1) {
@@ -41,7 +41,7 @@
     <div class="pick-row">
       <label class="btn btn-primary pick-btn" for="reg-files">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v13"/></svg>
-        เลือกหลายรูป
+        เลือกหลายภาพ
       </label>
       <input id="reg-files" type="file" accept="image/*" multiple (change)="onFilesPicked($event)" hidden />
 
@@ -58,7 +58,7 @@
     </div>
 
     <p class="field-hint">
-      ครั้งละไม่เกิน {{ maxFiles }} รูป · ในคิวมี {{ rows.length }} รูป
+      ครั้งละไม่เกิน {{ maxFiles }} ภาพ · ในคิวมี {{ rows.length }} ภาพ
       · เรียงตามเวลาถ่าย บ้านเลขที่จะไล่ตามที่เดินจริง
     </p>
   </section>
@@ -73,7 +73,7 @@
 
       <div class="summary">
         <div class="summary-cell">
-          <span class="summary-cap">รูปทั้งหมด</span>
+          <span class="summary-cap">ภาพทั้งหมด</span>
           <span class="summary-val">{{ rows.length }}</span>
         </div>
         <div class="summary-cell">
@@ -92,14 +92,14 @@
 
       <!-- กองรูปนี้ถ่ายมาจากแถวนี้จริงไหม — ดูอย่างเดียว ไม่มีผลกับพิกัดที่จะลงทะเบียน
            หยิบอัลบั้มผิดวัน/ผิดหมู่บ้านจะเห็นเป็นระยะหลักกิโลทันที ก่อนจะกรอกทั้งกองเสร็จ -->
-      <app-device-location [photo]="batchCenter" subject="ใจกลางกองรูป" />
+      <app-device-location [photo]="batchCenter" subject="ใจกลางกองภาพ" />
 
       @if (isSaving) {
         <div class="progress">
           <div class="progress-bar">
             <span class="progress-fill" [style.width.%]="progressPercent"></span>
           </div>
-          <p class="field-hint">กำลังลงทะเบียน {{ progress.done }} / {{ progress.total }} หลัง — อย่าเพิ่งปิดหน้านี้ครับ</p>
+          <p class="field-hint">กำลังลงทะเบียน {{ progress.done }} / {{ progress.total }} หลัง — กรุณาอย่าปิดหน้านี้</p>
         </div>
       }
 
@@ -107,9 +107,9 @@
         @for (row of rows; track row.seq) {
           <article class="reg-row" [class.is-blocked]="blockingIssue(row)" [class.is-saved]="row.status === 'saved'">
             @if (row.brokenImage || !row.previewUrl) {
-              <div class="row-photo row-photo-broken">เปิดรูปไม่ขึ้น</div>
+              <div class="row-photo row-photo-broken">เปิดภาพไม่ขึ้น</div>
             } @else {
-              <img class="row-photo" [src]="row.previewUrl" [alt]="'รูปมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
+              <img class="row-photo" [src]="row.previewUrl" [alt]="'ภาพมิเตอร์ลำดับ ' + row.seq" (error)="onImageError(row)" />
             }
 
             <div class="row-body">
@@ -136,13 +136,13 @@
                 }
 
                 @if (row.status !== 'saved') {
-                  <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isSaving" aria-label="เอารูปนี้ออก">✕</button>
+                  <button type="button" class="row-remove" (click)="removeRow(row)" [disabled]="isSaving" aria-label="เอาภาพนี้ออก">✕</button>
                 }
               </div>
 
               @if (row.status === 'saved') {
                 <p class="row-saved">
-                  เพิ่มบ้านเลขที่ {{ row.houseNo }} เลขตั้งต้น {{ row.initialUnit }} แล้วครับ
+                  เพิ่มบ้านเลขที่ {{ row.houseNo }} เลขตั้งต้น {{ row.initialUnit }} แล้ว
                 </p>
               } @else {
                 <div class="row-fields">
@@ -178,7 +178,7 @@
                 @if (nearbyMember(row); as nearby) {
                   <p class="row-note">
                     💡 ห่างจากบ้านเลขที่ <strong>{{ nearby.house_no }}</strong> ที่ลงทะเบียนแล้ว
-                    {{ nearby.meters | number: '1.0-0' }} เมตร เช็คว่าไม่ใช่หลังเดิมครับ
+                    {{ nearby.meters | number: '1.0-0' }} เมตร เช็คว่าไม่ใช่หลังเดิม
                   </p>
                 }
 
@@ -216,8 +216,8 @@
       </div>
 
       <p class="field-hint">
-        เลขมิเตอร์ตั้งต้นกรอกผิด บิลใบแรกจะคิดหน่วยผิดตามครับ
-        · วันจดตั้งต้นใช้วันที่ถ่ายรูป = วันเริ่มรอบบิลใบแรก
+        เลขมิเตอร์ตั้งต้นกรอกผิด บิลใบแรกจะคิดหน่วยผิดตาม
+        · วันจดตั้งต้นใช้วันที่ถ่ายภาพ = วันเริ่มรอบบิลใบแรก
       </p>
     </section>
   }

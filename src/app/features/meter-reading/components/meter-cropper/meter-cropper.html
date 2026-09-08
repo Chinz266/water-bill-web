@@ -5,7 +5,7 @@
       <input type="file" accept="image/*" capture="environment" (change)="pickFile($event)" [disabled]="busy()" />
       <span class="crop-pick-icon">📷</span>
       <span class="crop-pick-text">
-        <strong>ถ่ายรูปหน้าปัด หรือเลือกจากเครื่อง</strong>
+        <strong>ถ่ายภาพหน้าปัด หรือเลือกจากเครื่อง</strong>
         <small>ถ่ายให้ตัวเลขเต็มจอที่สุด แล้วค่อยมาครอบในขั้นถัดไป</small>
       </span>
     </label>
@@ -14,7 +14,7 @@
   @if (loadFailed()) {
     <div class="alert alert-danger">
       <span>⚠️</span>
-      <span>เปิดไฟล์นี้ไม่ได้ครับ กรุณาเลือกไฟล์รูปภาพ (JPG / PNG) ใหม่อีกครั้ง</span>
+      <span>เปิดไฟล์นี้ไม่ได้ กรุณาเลือกไฟล์ภาพภาพ (JPG / PNG) ใหม่อีกครั้ง</span>
     </div>
   }
 
@@ -47,7 +47,7 @@
         output="base64"
         format="jpeg"
         alignImage="center"
-        imageAltText="รูปหน้าปัดมิเตอร์ที่กำลังครอบ"
+        imageAltText="ภาพหน้าปัดมิเตอร์ที่กำลังครอบ"
         cropperFrameAriaLabel="กรอบเลือกเฉพาะแถวตัวเลข"
         [cropper]="cropBox()"
         (imageCropped)="onCropped($event)"
@@ -97,7 +97,7 @@
       @if (preview(); as dataUrl) {
         <img class="crop-preview-img" [src]="dataUrl" alt="ตัวอย่างภาพที่ครอบแล้ว" />
       } @else {
-        <p class="field-hint">ลากกรอบบนรูปด้านบน แล้วภาพตัวอย่างจะขึ้นตรงนี้ทันที</p>
+        <p class="field-hint">ลากกรอบบนภาพด้านบน แล้วภาพตัวอย่างจะขึ้นตรงนี้ทันที</p>
       }
 
       @if (tooSmall()) {
@@ -105,7 +105,7 @@
           <span>🔍</span>
           <span>
             กรอบเล็กเกินไป (กว้าง {{ cropWidth() }} px) ตัวเลขอาจเบลอจนอ่านไม่ออก —
-            ลองถ่ายใหม่ให้ใกล้ขึ้น หรือขยายกรอบให้กว้างกว่านี้ครับ
+            ลองถ่ายใหม่ให้ใกล้ขึ้น หรือขยายกรอบให้กว้างกว่านี้
           </span>
         </div>
       }

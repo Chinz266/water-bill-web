@@ -30,7 +30,7 @@
   @if (isLoading) {
     <div class="card">
       <p class="loading-note">
-        <span class="loading-dot"></span> กำลังโหลดบิลของคุณ รอสักครู่นะครับ...
+        <span class="loading-dot"></span> กำลังโหลดบิลของคุณ รอสักครู่...
       </p>
       <div class="skeleton skeleton-row"></div>
       <div class="skeleton skeleton-row"></div>
@@ -88,7 +88,7 @@
         <span class="paid-emoji">🎉</span>
         <div>
           <p class="paid-title">ชำระครบทุกรายการแล้ว</p>
-          <p class="text-muted">ขอบคุณที่ชำระตรงเวลานะครับ</p>
+          <p class="text-muted">ขอบคุณที่ชำระตรงเวลา</p>
         </div>
       </div>
     }
@@ -153,7 +153,7 @@
         <div class="empty-state">
           <div class="empty-art">🔍</div>
           <h2 class="empty-title">ไม่มีบิลในเดือนที่เลือก</h2>
-          <p class="empty-text">ลองเลือกเดือนอื่น หรือกดดูทุกเดือนอีกครั้งนะครับ</p>
+          <p class="empty-text">ลองเลือกเดือนอื่น หรือกดดูทุกเดือนอีกครั้ง</p>
           <button type="button" class="btn btn-secondary" (click)="selectedMonthKey = ''; selectedHouseId = ''">
             ดูบิลทั้งหมด
           </button>
@@ -164,7 +164,7 @@
         <div class="empty-state">
           <div class="empty-art">💧</div>
           <h2 class="empty-title">ยังไม่มีบิลค่าน้ำ</h2>
-          <p class="empty-text">เมื่อเจ้าหน้าที่จดมิเตอร์และออกบิลของบ้านคุณแล้ว บิลจะมาแสดงที่นี่ครับ</p>
+          <p class="empty-text">เมื่อเจ้าหน้าที่จดมิเตอร์และออกบิลของบ้านคุณแล้ว บิลจะมาแสดงที่นี่</p>
         </div>
       </div>
     }
@@ -173,12 +173,12 @@
     @if (admins.length > 0) {
       <h2 class="section-title">ติดต่อผู้ดูแลหมู่บ้าน</h2>
       <div class="card admin-card">
-        <p class="admin-intro text-muted">มีข้อสงสัยเรื่องบิลหรือการชำระเงิน โทรหาผู้ดูแลได้เลยครับ</p>
+        <p class="admin-intro text-muted">มีข้อสงสัยเรื่องบิลหรือการชำระเงิน โทรหาผู้ดูแลได้ทันที</p>
         @for (admin of admins; track admin.id) {
           <a class="admin-row" href="tel:{{ admin.phone }}">
             <span class="admin-avatar">
               @if (admin.photo) {
-                <img [src]="admin.photo" alt="รูปผู้ดูแล" />
+                <img [src]="admin.photo" alt="ภาพผู้ดูแล" />
               } @else {
                 🧑‍💼
               }
@@ -221,7 +221,7 @@
           <p class="field-hint">
             รวมค่าน้ำรอบนี้ {{ selectedBill.total_amount | number:'1.2-2' }} บาท
             + ยอดค้างจากรอบก่อน {{ arrears(selectedBill) | number:'1.2-2' }} บาท
-            — จ่ายใบนี้ใบเดียวถือว่าเคลียร์ยอดค้างครบแล้วครับ
+            — ชำระใบนี้เพียงใบเดียวถือว่าชำระยอดค้างครบทั้งหมด
           </p>
         }
         <span

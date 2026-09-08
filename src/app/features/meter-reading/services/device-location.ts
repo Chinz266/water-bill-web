@@ -75,7 +75,7 @@ export class DeviceLocationService {
   request(): void {
     if (!this.isSupported) {
       this.state.set('unavailable');
-      this.failure.set('เครื่องนี้หรือเบราว์เซอร์นี้ไม่รองรับการบอกตำแหน่งครับ');
+      this.failure.set('เครื่องนี้หรือเบราว์เซอร์นี้ไม่รองรับการบอกตำแหน่ง');
       return;
     }
     if (this.state() === 'asking') return; // กดรัวไม่ให้ยิงซ้อน
@@ -113,7 +113,7 @@ export class DeviceLocationService {
     const coords = toCoords(position?.coords?.latitude, position?.coords?.longitude);
     if (!coords) {
       this.state.set('unavailable');
-      this.failure.set('เครื่องคืนค่าตำแหน่งที่ใช้ไม่ได้มาครับ');
+      this.failure.set('เครื่องคืนค่าตำแหน่งที่ใช้ไม่ได้มา');
       return;
     }
 
@@ -127,15 +127,15 @@ export class DeviceLocationService {
     // เทียบด้วยตัวเลข ไม่ใช่ค่าคงที่บน prototype — เบราว์เซอร์เก่าบางตัวไม่มีให้
     if (error?.code === 1) {
       this.state.set('denied');
-      this.failure.set('เครื่องไม่อนุญาตให้เว็บดูตำแหน่งครับ — เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วกดใหม่');
+      this.failure.set('เครื่องไม่อนุญาตให้เว็บดูตำแหน่ง — เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วกดใหม่');
       return;
     }
 
     this.state.set('unavailable');
     this.failure.set(
       error?.code === 3
-        ? 'หาตำแหน่งไม่ทันครับ ลองออกไปที่โล่งแล้วกดใหม่'
-        : 'หาตำแหน่งของเครื่องไม่ได้ครับ'
+        ? 'หาตำแหน่งไม่ทัน ลองออกไปที่โล่งแล้วกดใหม่'
+        : 'หาตำแหน่งของเครื่องไม่ได้'
     );
   }
 }

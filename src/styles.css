@@ -2455,3 +2455,92 @@ button.chip:hover {
 .verify-tips li {
   margin-bottom: 2px;
 }
+
+/* ============================================================
+   งานเก็บรายละเอียดหน้าตา — กฎกลางที่ยกระดับทุกหน้าพร้อมกัน
+   วางท้ายไฟล์เพื่อให้ทับกฎเดิมได้โดยไม่ต้องไปรื้อลำดับของเก่า
+   ============================================================ */
+
+/* การ์ดที่วางซ้อนกันเคยติดกันเป็นพืดจนดูเหมือนกล่องเดียว — หน้า audit กับทะเบียนมิเตอร์
+   มีการ์ดเรียงกัน 3 ใบ ระยะห่างคือสิ่งเดียวที่บอกว่าคนละเรื่องกัน */
+.card + .card,
+.card + .card-soft,
+.card-soft + .card {
+  margin-top: var(--sp-2);
+}
+
+/* .section-heading ถูกใช้ใน audit-board / member-manage / village-settings แต่มีนิยาม
+   อยู่ในไฟล์ของ village-settings ไฟล์เดียว อีกสองหน้าจึงได้ขนาดมาตรฐานของเบราว์เซอร์
+   (2em ตัวหนา ห่างบนล่างเยอะ) ซึ่งใหญ่กว่าหัวข้อหน้าเสียอีก */
+.section-heading {
+  margin: 0 0 var(--sp-2);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.sub-heading {
+  margin: var(--sp-3) 0 var(--sp-1);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* หัวข้อหน้า: บีบช่องไฟให้แน่นขึ้นเล็กน้อยตามขนาดตัวอักษรที่ใหญ่
+   และจำกัดความกว้างคำอธิบายไว้ที่ราว 70 ตัวอักษร — บรรทัดยาวเต็มจอ 1120px
+   สายตาไล่หาต้นบรรทัดถัดไปไม่เจอ เป็นเหตุผลเดียวกับที่หนังสือไม่พิมพ์เต็มหน้ากระดาษ */
+.page-title {
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.page-subtitle {
+  max-width: 70ch;
+  line-height: 1.55;
+}
+
+/* กล่องแจ้งเตือน: เพิ่มแถบสีด้านซ้าย ให้แยกออกจากเนื้อหารอบ ๆ ได้ตั้งแต่กวาดตา
+   โดยไม่ต้องเพิ่มความเข้มของพื้นหลัง (ซึ่งจะกลบตัวหนังสือ) */
+.alert {
+  border-left: 4px solid currentColor;
+  line-height: 1.55;
+}
+
+/* ปุ่มหลัก: เงาบาง ๆ ให้ดูกดได้จริง และวงโฟกัสสีเดียวกับปุ่มเวลาใช้คีย์บอร์ด */
+.btn-primary {
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--primary-soft-2);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+/* ช่องกรอก: บอกให้รู้ว่าเมาส์ชี้อยู่ตรงไหน และช่องที่แก้ไม่ได้ต้องดูออกว่าแก้ไม่ได้ */
+.field-input:hover:not(:disabled):not(:focus) {
+  border-color: #cbd5e1;
+}
+
+.field-input:disabled {
+  color: var(--text-muted);
+  background: var(--line-soft);
+  cursor: not-allowed;
+}
+
+/* ตาราง: ไฮไลต์แถวที่เมาส์ชี้ ตารางลูกบ้าน/ประวัติบิลกว้างจนสายตาหลุดแถวได้ง่าย
+   (เฉพาะจอที่มีเมาส์จริง — บนมือถือ hover ค้างหลังกดจนดูเหมือนแถวถูกเลือกไว้) */
+@media (hover: hover) {
+  .data-table tbody tr:hover {
+    background: var(--line-soft);
+  }
+}
+
+/* ป้ายสถานะ: ลดความอ้วนลงเล็กน้อย แถวหนึ่งมักมีป้ายติดกัน 2-3 อัน */
+.chip {
+  padding: 5px 12px;
+}

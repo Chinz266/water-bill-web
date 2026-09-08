@@ -7,7 +7,7 @@ export function extractErrorMessage(err: unknown, fallback: string): string {
   // status 0 = ยิงไปไม่ถึงเซิร์ฟเวอร์ (ลืมเปิด backend หรือ CORS บล็อก)
   // ข้อความต้องเป็นภาษาที่เจ้าหน้าที่หมู่บ้านอ่านแล้วรู้ว่าต้องทำอะไรต่อ ห้ามใช้ศัพท์เทคนิค
   if (err.status === 0) {
-    return 'ตอนนี้เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่อีกครั้ง ถ้ายังไม่ได้รบกวนแจ้งผู้ดูแลระบบนะครับ';
+    return 'ตอนนี้เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่อีกครั้ง ถ้ายังไม่ได้รบกวนแจ้งผู้ดูแลระบบ';
   }
 
   // NestJS คืน { statusCode, message } โดย message อาจเป็น string หรือ array (validation)

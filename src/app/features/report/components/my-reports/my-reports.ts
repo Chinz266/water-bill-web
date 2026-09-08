@@ -119,8 +119,8 @@ export class MyReportsComponent implements OnInit {
     if (this.houses.length === 0) {
       toast.error(
         this.housesFailed
-          ? 'ยังโหลดข้อมูลบ้านของคุณไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้งนะครับ'
-          : 'บัญชีนี้ยังไม่ได้ผูกกับบ้านหลังไหน รบกวนติดต่อผู้ดูแลหมู่บ้านให้เพิ่มให้ก่อนนะครับ',
+          ? 'ยังโหลดข้อมูลบ้านของคุณไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้ง'
+          : 'บัญชีนี้ยังไม่ได้ผูกกับบ้านหลังไหน รบกวนติดต่อผู้ดูแลหมู่บ้านให้เพิ่มให้ก่อน',
         { id: 'report-no-house' },
       );
       return;
@@ -156,7 +156,7 @@ export class MyReportsComponent implements OnInit {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('กรุณาเลือกไฟล์รูปภาพ', { id: 'report-photo-type' });
+      toast.error('กรุณาเลือกไฟล์ภาพภาพ', { id: 'report-photo-type' });
       return;
     }
 
@@ -201,7 +201,7 @@ export class MyReportsComponent implements OnInit {
       ok = false;
     }
     if (!this.form.detail || this.form.detail.trim() === '') {
-      this.formErrors.detail = 'กรุณากรอกรายละเอียด จะได้ช่วยตรวจสอบได้ตรงจุดครับ';
+      this.formErrors.detail = 'กรุณากรอกรายละเอียด จะได้ช่วยตรวจสอบได้ตรงจุด';
       ok = false;
     } else if (this.form.detail.trim().length > this.detailMax) {
       this.formErrors.detail = `รายละเอียดยาวเกินไป (ไม่เกิน ${this.detailMax} ตัวอักษร)`;
@@ -215,7 +215,7 @@ export class MyReportsComponent implements OnInit {
     if (!this.validate()) return;
 
     if (!this.form.members_id) {
-      toast.error('กรุณาเลือกบ้านที่ต้องการแจ้งเรื่องนะครับ', { id: 'report-need-house' });
+      toast.error('กรุณาเลือกบ้านที่ต้องการแจ้งเรื่อง', { id: 'report-need-house' });
       return;
     }
 
@@ -231,7 +231,7 @@ export class MyReportsComponent implements OnInit {
         next: () => {
           this.isSending = false;
           this.closeForm();
-          toast.success('ส่งเรื่องถึงผู้ดูแลเรียบร้อยแล้ว รอการติดต่อกลับนะครับ', {
+          toast.success('ส่งเรื่องถึงผู้ดูแลเรียบร้อยแล้ว รอการติดต่อกลับ', {
             id: 'report-sent',
           });
           this.loadReports();

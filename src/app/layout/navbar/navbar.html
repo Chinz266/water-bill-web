@@ -47,7 +47,7 @@
     <a class="user-meta" routerLink="/account" routerLinkActive="is-active" title="ตั้งค่าผู้ดูแล">
       <span class="user-avatar">
         @if (photo()?.photo) {
-          <img [src]="photo()!.photo" alt="รูปผู้ดูแล" />
+          <img [src]="photo()!.photo" alt="ภาพผู้ดูแล" />
         } @else {
           🧑‍💼
         }
@@ -101,7 +101,7 @@
     <div class="more-profile">
       <span class="more-avatar">
         @if (photo()?.photo) {
-          <img [src]="photo()!.photo" alt="รูปผู้ดูแล" />
+          <img [src]="photo()!.photo" alt="ภาพผู้ดูแล" />
         } @else {
           🧑‍💼
         }
@@ -145,7 +145,7 @@
         <span class="more-icon">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
         </span>
-        <span><strong>โปรไฟล์ผู้ดูแล</strong><small>แก้ไขชื่อ เบอร์โทร และรูปโปรไฟล์</small></span>
+        <span><strong>โปรไฟล์ผู้ดูแล</strong><small>แก้ไขชื่อ เบอร์โทร และภาพโปรไฟล์</small></span>
         <span class="more-arrow">›</span>
       </a>
       <button type="button" class="more-logout" (click)="onLogout()">

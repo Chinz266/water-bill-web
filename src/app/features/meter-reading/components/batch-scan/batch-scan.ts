@@ -104,7 +104,7 @@ const CONFIRM_STEPS: readonly ConfirmStep[] = [
     // หลังบ้านส่งรหัสของด่านนี้มาแล้ว จึงไม่ต้องเดาจากข้อความ
     legacy: null,
     flag: 'confirmLowConfidence',
-    label: 'เทียบกับรูปแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า'
+    label: 'เทียบกับภาพแล้ว เลขถูกต้อง — ให้ออกบิลรอบหน้า'
   },
   {
     code: 'DUPLICATE_LOCATION',
@@ -116,7 +116,7 @@ const CONFIRM_STEPS: readonly ConfirmStep[] = [
     code: 'STALE_PHOTO',
     legacy: /ไม่ใช่เลขของรอบนี้/,
     flag: 'confirmStalePhoto',
-    label: 'ยืนยันว่าใช้รูปถูกใบ — ให้ออกบิลรอบหน้า'
+    label: 'ยืนยันว่าใช้ภาพถูกใบ — ให้ออกบิลรอบหน้า'
   }
 ];
 
@@ -451,7 +451,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   stopQueue(): void {
     if (!this.isSaving) return;
     this.stopRequested = true;
-    toast.success('จะหยุดหลังออกบิลใบที่ค้างอยู่เสร็จนะครับ', { id: 'batch-stop' });
+    toast.success('จะหยุดหลังออกบิลใบที่ค้างอยู่เสร็จ', { id: 'batch-stop' });
   }
 
   // ==========================================
@@ -468,7 +468,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     const images = picked.filter((file) => file.type.startsWith('image/'));
     const skipped = picked.length - images.length;
     if (!images.length) {
-      if (picked.length) toast.error('ไม่พบไฟล์รูปในที่ที่เลือกครับ', { id: 'batch-no-image' });
+      if (picked.length) toast.error('ไม่พบไฟล์ภาพในที่ที่เลือก', { id: 'batch-no-image' });
       return;
     }
 
@@ -479,7 +479,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const room = this.maxFiles - this.rows.length;
     if (room <= 0) {
-      toast.error(`ใส่ได้ครั้งละไม่เกิน ${this.maxFiles} รูปครับ`, { id: 'batch-limit' });
+      toast.error(`ใส่ได้ครั้งละไม่เกิน ${this.maxFiles} ภาพ`, { id: 'batch-limit' });
       return;
     }
 
@@ -501,10 +501,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     void this.preparePhotos();
     this.scheduleAutoAnalyze();
 
-    if (skipped > 0) toast.success(`ข้ามไฟล์ที่ไม่ใช่รูป ${skipped} ไฟล์ครับ`, { id: 'batch-skipped' });
-    if (duplicated > 0) toast.success(`ข้ามรูปที่อยู่ในคิวอยู่แล้ว ${duplicated} รูปครับ`, { id: 'batch-dup-file' });
+    if (skipped > 0) toast.success(`ข้ามไฟล์ที่ไม่ใช่ภาพ ${skipped} ไฟล์`, { id: 'batch-skipped' });
+    if (duplicated > 0) toast.success(`ข้ามภาพที่อยู่ในคิวอยู่แล้ว ${duplicated} ภาพ`, { id: 'batch-dup-file' });
     if (fresh.length > taking.length) {
-      toast.error(`ใส่ได้อีกแค่ ${room} รูป ส่วนที่เหลือยังไม่ได้ใส่ครับ`, { id: 'batch-limit' });
+      toast.error(`ใส่ได้อีกแค่ ${room} ภาพ ส่วนที่เหลือยังไม่ได้ใส่`, { id: 'batch-limit' });
     }
   }
 
@@ -572,7 +572,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     this.billingKey = option.key;
     this.onBillingKeyChanged();
-    toast.success(`ตั้งรอบบิลเป็น ${option.label} ตามวันถ่ายในรูปให้แล้วครับ`, { id: 'batch-billing-auto' });
+    toast.success(`ตั้งรอบบิลเป็น ${option.label} ตามวันถ่ายในภาพให้แล้ว`, { id: 'batch-billing-auto' });
   }
 
   /** รอบเดือนที่รูปใบนี้ควรลง ตามวันที่ถ่าย — null เมื่อรูปไม่มีวันถ่ายติดมา */
@@ -703,8 +703,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (match.kind !== 'none' && this.clusterMembers(match.item).length) {
       row.matchConfidence = 'ambiguous';
       row.matchReason =
-        `พิกัดในรูปตกอยู่ในกลุ่มมิเตอร์ที่ติดกัน (${match.item.cluster_group_id}) ` +
-        'ซึ่งแต่ละตัวห่างกันราว 30 ซม. — พิกัดแยกไม่ได้ กรุณาเลือกบ้านตามลำดับตำแหน่งซ้าย→ขวาครับ';
+        `พิกัดในภาพตกอยู่ในกลุ่มมิเตอร์ที่ติดกัน (${match.item.cluster_group_id}) ` +
+        'ซึ่งแต่ละตัวห่างกันราว 30 ซม. — พิกัดแยกไม่ได้ กรุณาเลือกบ้านตามลำดับตำแหน่งซ้าย→ขวา';
       return;
     }
 
@@ -714,10 +714,10 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (match.kind === 'ambiguous') {
       row.matchConfidence = 'ambiguous';
       row.matchReason =
-        `พิกัดในรูปอยู่ระหว่างบ้าน ${match.item.house_no} (ห่าง ${Math.round(match.meters)} ม.) ` +
+        `พิกัดในภาพอยู่ระหว่างบ้าน ${match.item.house_no} (ห่าง ${Math.round(match.meters)} ม.) ` +
         `กับ ${match.rival.house_no} (ห่าง ${Math.round(match.rivalMeters)} ม.) ` +
         `ต่างกันแค่ ${Math.round(match.rivalMeters - match.meters)} ม. ` +
-        'ซึ่งน้อยกว่าที่ GPS มือถือเพี้ยนได้ — ดูรูปแล้วเลือกเองครับ';
+        'ซึ่งน้อยกว่าที่ GPS มือถือเพี้ยนได้ — ดูภาพแล้วเลือกด้วยตนเอง';
 
       this.reportAmbiguous(row, photo, match.item, match.meters, match.rival, match.rivalMeters);
       return;
@@ -730,8 +730,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     row.matchedByCoords = true;
     row.matchConfidence = 'medium';
     row.matchReason =
-      `จับคู่จากพิกัดในรูป — ห่างจากมิเตอร์ของบ้านเลขที่ ${match.item.house_no} ` +
-      `ประมาณ ${Math.round(match.meters)} เมตร กรุณาเทียบกับรูปอีกครั้งครับ`;
+      `จับคู่จากพิกัดในภาพ — ห่างจากมิเตอร์ของบ้านเลขที่ ${match.item.house_no} ` +
+      `ประมาณ ${Math.round(match.meters)} เมตร กรุณาเทียบกับภาพอีกครั้ง`;
   }
 
   /**
@@ -921,7 +921,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const queue = this.analyzableRows;
     if (!queue.length) {
-      toast.success('ไม่มีภาพที่ต้องอ่านตัวเลขแล้วครับ', { id: 'batch-read-none' });
+      toast.success('ไม่มีภาพที่ต้องอ่านตัวเลขแล้ว', { id: 'batch-read-none' });
       return;
     }
 
@@ -985,7 +985,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // ล้มเฉพาะชุดย่อยนี้ ชุดอื่นเดินต่อ — ภาพที่อ่านได้แล้วต้องไม่ถูกทิ้งเพราะชุดหลังล้ม
         chunk.forEach((row) => {
           row.status = 'read_failed';
-          row.error = 'อ่านตัวเลขไม่สำเร็จ กรุณาลองใหม่ หรือบันทึกตัวเลขเองได้ครับ';
+          row.error = 'อ่านตัวเลขไม่สำเร็จ กรุณาลองใหม่ หรือบันทึกตัวเลขด้วยตนเองได้';
         });
         next();
       }
@@ -1008,14 +1008,14 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     } else if (acc.failed) {
       // อ่านได้บางส่วนคือผลปกติของการแบ่งชุด ต้องบอกจำนวนตรง ๆ ว่าเหลือกี่ภาพที่ต้องกดใหม่
       toast.warning(
-        `อ่านสำเร็จ ${read} ภาพ · ไม่สำเร็จ ${acc.failed} ภาพ — กดอ่านอีกครั้งเฉพาะภาพที่เหลือได้ครับ`,
+        `อ่านสำเร็จ ${read} ภาพ · ไม่สำเร็จ ${acc.failed} ภาพ — กดอ่านอีกครั้งเฉพาะภาพที่เหลือได้`,
         { id: 'batch-read-partial' }
       );
     } else {
       toast.success(
         acc.high || acc.review
           ? `อ่านครบ ${read} ภาพ — ความเชื่อมั่นสูง ${acc.high} · ต้องตรวจสอบ ${acc.review}`
-          : `อ่านครบ ${read} ภาพแล้วครับ`,
+          : `อ่านครบ ${read} ภาพแล้ว`,
         { id: 'batch-read-done' }
       );
     }
@@ -1077,7 +1077,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       }
 
       row.status = row.unit === null ? 'read_failed' : 'ready';
-      row.error = row.unit === null ? (result?.reason ?? 'อ่านเลขจากรูปนี้ไม่ได้ กรอกเองได้ครับ') : null;
+      row.error = row.unit === null ? (result?.reason ?? 'อ่านเลขจากภาพนี้ไม่ได้ กรอกด้วยตนเองได้') : null;
 
       // คิดบ้านใกล้เคียงใหม่ท้ายสุด — ทั้งพิกัดในรูปและตัวเลือกที่หลังบ้านคัดมาเพิ่งเปลี่ยนไป
       // ทั้งคู่ และปุ่มต้องพกเลขตั้งต้น/หน่วยเฉลี่ยจาก candidates ชุดใหม่ไปด้วย
@@ -1170,7 +1170,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           this.rows = this.rows.filter((r) => r !== row);
           this.persist();
           this.cdr.detectChanges();
-          toast.success('ส่งให้ผู้ดูแลตรวจแล้วครับ — ดูได้ที่หน้า "รูปที่รอตรวจสอบ"', {
+          toast.success('ส่งให้ผู้ดูแลตรวจแล้ว — ดูได้ที่หน้า "ภาพที่รอตรวจสอบ"', {
             id: 'batch-review'
           });
         },
@@ -1244,7 +1244,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // แล้วเปิดกล่องค้างไว้ให้ลากกรอบใหม่ต่อได้เลย
         if (this.toUnit(results[0]?.reading?.meter_unit) === null) {
           this.cdr.detectChanges();
-          toast.error('ยังอ่านไม่ออกครับ ลองครอปให้เหลือเฉพาะแถวตัวเลขแล้วกดอ่านใหม่อีกครั้ง', { id: 'batch-reread' });
+          toast.error('ยังอ่านไม่ออก ลองครอปให้เหลือเฉพาะแถวตัวเลขแล้วกดอ่านใหม่อีกครั้ง', { id: 'batch-reread' });
           return;
         }
 
@@ -1259,7 +1259,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         this.persist();
         this.cdr.detectChanges();
 
-        toast.success(`อ่านใหม่ได้ ${row.unit} ครับ`, { id: 'batch-reread' });
+        toast.success(`อ่านใหม่ได้ ${row.unit}`, { id: 'batch-reread' });
 
         // เก็บกรอบที่ครอปเป็นรูปของแถวนี้แทนรูปเต็มใบ — เลขบนหน้าปัดชัดกว่ามากในงบไบต์เท่ากัน
         // และเป็นรูปเดียวกับที่ AI อ่านเลขนี้ออกมาจริง ๆ คนที่ย้อนมาตรวจจึงเห็นสิ่งที่ระบบเห็น
@@ -1274,7 +1274,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isRereading = false;
-        console.error('อ่านรูปที่ครอปไม่สำเร็จ:', err);
+        console.error('อ่านภาพที่ครอปไม่สำเร็จ:', err);
         this.cdr.detectChanges();
         toast.error(extractErrorMessage(err, 'อ่านเลขไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'batch-reread' });
       }
@@ -1302,8 +1302,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     switch (row.matchConfidence) {
       case 'high': return 'มั่นใจสูง';
       case 'medium': return 'ควรตรวจก่อน';
-      case 'ambiguous': return 'แยกไม่ออก เลือกเอง';
-      case 'none': return 'เดาไม่ได้ เลือกเอง';
+      case 'ambiguous': return 'แยกไม่ออก เลือกด้วยตนเอง';
+      case 'none': return 'เดาไม่ได้ เลือกด้วยตนเอง';
       default: return '';
     }
   }
@@ -1405,7 +1405,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       return {
         level: 'error',
         message: `เลขนี้น้อยกว่าเลขเดือนที่แล้วของบ้านหลังนี้ (${previous}) มิเตอร์ไม่เดินถอยหลัง — ` +
-          'ตรวจว่าอ่านหน้าปัดของหลังข้าง ๆ มาหรือเปล่าครับ'
+          'ตรวจว่าอ่านหน้าปัดของหลังข้าง ๆ มาหรือไม่'
       };
     }
 
@@ -1420,7 +1420,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     return {
       level: 'warn',
       message: `รอบนี้ใช้ ${usage} หน่วย มากกว่าที่บ้านหลังนี้เคยใช้ (เฉลี่ย ${Math.round(average)}) ` +
-        'เทียบเลขกับหน้าปัดอีกครั้งก่อนออกบิลครับ'
+        'เทียบเลขกับหน้าปัดอีกครั้งก่อนออกบิล'
     };
   }
 
@@ -1471,9 +1471,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   blockingIssue(row: ScanRow): string | null {
     if (row.status === 'saved') return null;
-    if (!row.memberId) return 'ยังไม่รู้ว่าเป็นบ้านหลังไหน กรุณาเลือกเองครับ';
-    if (row.unit === null) return 'ยังไม่มีเลขมิเตอร์ กรุณากรอกเองครับ';
-    if (row.unit < 0) return 'เลขมิเตอร์ติดลบไม่ได้ครับ';
+    if (!row.memberId) return 'ยังไม่รู้ว่าเป็นบ้านหลังไหน กรุณาเลือกด้วยตนเอง';
+    if (row.unit === null) return 'ยังไม่มีเลขมิเตอร์ กรุณากรอกด้วยตนเอง';
+    if (row.unit < 0) return 'เลขมิเตอร์ติดลบไม่ได้';
     // เลขน้อยกว่าเลขเดือนที่แล้ว — หลังบ้านตีกลับอยู่แล้วตอนยิง (ดู saveNext) กันตั้งแต่ตรงนี้
     // เพื่อให้เห็นตอนยังยืนอยู่หน้ามิเตอร์ ไม่ใช่ตอนกดออกบิลทั้งกองแล้วเดินกลับมาไม่ได้
     const check = this.unitCheck(row);
@@ -1484,9 +1484,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (unreadable) return unreadable;
     // อ่านได้ไม่ถึงเกณฑ์ แต่ยังไม่ถึงขั้นห้ามออกบิล — ให้คนติ๊กยืนยันว่าเทียบหน้าปัดแล้ว
     if (this.needsStaffVerify(row) && !row.verifiedByStaff) {
-      return 'กรุณาเทียบตัวเลขกับหน้าปัดในภาพ แล้วติ๊กยืนยันก่อนออกบิลครับ';
+      return 'กรุณาเทียบตัวเลขกับหน้าปัดในภาพ แล้วติ๊กยืนยันก่อนออกบิล';
     }
-    if (this.isDuplicate(row)) return 'ซ้ำกับอีกรูปที่เป็นบ้านเดียวกันครับ';
+    if (this.isDuplicate(row)) return 'ซ้ำกับอีกภาพที่เป็นบ้านเดียวกัน';
     // มิเตอร์ที่ติดกันเป็นกลุ่ม: ออกบิลข้ามลำดับ = ไม่มีอะไรยืนยันได้เลยว่าเลขนี้มาจากตัวไหน
     // (พิกัดใช้ไม่ได้ในระยะ 30 ซม. — ดู clusterLockMessage) จึงต้องกันตั้งแต่ก่อนยิง
     const clusterLock = this.clusterLockMessage(this.memberById(row.memberId));
@@ -1500,15 +1500,15 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     //    ให้คำตอบนั้นพอดี: เคยออกแล้วจะได้บิลใบเดิมกลับมา ไม่เคยออกจะโดนหลังบ้าน
     //    ตีกลับ ซึ่งคือสิ่งที่คนกดอยากรู้ การบล็อกไว้เฉย ๆ ทำให้ไม่มีทางรู้เลย
     if (row.status !== 'unknown' && this.entryMethod(row) !== 'ocr' && !row.photoData) {
-      return 'เลขนี้กรอกเอง จึงต้องมีรูปหน้าปัดแนบไปด้วยเสมอ — แถวนี้ไม่มีรูปแล้วครับ กรุณาถ่ายใหม่';
+      return 'เลขนี้กรอกด้วยตนเอง จึงต้องมีภาพหน้าปัดแนบไปด้วยเสมอ — แถวนี้ไม่มีภาพแล้ว กรุณาถ่ายใหม่';
     }
     // เวลาถ่ายเป็นอนาคตแปลว่านาฬิกาของเครื่องที่ถ่ายตั้งไม่ตรง หลังบ้านบล็อกตาย
     // เผื่อ 5 นาทีเท่ากัน เพราะนาฬิกามือถือกับ server คลาดกันเป็นวินาทีเป็นปกติ
     if (row.capturedAt && row.capturedAt.getTime() > Date.now() + 5 * 60 * 1000) {
-      return 'เวลาถ่ายของรูปนี้เป็นเวลาในอนาคต กรุณาตั้งนาฬิกาของเครื่องที่ถ่ายให้ตรงแล้วถ่ายใหม่ครับ';
+      return 'เวลาถ่ายของภาพนี้เป็นเวลาในอนาคต กรุณาตั้งนาฬิกาของเครื่องที่ถ่ายให้ตรงแล้วถ่ายใหม่';
     }
     if (!this.replaceExisting && this.alreadyBilled(row)) {
-      return 'บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ถ้าจะออกใหม่ให้ติ๊ก "ลบใบเดิมแล้วออกใหม่" ด้านล่างครับ';
+      return 'บ้านหลังนี้มีบิลของรอบนี้อยู่แล้ว ถ้าจะออกใหม่ให้ติ๊ก "ลบใบเดิมแล้วออกใหม่" ด้านล่าง';
     }
     return null;
   }
@@ -1528,7 +1528,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     return (
       `ระบบอ่านตัวเลขได้ไม่ชัดเจนพอ (${row.confidence}% ต่ำกว่าเกณฑ์ ${this.minBillConfidence}%) ` +
-      'จึงออกบิลด้วยตัวเลขนี้ไม่ได้ครับ — กรุณาตรวจสอบจากภาพถ่ายแล้วบันทึกตัวเลขเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
+      'จึงออกบิลด้วยตัวเลขนี้ไม่ได้ — กรุณาตรวจสอบจากภาพถ่ายแล้วบันทึกตัวเลขด้วยตนเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
     );
   }
 
@@ -1576,8 +1576,8 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   /** เรื่องที่ควรรู้แต่ไม่ถึงกับห้ามบันทึก (รวมคำเตือนที่หลังบ้านส่งมาด้วย) */
   notes(row: ScanRow): string[] {
     const notes = [...row.warnings];
-    if (!row.file) notes.push('แถวที่กู้มาจากคิวเก่า ไม่มีรูปให้เทียบแล้ว');
-    if (row.brokenImage) notes.push('เปิดรูปนี้ไม่ขึ้น เทียบเลขกับหน้าปัดด้วยตาไม่ได้');
+    if (!row.file) notes.push('แถวที่กู้มาจากคิวเก่า ไม่มีภาพให้เทียบแล้ว');
+    if (row.brokenImage) notes.push('เปิดภาพนี้ไม่ขึ้น เทียบเลขกับหน้าปัดด้วยตาไม่ได้');
     if (row.file && row.file.size > 12 * 1024 * 1024) notes.push('ไฟล์ใหญ่มาก อัปโหลดอาจช้าหรือหลุด');
     if (row.status === 'unknown') {
       notes.push('ค้างอยู่ตอนออกบิลรอบก่อน กดออกบิลซ้ำได้ ถ้ามีบิลอยู่แล้วระบบจะบอกเอง');
@@ -1586,7 +1586,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (row.confirmMeterReset) {
       notes.push(
         `ยืนยันแล้วว่าเปลี่ยนมิเตอร์ใหม่ เลขปิดของตัวเก่าคือ ${row.oldMeterFinalUnit} — ` +
-          'ใบนี้ระบบจะไม่ออกบิลให้เอง ต้องกดออกบิลเองครับ'
+          'ใบนี้ระบบจะไม่ออกบิลให้อัตโนมัติ ต้องกดออกบิลเอง'
       );
     }
 
@@ -1594,12 +1594,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     // เพราะรอบถัดไปนับจากวันจดครั้งนี้ และรูปหลงกองมามักแปลว่าหยิบรูปเก่ามาผิดใบ
     if (this.isOutsideBillingMonth(row)) {
       notes.push(
-        `รูปนี้ถ่ายรอบ ${this.suggestedBillingLabel(row)} ซึ่งคนละเดือนกับรอบบิลที่เลือกไว้ ` +
-          'ถ้าตั้งใจออกย้อนหลังก็ผ่านได้ แต่ระบบจะไม่ออกบิลให้เองใบนี้ครับ'
+        `ภาพนี้ถ่ายรอบ ${this.suggestedBillingLabel(row)} ซึ่งคนละเดือนกับรอบบิลที่เลือกไว้ ` +
+          'ถ้าตั้งใจออกย้อนหลังก็ผ่านได้ แต่ระบบจะไม่ออกบิลให้อัตโนมัติใบนี้'
       );
     }
     if (row.capturedAt && row.capturedAt.getTime() > Date.now()) {
-      notes.push('วันถ่ายในรูปเป็นวันในอนาคต — นาฬิกาในกล้องน่าจะตั้งไม่ตรง');
+      notes.push('วันถ่ายในภาพเป็นวันในอนาคต — นาฬิกาในกล้องน่าจะตั้งไม่ตรง');
     }
 
     // หน่วยพุ่งแรงมักไม่ใช่คนใช้น้ำเยอะ แต่เป็นอ่านหลักเกินหรือจับคู่ผิดบ้าน
@@ -1608,7 +1608,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (jump) {
       notes.push(
         `หน่วยรอบนี้ ${jump.usage} สูงกว่าที่บ้านหลังนี้เคยใช้ (เฉลี่ย ${Math.round(jump.average)}) มาก ` +
-          'เทียบเลขกับหน้าปัดอีกครั้งก่อนออกบิลครับ'
+          'เทียบเลขกับหน้าปัดอีกครั้งก่อนออกบิล'
       );
     }
     if (this.replaceExisting && this.alreadyBilled(row)) {
@@ -1617,7 +1617,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     // ไม่มีรูปแล้วห้ามพูดถึงเปอร์เซ็นต์ที่ AI เคยอ่านได้เลย (ดู showConfidence)
     if (this.showConfidence(row) && (row.confidence ?? 100) < this.trustedConfidence) {
-      notes.push(`ระบบอ่านตัวเลขได้ไม่ชัดเจน (${row.confidence}%) การครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นยำขึ้นครับ`);
+      notes.push(`ระบบอ่านตัวเลขได้ไม่ชัดเจน (${row.confidence}%) การครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นยำขึ้น`);
     }
     return notes;
   }
@@ -1963,7 +1963,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('ไฟล์นี้ไม่ใช่รูปครับ', { id: 'batch-retake' });
+      toast.error('ไฟล์นี้ไม่ใช่ภาพ', { id: 'batch-retake' });
       return;
     }
 
@@ -1995,7 +1995,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.persist();
     this.cdr.detectChanges();
 
-    toast.success('แนบรูปใหม่ให้แถวนี้แล้วครับ ออกบิลต่อได้เลย', { id: 'batch-retake' });
+    toast.success('แนบภาพใหม่ให้แถวนี้แล้ว ออกบิลต่อได้ทันที', { id: 'batch-retake' });
   }
 
   /** มีบ้านหลังอื่นอยู่ใกล้พอ ๆ กับหลังที่เลือก — GPS ชี้ขาดไม่ได้ ต้องให้คนดู */
@@ -2258,7 +2258,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     this.writeClipboard(
       rows.map(pick.line).join('\n'),
-      'คัดลอก ' + pick.label + ' ของ ' + rows.length + ' รูปแล้ว วางที่ช่อง ' + pick.cell + ' ได้เลยครับ'
+      'คัดลอก ' + pick.label + ' ของ ' + rows.length + ' ภาพแล้ว วางที่ช่อง ' + pick.cell + ' ได้ทันที'
     );
   }
 
@@ -2284,7 +2284,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   copyPhotoCoords(row: ScanRow): void {
     const v = this.labValues(row);
     if (!v) return;
-    this.writeClipboard(this.coordLine(v.lat, v.lng), 'คัดลอกพิกัดของรูป #' + row.seq + ' แล้วครับ');
+    this.writeClipboard(this.coordLine(v.lat, v.lng), 'คัดลอกพิกัดของภาพ #' + row.seq + ' แล้ว');
   }
 
   /** คัดลอกพิกัดของทุกรูปในกอง เรียงตามลำดับที่เห็นบนจอ — วางทีเดียวลง Photos ได้ทั้งกอง */
@@ -2299,7 +2299,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       .join('\n');
 
     if (!lines) return;
-    this.writeClipboard(lines, 'คัดลอกพิกัด ' + this.rows.length + ' รูปแล้วครับ วางลงแผ่น Photos ได้เลย');
+    this.writeClipboard(lines, 'คัดลอกพิกัด ' + this.rows.length + ' ภาพแล้ว วางลงแผ่น Photos ได้ทันที');
   }
 
   /** ทศนิยม 6 ตำแหน่งเท่าที่ไฟล์ Excel ใช้ — คั่นด้วยแท็บเพื่อให้ตกคนละช่องตอนวาง */
@@ -2309,13 +2309,13 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   private writeClipboard(text: string, done: string): void {
     if (!this.isBrowser || !navigator?.clipboard) {
-      toast.error('เบราว์เซอร์นี้คัดลอกให้ไม่ได้ครับ', { id: 'lab-copy' });
+      toast.error('เบราว์เซอร์นี้คัดลอกให้ไม่ได้', { id: 'lab-copy' });
       return;
     }
 
     navigator.clipboard.writeText(text).then(
       () => toast.success(done, { id: 'lab-copy' }),
-      () => toast.error('คัดลอกไม่สำเร็จครับ', { id: 'lab-copy' })
+      () => toast.error('คัดลอกไม่สำเร็จ', { id: 'lab-copy' })
     );
   }
 
@@ -2436,7 +2436,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (!blocker) return null;
 
     return (
-      `ต้องจดบ้าน ${blocker.house_no} (ตำแหน่ง: ${this.positionLabel(blocker)}) ให้เสร็จก่อนครับ — ` +
+      `ต้องจดบ้าน ${blocker.house_no} (ตำแหน่ง: ${this.positionLabel(blocker)}) ให้เสร็จก่อน — ` +
       'มิเตอร์กลุ่มนี้ติดกันจนพิกัดแยกไม่ออก ต้องไล่จดจากซ้ายไปขวาทีละตัว'
     );
   }
@@ -2620,9 +2620,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     return (
       `เลขมิเตอร์ชี้บ้าน ${selected?.house_no} (ห่าง ${Math.round(mine)} ม.) ` +
-      `แต่จุดถ่ายรูปอยู่ที่บ้าน ${rival.member?.house_no} (ห่าง ${Math.round(rival.meters)} ม.)` +
+      `แต่จุดถ่ายภาพอยู่ที่บ้าน ${rival.member?.house_no} (ห่าง ${Math.round(rival.meters)} ม.)` +
       (where ? ` ซึ่งอยู่ทาง${where}ของบ้าน ${selected?.house_no}` : '') +
-      ' — สองทางตอบไม่ตรงกัน กรุณาตรวจก่อนออกบิลครับ'
+      ' — สองทางตอบไม่ตรงกัน กรุณาตรวจก่อนออกบิล'
     );
   }
 
@@ -2801,7 +2801,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const queue = this.savableRows;
     if (!queue.length) {
-      toast.error('ยังไม่มีแถวไหนพร้อมออกบิลครับ', { id: 'batch-save-none' });
+      toast.error('ยังไม่มีแถวไหนพร้อมออกบิล', { id: 'batch-save-none' });
       return;
     }
 
@@ -2845,7 +2845,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     }
 
     this.askAfterQueue = true;
-    toast.success(`พิกัดตรง ออกบิลให้เลย ${instant.length} ใบครับ`, { id: 'batch-auto-save' });
+    toast.success(`พิกัดตรง ออกบิลให้เลย ${instant.length} ใบ`, { id: 'batch-auto-save' });
     this.runQueue(instant);
   }
 
@@ -2872,11 +2872,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.forceConfirm = null;
     const queue = this.savableRows;
     if (!queue.length) {
-      toast.error('ยังไม่มีแถวไหนพร้อมออกบิลครับ', { id: 'batch-save-none' });
+      toast.error('ยังไม่มีแถวไหนพร้อมออกบิล', { id: 'batch-save-none' });
       return;
     }
 
-    toast.success(`กำลังออกบิล ${queue.length} ใบครับ`, { id: 'batch-auto-save' });
+    toast.success(`กำลังออกบิล ${queue.length} ใบ`, { id: 'batch-auto-save' });
     this.runQueue(queue);
   }
 
@@ -2896,7 +2896,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         if (!rate?.id) {
           this.isSaving = false;
           this.cdr.detectChanges();
-          toast.error('ยังไม่มีเรทค่าน้ำที่เปิดใช้งาน กรุณาตั้งเรทค่าน้ำก่อนครับ', { id: 'batch-no-rate' });
+          toast.error('ยังไม่มีเรทค่าน้ำที่เปิดใช้งาน กรุณาตั้งเรทค่าน้ำก่อน', { id: 'batch-no-rate' });
           return;
         }
         this.saveNext(queue, 0, rate.id);
@@ -2922,12 +2922,12 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
       if (this.stopRequested) {
         this.stopRequested = false;
-        toast.success(`หยุดแล้วครับ ออกบิลไปทั้งหมด ${done.length - failed} ใบ`, { id: 'batch-save-done' });
+        toast.success(`หยุดแล้ว ออกบิลไปทั้งหมด ${done.length - failed} ใบ`, { id: 'batch-save-done' });
         return;
       }
 
       toast.success(
-        failed ? `ออกบิลสำเร็จ ${done.length - failed} ใบ ไม่สำเร็จ ${failed} ใบครับ` : `ออกบิลครบ ${queue.length} ใบแล้วครับ`,
+        failed ? `ออกบิลสำเร็จ ${done.length - failed} ใบ ไม่สำเร็จ ${failed} ใบ` : `ออกบิลครบ ${queue.length} ใบแล้ว`,
         { id: 'batch-save-done' }
       );
 
@@ -2960,7 +2960,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // (หลังบ้านยังตรวจซ้ำเองอยู่ ธงที่ส่งไปเป็นแค่คำอนุญาต ไม่ใช่การข้ามด่าน)
         if (!row.confirmMeterReset && Number.isFinite(previous) && currentUnit < previous) {
           row.status = 'save_failed';
-          row.error = `เลข ${currentUnit} น้อยกว่าเลขตั้งต้นของบ้านนี้ (${previous}) มิเตอร์ไม่เดินถอยหลัง — ตรวจว่าเลือกบ้านถูกไหมครับ`;
+          row.error = `เลข ${currentUnit} น้อยกว่าเลขตั้งต้นของบ้านนี้ (${previous}) มิเตอร์ไม่เดินถอยหลัง — ตรวจว่าเลือกบ้านถูกไหม`;
           this.progress.done = index + 1;
           this.persist();
           this.saveNext(queue, index + 1, rateId);
@@ -3099,7 +3099,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         if (err?.status === 404) return;
 
         console.error('ลบบิลใบเดิมที่ถูกทับไม่สำเร็จ:', err);
-        toast.error('ออกบิลใหม่แล้ว แต่ลบใบเดิมบางใบไม่ได้ กรุณาไปลบที่หน้าประวัติบิลด้วยนะครับ', {
+        toast.error('ออกบิลใหม่แล้ว แต่ลบใบเดิมบางใบไม่ได้ กรุณาไปลบที่หน้าประวัติบิลด้วย', {
           id: 'batch-replace-cleanup'
         });
       }
@@ -3126,7 +3126,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.pendingRestore = null;
     this.cdr.detectChanges();
 
-    toast.success(`กู้คิวเก่ากลับมา ${this.rows.length} ใบแล้วครับ`, { id: 'batch-restore' });
+    toast.success(`กู้คิวเก่ากลับมา ${this.rows.length} ใบแล้ว`, { id: 'batch-restore' });
   }
 
   discardQueue(): void {
@@ -3179,7 +3179,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       ocrConfidence: null,
       // ค้างตอนกำลังยิง = ไม่รู้ผล ส่วนค้างตอนกำลังอ่าน = รูปไม่อยู่แล้ว ต้องกรอกเอง
       status: row.status === 'saving' ? 'unknown' : row.status === 'reading' ? 'read_failed' : (row.status as RowStatus),
-      error: row.status === 'reading' ? 'รูปไม่ได้ถูกเก็บไว้ กรุณากรอกเลขเองครับ' : row.error,
+      error: row.status === 'reading' ? 'ภาพไม่ได้ถูกเก็บไว้ กรุณากรอกเลขเอง' : row.error,
       // รหัสด่านไม่ได้ถูกเก็บลงเครื่อง — กดออกบิลซ้ำแล้วหลังบ้านจะตีกลับมาใหม่พร้อมรหัสเอง
       errorCode: null,
       billId: row.billId

@@ -247,7 +247,7 @@ describe('BatchScanComponent', () => {
       expect(component.rows[0].matchedBy).toBe('system');
       // GPS แยกบ้านติดกันไม่ได้จริง จึงห้ามขึ้นว่ามั่นใจสูงเด็ดขาด
       expect(component.rows[0].matchConfidence).toBe('medium');
-      expect(component.rows[0].matchReason).toContain('พิกัดในรูป');
+      expect(component.rows[0].matchReason).toContain('พิกัดในภาพ');
     });
 
     it('บ้านสองหลังใกล้กันพอ ๆ กัน → ไม่เดามั่ว ปล่อยให้คนเลือก', () => {
@@ -415,7 +415,7 @@ describe('BatchScanComponent', () => {
       const manual = row({ seq: 1, memberId: 1, unit: 1250, ocrUnit: null, photoData: null }) as any;
       component.rows = [manual];
 
-      expect(component.blockingIssue(manual)).toContain('ต้องมีรูปหน้าปัด');
+      expect(component.blockingIssue(manual)).toContain('ต้องมีภาพหน้าปัด');
 
       component.saveAll();
       http.expectNone(r => r.url.endsWith('/bills/scan'));
@@ -962,7 +962,7 @@ describe('BatchScanComponent', () => {
 
       expect(fresh.rows.length).toBe(1);
       expect(fresh.rows[0].file).toBeNull();
-      expect(fresh.notes(fresh.rows[0])).toContain('แถวที่กู้มาจากคิวเก่า ไม่มีรูปให้เทียบแล้ว');
+      expect(fresh.notes(fresh.rows[0])).toContain('แถวที่กู้มาจากคิวเก่า ไม่มีภาพให้เทียบแล้ว');
     });
 
     it('แถวที่ค้างตอนกำลังออกบิล → ไม่แน่ใจ แต่ยังกดออกบิลซ้ำได้', () => {
