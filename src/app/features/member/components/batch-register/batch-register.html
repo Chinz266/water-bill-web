@@ -9,11 +9,11 @@
 
     <nav class="reg-modes" aria-label="วิธีเพิ่มบ้าน">
       <a class="reg-mode" routerLink="/members">
-        <span class="reg-mode-title">🏠 เพิ่มทีละหลัง</span>
+        <span class="reg-mode-title">เพิ่มทีละหลัง</span>
         <span class="reg-mode-sub">ยืนอยู่หน้ามิเตอร์แล้วกรอกเลย</span>
       </a>
       <span class="reg-mode is-active">
-        <span class="reg-mode-title">🗂️ หลายหลังจากภาพ</span>
+        <span class="reg-mode-title">หลายหลังจากภาพ</span>
         <span class="reg-mode-sub">ถ่ายมาทั้งวันแล้วกรอกทีเดียว</span>
       </span>
     </nav>
@@ -118,15 +118,15 @@
 
                 <!-- วันถ่ายกับพิกัดคือของที่รูปให้มา ต้องเห็นทุกแถวว่าได้ครบไหม -->
                 @if (row.capturedAt) {
-                  <span class="row-meta">📅 {{ dateLabel(row.capturedAt) }}</span>
+                  <span class="row-meta">{{ dateLabel(row.capturedAt) }}</span>
                 } @else {
-                  <span class="row-meta warn">📅 ไม่มีวันถ่าย — จะลงเป็นวันนี้</span>
+                  <span class="row-meta warn">ไม่มีวันถ่าย — จะลงเป็นวันนี้</span>
                 }
 
                 @if (row.latitude !== null) {
-                  <span class="row-meta">📍 {{ row.latitude | number: '1.5-5' }}, {{ row.longitude | number: '1.5-5' }}</span>
+                  <span class="row-meta">{{ row.latitude | number: '1.5-5' }}, {{ row.longitude | number: '1.5-5' }}</span>
                 } @else {
-                  <span class="row-meta warn">📍 ไม่มีพิกัด</span>
+                  <span class="row-meta warn">ไม่มีพิกัด</span>
                 }
 
                 @switch (row.status) {
@@ -177,17 +177,17 @@
 
                 @if (nearbyMember(row); as nearby) {
                   <p class="row-note">
-                    💡 ห่างจากบ้านเลขที่ <strong>{{ nearby.house_no }}</strong> ที่ลงทะเบียนแล้ว
+                    ห่างจากบ้านเลขที่ <strong>{{ nearby.house_no }}</strong> ที่ลงทะเบียนแล้ว
                     {{ nearby.meters | number: '1.0-0' }} เมตร เช็คว่าไม่ใช่หลังเดิม
                   </p>
                 }
 
                 @if (blockingIssue(row); as issue) {
-                  <p class="row-issue">⚠️ {{ issue }}</p>
+                  <p class="row-issue">{{ issue }}</p>
                 }
 
                 @if (row.error) {
-                  <p class="row-issue">❌ {{ row.error }}</p>
+                  <p class="row-issue">{{ row.error }}</p>
                 }
               }
             </div>

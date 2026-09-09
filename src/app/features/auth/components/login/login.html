@@ -6,7 +6,6 @@
     </a>
 
     <div class="auth-header">
-      <div class="auth-logo">🧑‍💼</div>
       <span class="role-badge">สำหรับเจ้าหน้าที่หมู่บ้าน</span>
       <h1>เข้าสู่ระบบเจ้าหน้าที่</h1>
       <p>จดมิเตอร์ ออกบิล และจัดการลูกบ้าน</p>
@@ -48,7 +47,7 @@
             (click)="togglePassword()"
             [attr.aria-label]="showPassword() ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
           >
-            {{ showPassword() ? '🙈' : '👁️' }}
+            {{ showPassword() ? 'ซ่อน' : 'แสดง' }}
           </button>
         </div>
         @if (password.touched && password.hasError('required')) {
@@ -58,7 +57,6 @@
 
       @if (errorMessage()) {
         <div class="alert" role="alert">
-          <span>⚠️</span>
           <span>{{ errorMessage() }}</span>
         </div>
       }
@@ -75,7 +73,7 @@
     </form>
 
     <a class="switch-role-btn" routerLink="/member/login" queryParamsHandling="preserve">
-      🏠 สำหรับลูกบ้าน — เข้าดูบิลค่าน้ำของบ้านท่าน
+      สำหรับลูกบ้าน — เข้าดูบิลค่าน้ำของบ้านคุณ
     </a>
   </div>
 </div>

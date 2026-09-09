@@ -1,7 +1,6 @@
 <!-- แถบบนแบบเรียบง่ายของฝั่งลูกบ้าน (ไม่มีเมนูอื่น เพราะมีหน้าเดียว) -->
 <header class="portal-bar">
   <div class="portal-brand">
-    <span class="portal-mark">💧</span>
     <div class="portal-text">
       <span class="portal-title">บิลค่าน้ำบ้านของฉัน</span>
       <span class="portal-sub">
@@ -21,8 +20,8 @@
 
 <!-- ลูกบ้านมีสองหน้า — ไม่มีแถบนี้จะติดอยู่หน้าบิล ไปหน้าแจ้งเรื่องไม่ได้เลย -->
 <nav class="portal-tabs" aria-label="เมนูลูกบ้าน">
-  <a routerLink="/member/bills" routerLinkActive="is-active">🧾 บิลของฉัน</a>
-  <a routerLink="/member/reports" routerLinkActive="is-active">📣 แจ้งเรื่อง</a>
+  <a routerLink="/member/bills" routerLinkActive="is-active">บิลของฉัน</a>
+  <a routerLink="/member/reports" routerLinkActive="is-active">แจ้งเรื่อง</a>
 </nav>
 
 <div class="portal-content">
@@ -85,7 +84,6 @@
       </div>
     } @else if (visibleBills.length > 0) {
       <div class="card paid-card">
-        <span class="paid-emoji">🎉</span>
         <div>
           <p class="paid-title">ชำระครบทุกรายการแล้ว</p>
           <p class="text-muted">ขอบคุณที่ชำระตรงเวลา</p>
@@ -151,7 +149,6 @@
       <!-- มีบิลอยู่ แต่เดือน/บ้านที่เลือกไม่มีบิล -->
       <div class="card">
         <div class="empty-state">
-          <div class="empty-art">🔍</div>
           <h2 class="empty-title">ไม่มีบิลในเดือนที่เลือก</h2>
           <p class="empty-text">ลองเลือกเดือนอื่น หรือกดดูทุกเดือนอีกครั้ง</p>
           <button type="button" class="btn btn-secondary" (click)="selectedMonthKey = ''; selectedHouseId = ''">
@@ -162,7 +159,6 @@
     } @else {
       <div class="card">
         <div class="empty-state">
-          <div class="empty-art">💧</div>
           <h2 class="empty-title">ยังไม่มีบิลค่าน้ำ</h2>
           <p class="empty-text">เมื่อเจ้าหน้าที่จดมิเตอร์และออกบิลของบ้านคุณแล้ว บิลจะมาแสดงที่นี่</p>
         </div>
@@ -180,7 +176,7 @@
               @if (admin.photo) {
                 <img [src]="admin.photo" alt="ภาพผู้ดูแล" />
               } @else {
-                🧑‍💼
+                
               }
             </span>
             <span class="admin-info">

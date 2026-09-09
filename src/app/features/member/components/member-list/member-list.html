@@ -36,7 +36,6 @@
   } @else if (loadFailed) {
     <div class="card">
       <div class="empty-state">
-        <div class="empty-art">📡</div>
         <h2 class="empty-title">โหลดรายชื่อไม่สำเร็จ</h2>
         <p class="empty-text">อาจเป็นเพราะเน็ตหลุดหรือระบบหลังบ้านยังไม่พร้อม</p>
         <button type="button" class="btn btn-primary" (click)="loadMembers()">โหลดข้อมูลอีกครั้ง</button>
@@ -45,7 +44,6 @@
   } @else if (members.length === 0) {
     <div class="card">
       <div class="empty-state">
-        <div class="empty-art">🏠</div>
         <h2 class="empty-title">ยังไม่มีบ้านในระบบ</h2>
         <p class="empty-text">เพิ่มบ้านหลังแรกเข้าระบบก่อน แล้วค่อยเริ่มบันทึกค่าน้ำได้ทันที</p>
         <button type="button" class="btn btn-primary" (click)="openAddModal()">
@@ -58,7 +56,6 @@
     <!-- บ้านที่ไม่มีพิกัดจะถูกจับคู่รูปมิเตอร์อัตโนมัติไม่ได้ ต้องเห็นว่าเหลือกี่หลัง -->
     @if (missingCoordsCount > 0) {
       <div class="alert alert-warning coords-alert">
-        <span>📍</span>
         <span>
           ยังมีอีก <strong>{{ missingCoordsCount }}</strong> หลังที่ไม่มีพิกัดมิเตอร์
           จับคู่ภาพอัตโนมัติไม่ได้ — กด "ดึงพิกัดจากภาพ" ในรายการ
@@ -70,7 +67,6 @@
     @if (visibleMembers.length === 0) {
       <div class="card">
         <div class="empty-state">
-          <div class="empty-art">🔍</div>
           <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
           <p class="empty-text">ลองพิมพ์บ้านเลขที่ ชื่อ หรือเบอร์โทรใหม่อีกครั้ง</p>
           <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">ล้างคำค้นหา</button>
@@ -168,7 +164,6 @@
             </p>
             @if (readingDay(member); as day) {
               <p class="reading-day text-muted">
-                <span aria-hidden="true">🗓️</span>
                 จดประจำประมาณวันที่ {{ day }} ของเดือน
               </p>
             }
@@ -227,12 +222,10 @@
       <!-- สถานะพิกัดอยู่บนสุด เพราะเป็นของบังคับที่ต้องได้มาจากรูปเท่านั้น -->
       <div class="coords-status" [class.is-ready]="hasCoords" [class.is-error]="locationError">
         @if (hasCoords) {
-          <span>📍</span>
           <span>
             ได้พิกัดจากภาพแล้ว ({{ newMember.latitude | number: '1.5-5' }}, {{ newMember.longitude | number: '1.5-5' }})
           </span>
         } @else {
-          <span>📍</span>
           <span>ยังไม่รู้ตำแหน่ง — แนบภาพหน้าปัดที่ถ่ายตอนเปิดตำแหน่งไว้ด้านล่าง</span>
         }
       </div>
@@ -341,7 +334,6 @@
                กับตำแหน่งมิเตอร์ของบ้านหลังนี้ไปตลอด แก้ทีหลังลำบาก -->
           <ul class="photo-meta">
             <li>
-              <span aria-hidden="true">📅</span>
               @if (photoCapturedAt) {
                 <span>ถ่ายเมื่อ <strong>{{ registrationDateLabel }}</strong> — ใช้เป็นวันจดเลขตั้งต้น</span>
               } @else if (photoDateUnreadable) {
@@ -351,7 +343,6 @@
               }
             </li>
             <li>
-              <span aria-hidden="true">📍</span>
               @if (coordsSource === 'photo') {
                 <span>ใช้พิกัดที่ติดมากับภาพเป็นตำแหน่งมิเตอร์ของบ้านหลังนี้</span>
               } @else {
@@ -519,10 +510,8 @@
         <label class="field-label">พิกัดมิเตอร์</label>
         <div class="coords-status" [class.is-ready]="hasMemberCoords(editingMember)">
           @if (hasMemberCoords(editingMember)) {
-            <span>📍</span>
             <span>{{ editingMember.latitude | number: '1.5-5' }}, {{ editingMember.longitude | number: '1.5-5' }}</span>
           } @else {
-            <span>📍</span>
             <span>ยังไม่มีพิกัด</span>
           }
         </div>
@@ -594,12 +583,10 @@
         </p>
       } @else if (billsLoadFailed) {
         <div class="alert alert-danger">
-          <span>❌</span>
           <span>ดึงบิลไม่สำเร็จ กดปุ่มลองใหม่ด้านล่างได้ทันที</span>
         </div>
       } @else if (memberBills.length === 0) {
         <div class="alert alert-info">
-          <span>🧾</span>
           <span>บ้านหลังนี้ยังไม่มีบิลในระบบ ต้องไปจดมิเตอร์ที่หน้าสแกนก่อน</span>
         </div>
       } @else {
@@ -663,7 +650,6 @@
       </div>
 
       <div class="alert alert-info">
-        <span>🧾</span>
         <span>
           บิลของบ้านเลขที่ <strong>{{ billsMember?.house_no || '—' }}</strong>
           ({{ ownerName(billsMember) }})
@@ -679,7 +665,6 @@
 
       @if (toggleTargetStatus === 'Paid') {
         <div class="alert alert-warning">
-          <span>⚠️</span>
           <span>
             พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
             ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะก่อน
@@ -687,7 +672,6 @@
         </div>
       } @else {
         <div class="alert alert-warning">
-          <span>⚠️</span>
           <span>
             บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
             และลูกบ้านจะเห็นว่ายังไม่ได้จ่าย
@@ -737,7 +721,6 @@
       </div>
 
       <div class="alert alert-warning">
-        <span>⚠️</span>
         <span>
           บ้านเลขที่ <strong>{{ memberToDelete.house_no }}</strong> ({{ ownerName(memberToDelete) }})
           จะถูกลบพร้อม <strong>บิลค่าน้ำ ประวัติจดมิเตอร์ เรื่องที่แจ้งไว้ และบัญชีลูกบ้าน</strong>
@@ -747,7 +730,6 @@
 
       @if (deleteBlockedReason) {
         <div class="alert alert-danger">
-          <span>❌</span>
           <span>{{ deleteBlockedReason }}</span>
         </div>
       }

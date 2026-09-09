@@ -1,7 +1,6 @@
 <!-- แถบบนของพอร์ทัลลูกบ้าน (หน้าตาเดียวกับหน้าบิล — สไตล์อยู่ที่ portal-shared.css) -->
 <header class="portal-bar">
   <div class="portal-brand">
-    <span class="portal-mark">📣</span>
     <div class="portal-text">
       <span class="portal-title">แจ้งเรื่องถึงผู้ดูแล</span>
       <span class="portal-sub">{{ displayName() }}</span>
@@ -16,8 +15,8 @@
 
 <!-- สลับไปมาระหว่างหน้าบิลกับหน้าแจ้งเรื่อง -->
 <nav class="portal-tabs" aria-label="เมนูลูกบ้าน">
-  <a routerLink="/member/bills" routerLinkActive="is-active">🧾 บิลของฉัน</a>
-  <a routerLink="/member/reports" routerLinkActive="is-active">📣 แจ้งเรื่อง</a>
+  <a routerLink="/member/bills" routerLinkActive="is-active">บิลของฉัน</a>
+  <a routerLink="/member/reports" routerLinkActive="is-active">แจ้งเรื่อง</a>
 </nav>
 
 <div class="portal-content">
@@ -40,7 +39,6 @@
   @if (!isLoading) {
     @if (reports.length === 0) {
       <div class="card empty-state">
-        <div class="empty-art">📭</div>
         <p class="empty-title">ยังไม่มีเรื่องที่แจ้งไว้</p>
         <p class="empty-text">
           ถ้าน้ำไม่ไหล น้ำขุ่น ท่อรั่ว หรือบิลมีอะไรไม่ถูกต้อง<br />
@@ -58,7 +56,6 @@
       <div class="report-list">
         @for (report of reports; track report.id) {
           <button type="button" class="report-item" (click)="openDetail(report)">
-            <span class="report-icon">{{ categoryIcon(report.category) }}</span>
 
             <span class="report-main">
               <span class="report-cat">{{ categoryLabel(report.category) }}</span>
@@ -71,7 +68,7 @@
               </span>
               <!-- มีคำตอบแล้วต้องเห็นตั้งแต่หน้ารายการ ไม่งั้นลูกบ้านไม่รู้ว่าถูกตอบแล้ว -->
               @if (report.admin_reply) {
-                <span class="report-replied">💬 ผู้ดูแลตอบกลับแล้ว</span>
+                <span class="report-replied">ผู้ดูแลตอบกลับแล้ว</span>
               }
             </span>
 
@@ -80,7 +77,7 @@
                 {{ statusLabel(report.status) }}
               </span>
               @if (report.photo) {
-                <span class="report-haspic">📎 มีภาพ</span>
+                <span class="report-haspic">มีภาพ</span>
               }
             </span>
           </button>
@@ -129,7 +126,6 @@
               [class.is-picked]="form.category === cat.value"
               (click)="pickCategory(cat.value)"
             >
-              <span class="cat-icon">{{ cat.icon }}</span>
               <span class="cat-label">{{ cat.label }}</span>
             </button>
           }
@@ -169,7 +165,6 @@
           <!-- แยกเป็นสองปุ่มแบบเดียวกับหน้าสแกนมิเตอร์ — ปุ่มถ่ายรูปใช้ capture="environment"
                เปิดกล้องหลังให้เลย ไม่ต้องผ่านแผ่นให้เลือกว่าจะถ่ายหรือหยิบจากคลัง -->
           <label class="photo-picker" for="report-camera">
-            <span class="photo-picker-icon">📷</span>
             <span>แตะเพื่อถ่ายภาพ</span>
           </label>
           <input
@@ -217,7 +212,7 @@
     <div class="modal-card" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3 class="modal-title">
-          {{ categoryIcon(selectedReport.category) }} {{ categoryLabel(selectedReport.category) }}
+          {{ categoryLabel(selectedReport.category) }}
         </h3>
         <button type="button" class="modal-close" (click)="closeDetail()" aria-label="ปิด">✕</button>
       </div>
@@ -247,7 +242,7 @@
       @if (selectedReport.admin_reply) {
         <div class="reply-box">
           <span class="reply-head">
-            💬 ผู้ดูแลตอบกลับ
+            ผู้ดูแลตอบกลับ
             @if (selectedReport.replier) {
               — {{ selectedReport.replier.fname }} {{ selectedReport.replier.lname }}
             }

@@ -11,7 +11,6 @@ import { BillPrintService } from '../../../meter-reading/services/bill-print.ser
 import {
   REPORT_CATEGORIES,
   REPORT_DETAIL_MAX,
-  categoryIcon,
   categoryLabel,
   statusChip,
   statusLabel,
@@ -264,7 +263,6 @@ export class MyReportsComponent implements OnInit {
   }
 
   categoryLabel = categoryLabel;
-  categoryIcon = categoryIcon;
   statusLabel = statusLabel;
   statusChip = statusChip;
 

@@ -7,7 +7,6 @@
 </div>
 
 <div class="alert alert-info">
-  <span>⏳</span>
   <span>
     <strong>ของที่ค้างนานคือของที่ต้องรีบ</strong> — พอข้ามเดือนไปแล้วจะออกบิลย้อนหลังไม่ได้
     (ระบบแจ้งว่า "มีบิลใหม่กว่าอยู่แล้ว") และปริมาณน้ำของภาพนั้นจะถูกรวมไปกับเดือนถัดไปแทน
@@ -19,7 +18,7 @@
   @if (isLoading()) {
     <p class="text-muted">กำลังโหลด...</p>
   } @else if (!rows().length) {
-    <p class="text-muted">ไม่มีภาพค้างในคิว 🎉</p>
+    <p class="text-muted">ไม่มีภาพค้างในคิว </p>
   } @else {
     <!-- ═══ virtual scroll ═══
          คิวโตได้เป็นร้อยใบตอนต้นเดือน การ์ดทุกใบมีรูปของตัวเอง — เรนเดอร์ทั้งหมด
@@ -56,7 +55,7 @@
                ด้วยความสูงคงที่ — บรรทัดที่โผล่มาบ้างไม่โผล่บ้างทำให้ตำแหน่งเพี้ยนทั้งคิว -->
           <p class="queue-line queue-chain">
             @if (chainLabel(row); as label) {
-              <span class="chain-badge">🔗 {{ label }}</span>
+              <span class="chain-badge">{{ label }}</span>
             } @else if (row.note) {
               <span class="text-muted">บันทึก: {{ row.note }}</span>
             }
@@ -102,7 +101,6 @@
            ไม่งั้นคนตรวจจะไม่รู้ว่ากำลังตรวจอะไรอยู่ แล้วก็กดอนุมัติผ่านไปเฉย ๆ -->
       @if (row.blocked_reason) {
         <div class="alert alert-warning">
-          <span>🔎</span>
           <span>
             <strong>สาเหตุที่ระบบระงับไว้ตอนบันทึกหน้างาน:</strong> {{ row.blocked_reason }}
           </span>
@@ -112,14 +110,13 @@
       <!-- มิเตอร์ตัวเดียวกันที่ถ่ายไว้คนละวัน — ตัวเลขสองใบต้องอยู่ตรงหน้าคนตัดสิน -->
       @if (chainLabel(row); as label) {
         <div class="alert alert-info">
-          <span>🔗</span>
           <span>
             {{ label }}
             @if (row.chain?.house_no) {
               <br />ใบก่อนหน้าถูกจับคู่กับบ้าน <strong>{{ row.chain?.house_no }}</strong> ไปแล้ว
             }
             @if (row.chain?.cluster_group_id) {
-              <br />⚠️ มิเตอร์กลุ่มนี้ติดกันบนกำแพงเดียวกัน (ห่างกันราว 30 ซม.)
+              <br />มิเตอร์กลุ่มนี้ติดกันบนกำแพงเดียวกัน (ห่างกันราว 30 ซม.)
               พิกัดแยกตัวซ้าย/ตัวขวาไม่ได้ — กรุณาเทียบเลขบนภาพกับเลขตั้งต้นให้แน่ใจก่อน
             }
           </span>
@@ -127,14 +124,13 @@
 
         @if (chainHouse(row); as house) {
           <button type="button" class="btn btn-ghost btn-sm" (click)="selectedMemberId = house.members_id">
-            🔗 ใช้บ้านเดียวกับคิว #{{ row.chain?.id }} ({{ house.house_no }})
+            ใช้บ้านเดียวกับคิว #{{ row.chain?.id }} ({{ house.house_no }})
           </button>
         }
       }
 
       @if (suggested(); as house) {
         <div class="alert alert-info">
-          <span>🏠</span>
           <span>
             <strong>คนหน้างานเลือกบ้าน {{ house.house_no }}</strong> ({{ house.name }})
             @if (house.cluster_group_id) {
@@ -248,7 +244,6 @@
       <!-- ด่านของหลังบ้านที่ตีกลับมา -->
       @if (blockedMessage(); as message) {
         <div class="alert alert-warning">
-          <span>⚠️</span>
           <span>{{ message }}</span>
         </div>
 
@@ -290,7 +285,6 @@
       </div>
 
       <div class="alert alert-warning">
-        <span>⚠️</span>
         <span>ไฟล์ภาพจะถูก<strong>ลบทิ้งถาวร</strong> กู้คืนไม่ได้</span>
       </div>
 

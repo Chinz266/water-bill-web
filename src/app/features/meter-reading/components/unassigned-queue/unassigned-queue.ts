@@ -179,7 +179,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
     const now = row.captured_at ? this.shortDate(row.captured_at) : 'ใบนี้';
 
     return (
-      `ต่อเนื่องจากคิว #${chain.id} (${before}: ${chain.meter_unit} ➔ ${now}: ${row.meter_unit} ` +
+      `ต่อเนื่องจากคิว #${chain.id} (${before}: ${chain.meter_unit} ${now}: ${row.meter_unit} ` +
       `= ใช้ไป ${chain.usage_unit} หน่วย)`
     );
   }
@@ -207,14 +207,14 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
 
     const distance = relative.distance_meters.toFixed(2).replace(/\.?0+$/, '');
     const head =
-      `📍 จุดที่ถ่ายอยู่ทาง "ด้าน${relative.relative_direction}" ` +
+      `จุดที่ถ่ายอยู่ทาง "ด้าน${relative.relative_direction}" ` +
       `${distance} เมตร จากหมุดของบ้าน ${candidate.house_no}`;
 
     if (relative.from_sequence) {
       return `${head} (พิกัดซ้ำกันเป๊ะ — ทิศนี้มาจากลำดับตำแหน่งบนกำแพง)`;
     }
     if (!relative.reliable) {
-      return `${head} — ⚠️ ระยะนี้ต่ำกว่าความคลาดเคลื่อนของ GPS (3-30 ม.) ใช้ดูประกอบเท่านั้น อย่าใช้ตัดสินว่าเป็นบ้านไหน`;
+      return `${head} — ระยะนี้ต่ำกว่าความคลาดเคลื่อนของ GPS (3-30 ม.) ใช้ดูประกอบเท่านั้น อย่าใช้ตัดสินว่าเป็นบ้านไหน`;
     }
     return head;
   }

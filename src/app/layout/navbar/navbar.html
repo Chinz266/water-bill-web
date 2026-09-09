@@ -1,7 +1,6 @@
 <!-- แถบบนสุด: ชื่อระบบ + เมนู (จอใหญ่) + ชื่อผู้ใช้และปุ่มออกจากระบบ -->
 <header class="topbar">
   <a class="brand" routerLink="/home">
-    <span class="brand-mark">💧</span>
     <span class="brand-text">
       <span class="brand-title">ระบบค่าน้ำประปาหมู่บ้าน</span>
       <span class="brand-sub">บันทึกเลขมิเตอร์และออกบิล</span>
@@ -49,7 +48,7 @@
         @if (photo()?.photo) {
           <img [src]="photo()!.photo" alt="ภาพผู้ดูแล" />
         } @else {
-          🧑‍💼
+          {{ displayName().charAt(0) }}
         }
       </span>
       <span class="user-text">
@@ -103,7 +102,7 @@
         @if (photo()?.photo) {
           <img [src]="photo()!.photo" alt="ภาพผู้ดูแล" />
         } @else {
-          🧑‍💼
+          {{ displayName().charAt(0) }}
         }
       </span>
       <span>

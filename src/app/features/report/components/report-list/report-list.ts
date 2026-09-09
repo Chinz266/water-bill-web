@@ -8,7 +8,6 @@ import { BillPrintService } from '../../../meter-reading/services/bill-print.ser
 import {
   REPORT_DETAIL_MAX,
   REPORT_STATUSES,
-  categoryIcon,
   categoryLabel,
   statusChip,
   statusLabel,
@@ -206,7 +205,6 @@ export class ReportListComponent implements OnInit {
   // ข้อความบนจอ
   // ==========================================
   categoryLabel = categoryLabel;
-  categoryIcon = categoryIcon;
   statusLabel = statusLabel;
   statusChip = statusChip;
 

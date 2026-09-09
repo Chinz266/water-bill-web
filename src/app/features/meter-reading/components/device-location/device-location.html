@@ -6,7 +6,7 @@
   <div class="device-loc">
     @if (status() === 'idle') {
       <button type="button" class="btn btn-ghost btn-sm device-loc-ask" (click)="request()">
-        📍 เทียบกับตำแหน่งที่ยืนอยู่ตอนนี้
+        เทียบกับตำแหน่งที่ยืนอยู่ตอนนี้
       </button>
       <span class="device-loc-note">ดูเทียบอย่างเดียว ไม่บันทึก</span>
     } @else if (status() === 'asking') {

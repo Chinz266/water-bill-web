@@ -6,7 +6,6 @@
     </a>
 
     <div class="auth-header">
-      <div class="auth-logo">🏠</div>
       <span class="role-badge">สำหรับลูกบ้าน</span>
       <h1>ดูบิลค่าน้ำบ้านของคุณ</h1>
       <p>กรอกเบอร์โทรที่แจ้งไว้กับหมู่บ้าน แล้วกดเข้าดูได้ทันที ไม่ต้องใช้รหัสผ่าน</p>
@@ -33,7 +32,6 @@
 
       @if (errorMessage()) {
         <div class="alert" role="alert">
-          <span>⚠️</span>
           <span>{{ errorMessage() }}</span>
         </div>
       }
@@ -55,7 +53,7 @@
     </p>
 
     <a class="switch-role-btn" routerLink="/login" queryParamsHandling="preserve">
-      🧑‍💼 สำหรับเจ้าหน้าที่หมู่บ้าน — เข้าสู่ระบบสำหรับเจ้าหน้าที่
+      สำหรับเจ้าหน้าที่หมู่บ้าน — เข้าสู่ระบบสำหรับเจ้าหน้าที่
     </a>
   </div>
 </div>

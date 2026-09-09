@@ -3,7 +3,6 @@
   @if (!file()) {
     <label class="crop-pick">
       <input type="file" accept="image/*" capture="environment" (change)="pickFile($event)" [disabled]="busy()" />
-      <span class="crop-pick-icon">📷</span>
       <span class="crop-pick-text">
         <strong>ถ่ายภาพหน้าปัด หรือเลือกจากเครื่อง</strong>
         <small>ถ่ายให้ตัวเลขเต็มจอที่สุด แล้วค่อยมาครอบในขั้นถัดไป</small>
@@ -13,7 +12,6 @@
 
   @if (loadFailed()) {
     <div class="alert alert-danger">
-      <span>⚠️</span>
       <span>เปิดไฟล์นี้ไม่ได้ กรุณาเลือกไฟล์ภาพ (JPG / PNG) ใหม่อีกครั้ง</span>
     </div>
   }
@@ -28,7 +26,7 @@
          คนถึงจะรู้ว่าต้องตรวจอะไร ไม่ใช่กดยืนยันตามกรอบที่โผล่มาเฉย ๆ -->
     @if (autoBoxNote(); as note) {
       <p class="crop-auto" [class.is-busy]="detecting()">
-        <span>{{ detecting() ? '⏳' : '🤖' }}</span>
+        <span>{{ detecting() ? '' : '' }}</span>
         <span>{{ note }}</span>
       </p>
     }
@@ -76,12 +74,12 @@
       <!-- ทางลัดกลับไปตำแหน่งมาตรฐาน สำหรับตอนที่กรอบไปผิดที่ (โมเดลจับโดนคราบโคลน
            หรือลากจนหลง) — วางไว้ติดกรอบเพราะใช้ระหว่างลาก ไม่ใช่ตอนจะกดยืนยัน -->
       <button type="button" class="btn btn-ghost btn-sm crop-snap" (click)="quickSnap()" [disabled]="busy()">
-        🎯 จัดกรอบให้ตรงแถบตัวเลข
+        จัดกรอบให้ตรงแถบตัวเลข
       </button>
 
       <div class="crop-rotate">
-        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(-1)" [disabled]="busy()">↺ หมุนซ้าย</button>
-        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(1)" [disabled]="busy()">↻ หมุนขวา</button>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(-1)" [disabled]="busy()">หมุนซ้าย</button>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="rotate(1)" [disabled]="busy()">หมุนขวา</button>
       </div>
     </div>
 
@@ -102,7 +100,6 @@
 
       @if (tooSmall()) {
         <div class="alert alert-warning">
-          <span>🔍</span>
           <span>
             กรอบเล็กเกินไป (กว้าง {{ cropWidth() }} px) ตัวเลขอาจเบลอจนอ่านไม่ออก —
             ลองถ่ายใหม่ให้ใกล้ขึ้น หรือขยายกรอบให้กว้างกว่านี้

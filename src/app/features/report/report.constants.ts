@@ -9,25 +9,20 @@
 export interface ReportCategoryOption {
   value: string;
   label: string;
-  icon: string;
 }
 
 export const REPORT_CATEGORIES: ReportCategoryOption[] = [
-  { value: 'WATER_OUT', label: 'น้ำไม่ไหล', icon: '🚱' },
-  { value: 'WATER_DIRTY', label: 'น้ำขุ่น / สกปรก', icon: '🟤' },
-  { value: 'PIPE_LEAK', label: 'ท่อแตก / น้ำรั่ว', icon: '💦' },
-  { value: 'METER_BROKEN', label: 'มิเตอร์ผิดปกติ', icon: '⏱️' },
-  { value: 'BILL_WRONG', label: 'บิลไม่ถูกต้อง', icon: '🧾' },
-  { value: 'OTHER', label: 'เรื่องอื่น ๆ', icon: '💬' },
+  { value: 'WATER_OUT', label: 'น้ำไม่ไหล' },
+  { value: 'WATER_DIRTY', label: 'น้ำขุ่น / สกปรก' },
+  { value: 'PIPE_LEAK', label: 'ท่อแตก / น้ำรั่ว' },
+  { value: 'METER_BROKEN', label: 'มิเตอร์ผิดปกติ' },
+  { value: 'BILL_WRONG', label: 'บิลไม่ถูกต้อง' },
+  { value: 'OTHER', label: 'เรื่องอื่น ๆ' },
 ];
 
 /** แปลงรหัสหมวดเป็นคำไทย — ถ้าเจอรหัสแปลก ๆ (ข้อมูลเก่า) ให้คืนคำกลาง ๆ ไม่ให้จอว่าง */
 export function categoryLabel(value: string): string {
   return REPORT_CATEGORIES.find((c) => c.value === value)?.label ?? 'เรื่องอื่น ๆ';
-}
-
-export function categoryIcon(value: string): string {
-  return REPORT_CATEGORIES.find((c) => c.value === value)?.icon ?? '💬';
 }
 
 export interface ReportStatusOption {

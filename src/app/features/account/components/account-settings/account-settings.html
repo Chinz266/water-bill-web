@@ -11,7 +11,7 @@
         @if (photo()) {
           <img [src]="photo()" alt="ภาพโปรไฟล์ผู้ดูแล" />
         } @else {
-          <span class="avatar-icon">🧑‍💼</span>
+          <span class="avatar-icon">{{ (fname.value || 'ผ').charAt(0) }}</span>
         }
       </div>
       <div class="avatar-meta">

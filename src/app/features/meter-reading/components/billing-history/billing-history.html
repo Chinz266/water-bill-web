@@ -170,7 +170,6 @@
       <!-- ค้นหาแล้วไม่เจอ -->
       <div class="card">
         <div class="empty-state">
-          <div class="empty-art">🔍</div>
           <h2 class="empty-title">ไม่พบบ้านที่ค้นหา</h2>
           <p class="empty-text">ลองพิมพ์บ้านเลขที่หรือชื่อใหม่อีกครั้ง หรือเลือกเดือนอื่นดู</p>
           <button type="button" class="btn btn-secondary" (click)="searchTerm = ''">
@@ -185,7 +184,6 @@
   @if (!isLoading && bills.length === 0) {
     <div class="card">
       <div class="empty-state">
-        <div class="empty-art">💧</div>
         <h2 class="empty-title">ยังไม่มีบิลในระบบ</h2>
         <p class="empty-text">เริ่มจากการสแกนมิเตอร์น้ำสักหลัง แล้วบิลจะมาแสดงที่หน้านี้ให้อัตโนมัติ</p>
         <button type="button" class="btn btn-primary" routerLink="/scan-batch">
@@ -458,8 +456,8 @@
         </p>
 
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(-1)">↺ หมุนซ้าย</button>
-          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(1)">↻ หมุนขวา</button>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(-1)">หมุนซ้าย</button>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(1)">หมุนขวา</button>
           <button type="button" class="btn btn-secondary" (click)="cancelEditCrop()">ยกเลิกภาพนี้</button>
           <button type="button" class="btn btn-primary" (click)="useEditCrop()" [disabled]="!editPhotoFile">
             ยืนยันกรอบนี้
@@ -514,7 +512,6 @@
 
         @if (editBlocker) {
           <div class="alert alert-warning">
-            <span>⚠️</span>
             <span>
               {{ editBlockerMessage }}
               กดบันทึกอีกครั้งเพื่อยืนยันว่าเลขนี้ถูกต้อง
@@ -550,7 +547,6 @@
       </div>
 
       <div class="alert alert-warning">
-        <span>⚠️</span>
         <span>
           บิลของบ้านเลขที่ <strong>{{ billToDelete.member?.house_no || '—' }}</strong>
           ยอด <strong>{{ billToDelete.total_amount | number:'1.2-2' }}</strong> บาท
@@ -587,7 +583,6 @@
       </div>
 
       <div class="alert alert-info">
-        <span>🧾</span>
         <span>
           บิลของบ้านเลขที่ <strong>{{ billToToggle.member?.house_no || '—' }}</strong>
           ({{ ownerName(billToToggle) }})
@@ -600,7 +595,6 @@
         @if (hasArrears(billToToggle)) {
           <!-- คนเก็บเงินต้องเห็นก่อนกดว่ายอดนี้รวมของเดือนก่อนมาด้วย ไม่งั้นจะเก็บขาด -->
           <div class="alert alert-warning">
-            <span>💰</span>
             <span>
               ยอดนี้รวม<strong>ยอดค้างเก่า {{ arrears(billToToggle) | number: '1.2-2' }} บาท</strong>ไว้แล้ว
               (ค่าน้ำเดือนนี้ {{ billToToggle.total_amount | number: '1.2-2' }} บาท)
@@ -609,7 +603,6 @@
           </div>
         }
         <div class="alert alert-warning">
-          <span>⚠️</span>
           <span>
             พอเป็น "ชำระแล้ว" จะ<strong>จดมิเตอร์ทับบิลใบนี้ไม่ได้อีก</strong>
             ถ้าจดผิดต้องกลับมาเปลี่ยนสถานะที่หน้านี้ก่อน
@@ -617,7 +610,6 @@
         </div>
       } @else {
         <div class="alert alert-warning">
-          <span>⚠️</span>
           <span>
             บิลใบนี้จะกลับไปนับเป็น<strong>ยอดค้างชำระ</strong>ของ{{ monthLabel(billToToggle.billing_month, billToToggle.billing_year) }}
             และลูกบ้านจะเห็นว่ายังไม่ได้จ่าย

@@ -1,7 +1,6 @@
 <div class="auth-page">
   <div class="auth-card">
     <div class="auth-header">
-      <div class="auth-logo">💧</div>
       <h1>สมัครสมาชิก</h1>
       <p>สร้างบัญชีผู้ดูแลระบบค่าน้ำประปา</p>
     </div>
@@ -80,7 +79,7 @@
             (click)="togglePassword()"
             [attr.aria-label]="showPassword() ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
           >
-            {{ showPassword() ? '🙈' : '👁️' }}
+            {{ showPassword() ? '' : '' }}
           </button>
         </div>
         @if (password.touched && password.hasError('required')) {
@@ -111,7 +110,6 @@
 
       @if (errorMessage()) {
         <div class="alert" role="alert">
-          <span>⚠️</span>
           <span>{{ errorMessage() }}</span>
         </div>
       }

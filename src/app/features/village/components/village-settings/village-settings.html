@@ -17,7 +17,6 @@
     </div>
   } @else {
     <div class="alert alert-warning">
-      <span>⚠️</span>
       <span>ยังไม่มีอัตราค่าน้ำในระบบ — ต้องกำหนดอัตราก่อนถึงจะออกบิลได้</span>
     </div>
   }
@@ -93,7 +92,6 @@
       </div>
 
       <div class="alert alert-warning">
-        <span>💧</span>
         <span>
           @if (activeRate) {
             ราคาจะเปลี่ยนจาก <strong>{{ +activeRate.price_per_unit | number:'1.2-2' }}</strong>
