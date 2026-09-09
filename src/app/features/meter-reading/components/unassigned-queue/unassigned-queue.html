@@ -11,7 +11,7 @@
   <span>
     <strong>ของที่ค้างนานคือของที่ต้องรีบ</strong> — พอข้ามเดือนไปแล้วจะออกบิลย้อนหลังไม่ได้
     (ระบบแจ้งว่า "มีบิลใหม่กว่าอยู่แล้ว") และปริมาณน้ำของภาพนั้นจะถูกรวมไปกับเดือนถัดไปแทน
-    ระบบตีทิ้งให้อัตโนมัติเมื่อค้างเกิน 90 วัน
+    ระบบจะตัดออกจากคิวอัตโนมัติเมื่อค้างเกิน 90 วัน
   </span>
 </div>
 
@@ -265,7 +265,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn btn-danger-soft" (click)="rowToDiscard.set(row)">
-          ตีทิ้งภาพนี้
+          ตัดภาพนี้ออกจากคิว
         </button>
         <button type="button" class="btn btn-ghost" (click)="close()" [disabled]="isAssigning()">ปิด</button>
         <button type="button" class="btn btn-primary" (click)="assign()" [disabled]="!canAssign()">
@@ -285,7 +285,7 @@
   <div class="modal-overlay" (click)="rowToDiscard.set(null)">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">ตีทิ้งภาพนี้หรือไม่?</h2>
+        <h2 class="modal-title">ตัดภาพนี้ออกจากคิวหรือไม่?</h2>
         <button type="button" class="modal-close" (click)="rowToDiscard.set(null)" aria-label="ปิด">✕</button>
       </div>
 
@@ -307,7 +307,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" (click)="rowToDiscard.set(null)">ยังไม่ทิ้ง</button>
-        <button type="button" class="btn btn-danger" (click)="confirmDiscard()">ตีทิ้งเลย</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDiscard()">ยืนยันการตัดออก</button>
       </div>
     </div>
   </div>

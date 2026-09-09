@@ -1,11 +1,11 @@
 <div class="page-head">
   <h1 class="page-title">ตั้งค่าหมู่บ้าน</h1>
-  <p class="page-subtitle">ตั้งเรทค่าน้ำ และแก้ไขชื่อกับที่อยู่ของหมู่บ้าน</p>
+  <p class="page-subtitle">ตั้งอัตราค่าน้ำ และแก้ไขชื่อกับที่อยู่ของหมู่บ้าน</p>
 </div>
 
 <!-- 💧 เรทค่าน้ำ — ราคาต่อหน่วยที่ใช้คิดบิลทุกใบ -->
 <div class="card rate-card">
-  <h2 class="section-heading">เรทค่าน้ำ</h2>
+  <h2 class="section-heading">อัตราค่าน้ำ</h2>
 
   @if (activeRate) {
     <div class="rate-current">
@@ -18,7 +18,7 @@
   } @else {
     <div class="alert alert-warning">
       <span>⚠️</span>
-      <span>ยังไม่มีเรทค่าน้ำในระบบ — ต้องตั้งเรทก่อนถึงจะออกบิลได้</span>
+      <span>ยังไม่มีอัตราค่าน้ำในระบบ — ต้องกำหนดอัตราก่อนถึงจะออกบิลได้</span>
     </div>
   }
 
@@ -47,7 +47,7 @@
         <span class="btn-spinner"></span> กำลังบันทึก...
       } @else {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-        บันทึกเรทใหม่
+        บันทึกอัตราใหม่
       }
     </button>
   </div>
@@ -88,7 +88,7 @@
   <div class="modal-overlay" (click)="cancelSaveRate()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2 class="modal-title">เปลี่ยนเรทค่าน้ำหรือไม่?</h2>
+        <h2 class="modal-title">เปลี่ยนอัตราค่าน้ำหรือไม่?</h2>
         <button type="button" class="modal-close" (click)="cancelSaveRate()" aria-label="ปิด">✕</button>
       </div>
 
@@ -109,7 +109,7 @@
         <button type="button" class="btn btn-secondary" (click)="cancelSaveRate()">ยกเลิก</button>
         <button type="button" class="btn btn-primary" (click)="confirmSaveRate()">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
-          ยืนยันเปลี่ยนเรท
+          ยืนยันเปลี่ยนอัตรา
         </button>
       </div>
     </div>

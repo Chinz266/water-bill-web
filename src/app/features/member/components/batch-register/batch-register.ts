@@ -108,7 +108,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ:', err);
-        toast.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ กรุณาเปิดหน้านี้ใหม่', { id: 'village-load-error' });
+        toast.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ กรุณาเปิดหน้านี้อีกครั้ง', { id: 'village-load-error' });
       }
     });
 
@@ -142,7 +142,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
     const images = picked.filter((file) => file.type.startsWith('image/'));
     if (!images.length) {
-      if (picked.length) toast.error('ไม่พบไฟล์ภาพในที่ที่เลือก', { id: 'reg-no-image' });
+      if (picked.length) toast.error('ไม่พบไฟล์ภาพในตำแหน่งที่เลือก', { id: 'reg-no-image' });
       return;
     }
 
@@ -152,7 +152,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
     const room = this.maxFiles - this.rows.length;
 
     if (room <= 0) {
-      toast.error(`ใส่ได้ครั้งละไม่เกิน ${this.maxFiles} ภาพ`, { id: 'reg-limit' });
+      toast.error(`เลือกได้ครั้งละไม่เกิน ${this.maxFiles} ภาพ`, { id: 'reg-limit' });
       return;
     }
 
@@ -166,10 +166,10 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     if (images.length > fresh.length) {
-      toast.success(`ข้ามภาพที่อยู่ในคิวอยู่แล้ว ${images.length - fresh.length} ภาพ`, { id: 'reg-dup-file' });
+      toast.success(`ข้ามภาพที่มีอยู่ในคิวแล้ว ${images.length - fresh.length} ภาพ`, { id: 'reg-dup-file' });
     }
     if (fresh.length > taking.length) {
-      toast.error(`ใส่ได้อีกแค่ ${room} ภาพ ส่วนที่เหลือยังไม่ได้ใส่`, { id: 'reg-limit' });
+      toast.error(`เพิ่มได้อีก ${room} ภาพ ส่วนที่เหลือยังไม่ถูกเพิ่ม`, { id: 'reg-limit' });
     }
   }
 
@@ -328,7 +328,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
   stopQueue(): void {
     if (!this.isSaving) return;
     this.stopRequested = true;
-    toast.success('จะหยุดหลังลงทะเบียนหลังที่ค้างอยู่เสร็จ', { id: 'reg-stop' });
+    toast.success('ระบบจะหยุดเมื่อลงทะเบียนรายการที่ค้างอยู่เสร็จสิ้น', { id: 'reg-stop' });
   }
 
   // ==========================================
@@ -340,7 +340,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
     const queue = this.savableRows;
     if (!queue.length) {
-      toast.error('ยังไม่มีแถวไหนพร้อมลงทะเบียน', { id: 'reg-none' });
+      toast.error('ยังไม่มีรายการที่พร้อมลงทะเบียน', { id: 'reg-none' });
       return;
     }
 
@@ -362,7 +362,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
       if (this.stopRequested) {
         this.stopRequested = false;
-        toast.success(`หยุดแล้ว ลงทะเบียนไปทั้งหมด ${done.length - failed} หลัง`, { id: 'reg-done' });
+        toast.success(`หยุดดำเนินการแล้ว ลงทะเบียนทั้งสิ้น ${done.length - failed} หลัง`, { id: 'reg-done' });
         return;
       }
 

@@ -17,7 +17,7 @@
       </p>
       <div class="restore-actions">
         <button type="button" class="btn btn-primary" (click)="resumeQueue()">ทำต่อจากที่ค้างไว้</button>
-        <button type="button" class="btn btn-ghost" (click)="discardQueue()">ทิ้งคิวเก่า เริ่มใหม่</button>
+        <button type="button" class="btn btn-ghost" (click)="discardQueue()">ล้างคิวเดิมและเริ่มใหม่</button>
       </div>
     </section>
   }
@@ -103,7 +103,7 @@
         <span>โหลดรายชื่อบ้านไม่สำเร็จ จึงยังเลือกบ้านให้ภาพนี้ไม่ได้</span>
       </div>
       <button type="button" class="btn btn-secondary btn-sm" (click)="loadMembers()" [disabled]="isLoadingMembers">
-        ลองโหลดรายชื่อบ้านใหม่
+        โหลดรายชื่อบ้านอีกครั้ง
       </button>
     } @else if (!isLoadingMembers && members.length === 0) {
       <div class="alert alert-warning">
@@ -163,7 +163,7 @@
           </div>
           <p class="field-hint">กำลังออกบิล {{ progress.done }} / {{ progress.total }} ใบ — กรุณาอย่าปิดหน้านี้</p>
           <button type="button" class="btn btn-secondary btn-sm" (click)="stopQueue()">
-            หยุดคิว (ทำใบที่ค้างให้จบ)
+            หยุดดำเนินการ (ทำรายการที่ค้างให้เสร็จ)
           </button>
         </div>
       }
@@ -187,10 +187,10 @@
             }
             <div class="force-actions">
               <button type="button" class="btn btn-primary btn-sm" (click)="confirmForceSave()">
-                ยืนยัน ออกบิล {{ forceConfirm.total }} ใบเลย
+                ยืนยันการออกบิล {{ forceConfirm.total }} ใบ
               </button>
               <button type="button" class="btn btn-secondary btn-sm" (click)="cancelForceSave()">
-                ขอตรวจก่อน (ไม่ออกบิลตอนนี้)
+                ขอตรวจสอบก่อน (ยังไม่ออกบิล)
               </button>
             </div>
           </div>
@@ -231,7 +231,7 @@
             @if (!row.previewUrl || row.brokenImage) {
               <label class="row-photo row-photo-retake" [for]="'retake-photo-' + row.seq">
                 <span class="retake-icon">📸</span>
-                <span>{{ row.previewUrl ? 'เปิดภาพไม่ขึ้น' : 'ไม่มีภาพ' }}<br />ถ่าย/อัปโหลดใหม่</span>
+                <span>{{ row.previewUrl ? 'เปิดภาพไม่ขึ้น' : 'ไม่มีภาพ' }}<br />ถ่ายหรือแนบภาพใหม่</span>
               </label>
               <input
                 [id]="'retake-photo-' + row.seq"
@@ -484,11 +484,11 @@
                   </div>
                 }
 
-                <!-- ค่าที่ต้องเอาไปกรอกตารางทดลอง — หน้าจอคิดไว้ครบแล้วแต่กระจายอยู่คนละที่
+                <!-- ข้อมูลเปรียบเทียบมิเตอร์ — หน้าจอคิดไว้ครบแล้วแต่กระจายอยู่คนละที่
                      กล่องนี้รวบมาเรียงตามคอลัมน์ในไฟล์ Excel พร้อมรูปให้เทียบว่าใบไหน -->
                 @if (labValues(row); as lab) {
                   <button type="button" class="btn btn-sm btn-ghost lab-toggle" (click)="toggleLab(row)">
-                    🧪 ค่าสำหรับกรอกตารางทดลอง
+                    🧪 ข้อมูลเปรียบเทียบมิเตอร์
                     <span class="lab-caret">{{ isLabOpen(row) ? '▲' : '▼' }}</span>
                   </button>
 
@@ -507,7 +507,7 @@
                       </div>
 
                       <section class="lab-sec">
-                        <h4 class="lab-sec-title"><span class="lab-num">1</span> กรอกลงแผ่น Photos</h4>
+                        <h4 class="lab-sec-title"><span class="lab-num">1</span> พิกัดที่ถ่ายรูป</h4>
                         <div class="lab-row">
                           <div class="lab-box">
                             <span class="lab-key">ละติจูด</span>
@@ -524,7 +524,7 @@
                       </section>
 
                       <section class="lab-sec">
-                        <h4 class="lab-sec-title"><span class="lab-num">2</span> ตาราง A — ภาพ x มิเตอร์</h4>
+                        <h4 class="lab-sec-title"><span class="lab-num">2</span> ภาพ x มิเตอร์</h4>
                         <div class="lab-row">
                           @for (m of lab.meters; track m.houseNo) {
                             <div class="lab-box" [class.is-nearest]="m.isNearest" [class.is-picked]="m.isPicked">
@@ -596,7 +596,7 @@
                       }
 
                       <section class="lab-sec">
-                        <h4 class="lab-sec-title"><span class="lab-num">4</span> ตาราง B — มิเตอร์ x มิเตอร์</h4>
+                        <h4 class="lab-sec-title"><span class="lab-num">4</span> มิเตอร์ x มิเตอร์</h4>
                         <div class="lab-row">
                           <div class="lab-box">
                             <span class="lab-key">ระยะระหว่างมิเตอร์ 2 ตัว</span>
@@ -638,7 +638,7 @@
                     (click)="openCrop(row)"
                     [disabled]="isBusy"
                   >
-                    🔍 ครอปช่องตัวเลขแล้วอ่านใหม่
+                    🔍 ครอบตัดเฉพาะช่องตัวเลขแล้วอ่านใหม่
                   </button>
                 }
 
@@ -736,7 +736,7 @@
                      ปุ่มจึงต้องอยู่ติดกับข้อความ ไม่ใช่ปล่อยให้ไปหาเองว่าจะแนบรูปใหม่ตรงไหน -->
                 @if (needsRetake(row)) {
                   <label class="btn btn-secondary btn-sm row-crop" [for]="'retake-cta-' + row.seq">
-                    📸 อัปโหลด/ถ่ายภาพใหม่
+                    📸 แนบหรือถ่ายภาพใหม่
                   </label>
                   <input
                     [id]="'retake-cta-' + row.seq"
@@ -801,11 +801,11 @@
         }
       </div>
 
-      <!-- ค่าที่ต้องเอาไปใส่แผ่น Photos ของไฟล์ Excel — เรียงคอลัมน์ตามไฟล์เป๊ะ
+      <!-- ข้อมูลรูปถ่ายทั้งชุด — เรียงคอลัมน์ตามไฟล์ Excel เป๊ะ
            คนทำการทดลองจะได้กวาดตาเทียบทีละคอลัมน์ได้โดยไม่ต้องแปลชื่อในหัว -->
       @if (labPhotoRows().length) {
         <button type="button" class="btn btn-sm btn-ghost lab-toggle" (click)="toggleLabTables()">
-          🧪 ค่าสำหรับแผ่น Photos ในไฟล์ Excel
+          🧪 ข้อมูลรูปถ่ายทั้งชุด
           <span class="lab-caret">{{ labTablesOpen ? '▲' : '▼' }}</span>
         </button>
 
@@ -813,7 +813,7 @@
           <div class="lab">
             <section class="lab-sec lab-sec-plain">
               <h4 class="lab-sec-title">
-                <span class="lab-num">D</span> ชื่อไฟล์ ถึง ลองจิจูด — วางที่ช่อง D4
+                <span class="lab-num">D</span> ชื่อไฟล์ · วันเวลา · พิกัด
               </h4>
               <div class="lab-table-wrap">
                 <table class="lab-table">
@@ -840,16 +840,16 @@
                 </table>
               </div>
               <button type="button" class="btn btn-sm btn-primary lab-copy" (click)="copyPhotosBlock('coords')">
-                📋 คัดลอก 4 คอลัมน์นี้ (D:G)
+                📋 คัดลอก 4 คอลัมน์นี้ (วางที่ช่อง D4)
               </button>
             </section>
 
             <section class="lab-sec lab-sec-plain">
               <h4 class="lab-sec-title">
-                <span class="lab-num">M</span> ผลการอ่านตัวเลขของระบบ — วางทีละคอลัมน์
+                <span class="lab-num">M</span> ผลการอ่านตัวเลขของระบบ
               </h4>
               <p class="lab-key">
-                ระหว่าง G กับ M มีคอลัมน์ที่คุณกรอกด้วยตนเอง (ระยะถ่าย · มุม · สภาพแสง · คุณภาพภาพ)
+                ระหว่าง G กับ M มีคอลัมน์ที่คุณกรอกด้วยตนเอง (ระยะถ่าย · มุม · สภาพแสง · คุณภาพ)
                 คั่นอยู่ ถ้าคัดลอกรวบเป็นก้อนเดียวช่องว่างจะไปทับของที่กรอกไว้แล้ว จึงแยกปุ่ม
               </p>
               <div class="lab-table-wrap">
@@ -879,8 +879,8 @@
             </section>
 
             <p class="lab-key lab-foot">
-              คอลัมน์ที่เหลือในแผ่น Photos (รหัสคู่ · ด้าน · รหัสภาพ · ระยะถ่าย · มุม · สภาพแสง ·
-              คุณภาพภาพ · full_reading · เลขจริงบนหน้าปัด · อ่านถูก? 1/0) หน้าเว็บไม่รู้ ต้องกรอกด้วยตนเอง
+              ข้อมูลที่เหลือ (รหัสคู่ · ด้าน · รหัสภาพ · ระยะถ่าย · มุม · สภาพแสง ·
+              คุณภาพ · full_reading · เลขจริงบนหน้าปัด · อ่านถูก? 1/0) หน้าเว็บไม่รู้ ต้องกรอกด้วยตนเอง
             </p>
           </div>
         }

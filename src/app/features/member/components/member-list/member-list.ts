@@ -71,7 +71,7 @@ export class MemberListComponent implements OnInit {
       },
       error: (err) => {
         console.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ:', err);
-        toast.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ กรุณาลองเปิดหน้านี้ใหม่', { id: 'village-load-error' });
+        toast.error('โหลดรายชื่อหมู่บ้านไม่สำเร็จ กรุณาเปิดหน้านี้อีกครั้ง', { id: 'village-load-error' });
       }
     });
   }
@@ -327,7 +327,7 @@ export class MemberListComponent implements OnInit {
      */
     const data = await photoDataUrl(file);
     if (!data) {
-      toast.error('อ่านไฟล์ภาพไม่สำเร็จ ลองเลือกใหม่อีกครั้ง', { id: 'photo-read-error' });
+      toast.error('อ่านไฟล์ภาพไม่สำเร็จ กรุณาเลือกใหม่อีกครั้ง', { id: 'photo-read-error' });
       return;
     }
 

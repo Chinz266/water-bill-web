@@ -5,7 +5,7 @@ import { provideRouter } from '@angular/router';
 import { BatchScanComponent } from './batch-scan';
 
 /**
- * กล่อง "ค่าสำหรับกรอกตารางทดลอง" — รวบตัวเลขที่หน้าจอคิดไว้แล้วมาไว้ที่เดียว
+ * กล่อง "ข้อมูลเปรียบเทียบมิเตอร์" — รวบตัวเลขที่หน้าจอคิดไว้แล้วมาไว้ที่เดียว
  *
  * ═══ สิ่งที่เทสต์ชุดนี้ล็อกไว้ ═══
  *
@@ -63,7 +63,7 @@ const row = (over: any = {}) => ({
   ...over
 });
 
-describe('BatchScanComponent — ค่าสำหรับกรอกตารางทดลอง', () => {
+describe('BatchScanComponent — ข้อมูลเปรียบเทียบมิเตอร์', () => {
   let component: BatchScanComponent;
   let http: HttpTestingController;
 
@@ -340,12 +340,12 @@ describe('BatchScanComponent — เทียบรูปมิเตอร์�
 });
 
 /**
- * ค่าสำหรับแผ่น Photos — สิ่งที่ล็อกไว้คือ "แถวต้องตรงกับลำดับรูปบนจอเสมอ"
+ * ข้อมูลรูปถ่ายทั้งชุด — สิ่งที่ล็อกไว้คือ "แถวต้องตรงกับลำดับรูปบนจอเสมอ"
  *
  * รูปที่ไม่มีพิกัด/ไม่มีวันถ่าย ยังต้องมีบรรทัดของตัวเอง (เว้นช่องว่างไว้) ไม่งั้นเวลาวางลง
  * Excel รูปที่เหลือจะเลื่อนขึ้นไปนั่งแถวของใบอื่นทั้งกองโดยที่หน้าตาดูปกติดี
  */
-describe('BatchScanComponent — ค่าสำหรับแผ่น Photos', () => {
+describe('BatchScanComponent — ข้อมูลรูปถ่ายทั้งชุด', () => {
   let component: BatchScanComponent;
   let http: HttpTestingController;
 

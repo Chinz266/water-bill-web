@@ -451,7 +451,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   stopQueue(): void {
     if (!this.isSaving) return;
     this.stopRequested = true;
-    toast.success('จะหยุดหลังออกบิลใบที่ค้างอยู่เสร็จ', { id: 'batch-stop' });
+    toast.success('ระบบจะหยุดเมื่อออกบิลรายการที่ค้างอยู่เสร็จสิ้น', { id: 'batch-stop' });
   }
 
   // ==========================================
@@ -468,7 +468,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     const images = picked.filter((file) => file.type.startsWith('image/'));
     const skipped = picked.length - images.length;
     if (!images.length) {
-      if (picked.length) toast.error('ไม่พบไฟล์ภาพในที่ที่เลือก', { id: 'batch-no-image' });
+      if (picked.length) toast.error('ไม่พบไฟล์ภาพในตำแหน่งที่เลือก', { id: 'batch-no-image' });
       return;
     }
 
@@ -479,7 +479,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const room = this.maxFiles - this.rows.length;
     if (room <= 0) {
-      toast.error(`ใส่ได้ครั้งละไม่เกิน ${this.maxFiles} ภาพ`, { id: 'batch-limit' });
+      toast.error(`เลือกได้ครั้งละไม่เกิน ${this.maxFiles} ภาพ`, { id: 'batch-limit' });
       return;
     }
 
@@ -502,9 +502,9 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.scheduleAutoAnalyze();
 
     if (skipped > 0) toast.success(`ข้ามไฟล์ที่ไม่ใช่ภาพ ${skipped} ไฟล์`, { id: 'batch-skipped' });
-    if (duplicated > 0) toast.success(`ข้ามภาพที่อยู่ในคิวอยู่แล้ว ${duplicated} ภาพ`, { id: 'batch-dup-file' });
+    if (duplicated > 0) toast.success(`ข้ามภาพที่มีอยู่ในคิวแล้ว ${duplicated} ภาพ`, { id: 'batch-dup-file' });
     if (fresh.length > taking.length) {
-      toast.error(`ใส่ได้อีกแค่ ${room} ภาพ ส่วนที่เหลือยังไม่ได้ใส่`, { id: 'batch-limit' });
+      toast.error(`เพิ่มได้อีก ${room} ภาพ ส่วนที่เหลือยังไม่ถูกเพิ่ม`, { id: 'batch-limit' });
     }
   }
 
@@ -572,7 +572,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     this.billingKey = option.key;
     this.onBillingKeyChanged();
-    toast.success(`ตั้งรอบบิลเป็น ${option.label} ตามวันถ่ายในภาพให้แล้ว`, { id: 'batch-billing-auto' });
+    toast.success(`กำหนดรอบบิลเป็น ${option.label} ตามวันที่ถ่ายภาพแล้ว`, { id: 'batch-billing-auto' });
   }
 
   /** รอบเดือนที่รูปใบนี้ควรลง ตามวันที่ถ่าย — null เมื่อรูปไม่มีวันถ่ายติดมา */
@@ -921,7 +921,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const queue = this.analyzableRows;
     if (!queue.length) {
-      toast.success('ไม่มีภาพที่ต้องอ่านตัวเลขแล้ว', { id: 'batch-read-none' });
+      toast.success('ไม่มีภาพที่ต้องอ่านตัวเลข', { id: 'batch-read-none' });
       return;
     }
 
@@ -1170,7 +1170,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
           this.rows = this.rows.filter((r) => r !== row);
           this.persist();
           this.cdr.detectChanges();
-          toast.success('ส่งให้ผู้ดูแลตรวจแล้ว — ดูได้ที่หน้า "ภาพที่รอตรวจสอบ"', {
+          toast.success('ส่งให้ผู้ดูแลตรวจสอบแล้ว — ดูได้ที่หน้า "ภาพที่รอตรวจสอบ"', {
             id: 'batch-review'
           });
         },
@@ -1244,7 +1244,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         // แล้วเปิดกล่องค้างไว้ให้ลากกรอบใหม่ต่อได้เลย
         if (this.toUnit(results[0]?.reading?.meter_unit) === null) {
           this.cdr.detectChanges();
-          toast.error('ยังอ่านไม่ออก ลองครอปให้เหลือเฉพาะแถวตัวเลขแล้วกดอ่านใหม่อีกครั้ง', { id: 'batch-reread' });
+          toast.error('ระบบยังอ่านตัวเลขไม่ได้ กรุณาครอบตัดให้เหลือเฉพาะแถวตัวเลขแล้วกดอ่านใหม่อีกครั้ง', { id: 'batch-reread' });
           return;
         }
 
@@ -1259,7 +1259,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         this.persist();
         this.cdr.detectChanges();
 
-        toast.success(`อ่านใหม่ได้ ${row.unit}`, { id: 'batch-reread' });
+        toast.success(`อ่านใหม่ได้ตัวเลข ${row.unit}`, { id: 'batch-reread' });
 
         // เก็บกรอบที่ครอปเป็นรูปของแถวนี้แทนรูปเต็มใบ — เลขบนหน้าปัดชัดกว่ามากในงบไบต์เท่ากัน
         // และเป็นรูปเดียวกับที่ AI อ่านเลขนี้ออกมาจริง ๆ คนที่ย้อนมาตรวจจึงเห็นสิ่งที่ระบบเห็น
@@ -1528,7 +1528,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     return (
       `ระบบอ่านตัวเลขได้ไม่ชัดเจนพอ (${row.confidence}% ต่ำกว่าเกณฑ์ ${this.minBillConfidence}%) ` +
-      'จึงออกบิลด้วยตัวเลขนี้ไม่ได้ — กรุณาตรวจสอบจากภาพถ่ายแล้วบันทึกตัวเลขด้วยตนเอง หรือกด "ครอปช่องตัวเลขแล้วอ่านใหม่"'
+      'จึงออกบิลด้วยตัวเลขนี้ไม่ได้ — กรุณาตรวจสอบจากภาพถ่ายแล้วบันทึกตัวเลขด้วยตนเอง หรือกด "ครอบตัดเฉพาะช่องตัวเลขแล้วอ่านใหม่"'
     );
   }
 
@@ -1578,11 +1578,11 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     const notes = [...row.warnings];
     if (!row.file) notes.push('แถวที่กู้มาจากคิวเก่า ไม่มีภาพให้เทียบแล้ว');
     if (row.brokenImage) notes.push('เปิดภาพนี้ไม่ขึ้น เทียบเลขกับหน้าปัดด้วยตาไม่ได้');
-    if (row.file && row.file.size > 12 * 1024 * 1024) notes.push('ไฟล์ใหญ่มาก อัปโหลดอาจช้าหรือหลุด');
+    if (row.file && row.file.size > 12 * 1024 * 1024) notes.push('ไฟล์มีขนาดใหญ่มาก การส่งเข้าระบบอาจล่าช้าหรือไม่สำเร็จ');
     if (row.status === 'unknown') {
       notes.push('ค้างอยู่ตอนออกบิลรอบก่อน กดออกบิลซ้ำได้ ถ้ามีบิลอยู่แล้วระบบจะบอกเอง');
     }
-    if (row.croppedRead) notes.push('เลขนี้มาจากการครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่');
+    if (row.croppedRead) notes.push('ตัวเลขนี้มาจากการครอบตัดเฉพาะช่องตัวเลขแล้วอ่านใหม่');
     if (row.confirmMeterReset) {
       notes.push(
         `ยืนยันแล้วว่าเปลี่ยนมิเตอร์ใหม่ เลขปิดของตัวเก่าคือ ${row.oldMeterFinalUnit} — ` +
@@ -1617,7 +1617,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     // ไม่มีรูปแล้วห้ามพูดถึงเปอร์เซ็นต์ที่ AI เคยอ่านได้เลย (ดู showConfidence)
     if (this.showConfidence(row) && (row.confidence ?? 100) < this.trustedConfidence) {
-      notes.push(`ระบบอ่านตัวเลขได้ไม่ชัดเจน (${row.confidence}%) การครอปเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นยำขึ้น`);
+      notes.push(`ระบบอ่านตัวเลขได้ไม่ชัดเจน (${row.confidence}%) การครอบตัดเฉพาะช่องตัวเลขแล้วอ่านใหม่จะแม่นยำขึ้น`);
     }
     return notes;
   }
@@ -1963,7 +1963,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('ไฟล์นี้ไม่ใช่ภาพ', { id: 'batch-retake' });
+      toast.error('ไฟล์ที่เลือกไม่ใช่ไฟล์ภาพ', { id: 'batch-retake' });
       return;
     }
 
@@ -1995,7 +1995,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.persist();
     this.cdr.detectChanges();
 
-    toast.success('แนบภาพใหม่ให้แถวนี้แล้ว ออกบิลต่อได้ทันที', { id: 'batch-retake' });
+    toast.success('แนบภาพใหม่ให้รายการนี้แล้ว สามารถออกบิลต่อได้', { id: 'batch-retake' });
   }
 
   /** มีบ้านหลังอื่นอยู่ใกล้พอ ๆ กับหลังที่เลือก — GPS ชี้ขาดไม่ได้ ต้องให้คนดู */
@@ -2075,7 +2075,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     else this.noteRows.add(seq);
   }
 
-  /** แถวที่กางกล่อง "ค่าสำหรับกรอกตารางทดลอง" ไว้ */
+  /** แถวที่กางกล่อง "ข้อมูลเปรียบเทียบมิเตอร์" ไว้ */
   private labRows = new Set<number>();
 
   isLabOpen(row: ScanRow): boolean {
@@ -2089,7 +2089,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * ค่าที่ต้องเอาไปกรอกตารางทดลอง (meter-pair-match-test.xlsx) ของรูปใบนี้
+   * ข้อมูลเปรียบเทียบมิเตอร์ของรูปใบนี้ — ค่าที่ต้องเอาไปกรอก meter-pair-match-test.xlsx
    *
    * ═══ ทำไมต้องมีกล่องนี้ ═══
    *
@@ -2192,7 +2192,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     };
   }
 
-  /** กางตารางค่าสำหรับแผ่น Photos ไว้ท้ายรายการรูป */
+  /** กางตาราง "ข้อมูลรูปถ่ายทั้งชุด" ไว้ท้ายรายการรูป */
   labTablesOpen = false;
 
   toggleLabTables(): void {
@@ -2309,7 +2309,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
   private writeClipboard(text: string, done: string): void {
     if (!this.isBrowser || !navigator?.clipboard) {
-      toast.error('เบราว์เซอร์นี้คัดลอกให้ไม่ได้', { id: 'lab-copy' });
+      toast.error('เบราว์เซอร์นี้ไม่รองรับการคัดลอก', { id: 'lab-copy' });
       return;
     }
 
@@ -2801,7 +2801,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
     const queue = this.savableRows;
     if (!queue.length) {
-      toast.error('ยังไม่มีแถวไหนพร้อมออกบิล', { id: 'batch-save-none' });
+      toast.error('ยังไม่มีรายการที่พร้อมออกบิล', { id: 'batch-save-none' });
       return;
     }
 
@@ -2845,7 +2845,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     }
 
     this.askAfterQueue = true;
-    toast.success(`พิกัดตรง ออกบิลให้เลย ${instant.length} ใบ`, { id: 'batch-auto-save' });
+    toast.success(`พิกัดตรงกัน ระบบออกบิลให้แล้ว ${instant.length} ใบ`, { id: 'batch-auto-save' });
     this.runQueue(instant);
   }
 
@@ -2872,7 +2872,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.forceConfirm = null;
     const queue = this.savableRows;
     if (!queue.length) {
-      toast.error('ยังไม่มีแถวไหนพร้อมออกบิล', { id: 'batch-save-none' });
+      toast.error('ยังไม่มีรายการที่พร้อมออกบิล', { id: 'batch-save-none' });
       return;
     }
 
@@ -2896,7 +2896,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         if (!rate?.id) {
           this.isSaving = false;
           this.cdr.detectChanges();
-          toast.error('ยังไม่มีเรทค่าน้ำที่เปิดใช้งาน กรุณาตั้งเรทค่าน้ำก่อน', { id: 'batch-no-rate' });
+          toast.error('ยังไม่มีอัตราค่าน้ำที่เปิดใช้งาน กรุณาตั้งอัตราค่าน้ำก่อน', { id: 'batch-no-rate' });
           return;
         }
         this.saveNext(queue, 0, rate.id);
@@ -2904,7 +2904,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.isSaving = false;
         this.cdr.detectChanges();
-        toast.error(extractErrorMessage(err, 'ดึงเรทค่าน้ำไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'batch-no-rate' });
+        toast.error(extractErrorMessage(err, 'ดึงอัตราค่าน้ำไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'batch-no-rate' });
       }
     });
   }
@@ -2922,7 +2922,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
       if (this.stopRequested) {
         this.stopRequested = false;
-        toast.success(`หยุดแล้ว ออกบิลไปทั้งหมด ${done.length - failed} ใบ`, { id: 'batch-save-done' });
+        toast.success(`หยุดดำเนินการแล้ว ออกบิลทั้งสิ้น ${done.length - failed} ใบ`, { id: 'batch-save-done' });
         return;
       }
 
@@ -3099,7 +3099,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
         if (err?.status === 404) return;
 
         console.error('ลบบิลใบเดิมที่ถูกทับไม่สำเร็จ:', err);
-        toast.error('ออกบิลใหม่แล้ว แต่ลบใบเดิมบางใบไม่ได้ กรุณาไปลบที่หน้าประวัติบิลด้วย', {
+        toast.error('ออกบิลใหม่แล้ว แต่ลบบิลเดิมบางรายการไม่สำเร็จ กรุณาลบที่หน้าประวัติบิล', {
           id: 'batch-replace-cleanup'
         });
       }
@@ -3126,7 +3126,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     this.pendingRestore = null;
     this.cdr.detectChanges();
 
-    toast.success(`กู้คิวเก่ากลับมา ${this.rows.length} ใบแล้ว`, { id: 'batch-restore' });
+    toast.success(`กู้คืนคิวเดิม ${this.rows.length} ใบแล้ว`, { id: 'batch-restore' });
   }
 
   discardQueue(): void {

@@ -84,7 +84,7 @@ export class MyReportsComponent implements OnInit {
         console.error('โหลดรายชื่อบ้านไม่สำเร็จ:', err);
         this.housesFailed = true;
         this.cdr.detectChanges();
-        toast.error(extractErrorMessage(err, 'โหลดข้อมูลบ้านของคุณไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
+        toast.error(extractErrorMessage(err, 'โหลดข้อมูลบ้านของท่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
           id: 'my-houses-error',
         });
       },
@@ -119,7 +119,7 @@ export class MyReportsComponent implements OnInit {
     if (this.houses.length === 0) {
       toast.error(
         this.housesFailed
-          ? 'ยังโหลดข้อมูลบ้านของคุณไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้ง'
+          ? 'ยังโหลดข้อมูลบ้านของท่านไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้ง'
           : 'บัญชีนี้ยังไม่ได้ผูกกับบ้านหลังไหน รบกวนติดต่อผู้ดูแลหมู่บ้านให้เพิ่มให้ก่อน',
         { id: 'report-no-house' },
       );
@@ -156,7 +156,7 @@ export class MyReportsComponent implements OnInit {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('กรุณาเลือกไฟล์ภาพภาพ', { id: 'report-photo-type' });
+      toast.error('กรุณาเลือกไฟล์ภาพ', { id: 'report-photo-type' });
       return;
     }
 
@@ -231,7 +231,7 @@ export class MyReportsComponent implements OnInit {
         next: () => {
           this.isSending = false;
           this.closeForm();
-          toast.success('ส่งเรื่องถึงผู้ดูแลเรียบร้อยแล้ว รอการติดต่อกลับ', {
+          toast.success('ส่งเรื่องถึงผู้ดูแลเรียบร้อยแล้ว กรุณารอการติดต่อกลับ', {
             id: 'report-sent',
           });
           this.loadReports();

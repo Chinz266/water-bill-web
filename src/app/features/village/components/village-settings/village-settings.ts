@@ -119,8 +119,8 @@ export class VillageSettingsComponent implements OnInit {
     this.meterReadingService.getWaterRates().subscribe({
       next: (rates) => this.rates.set(rates ?? []),
       error: (err) => {
-        console.error('โหลดเรทค่าน้ำไม่สำเร็จ:', err);
-        toast.error(extractErrorMessage(err, 'โหลดเรทค่าน้ำไม่สำเร็จ'), { id: 'rate-load-error' });
+        console.error('โหลดอัตราค่าน้ำไม่สำเร็จ:', err);
+        toast.error(extractErrorMessage(err, 'โหลดอัตราค่าน้ำไม่สำเร็จ'), { id: 'rate-load-error' });
       },
     });
   }
@@ -152,11 +152,11 @@ export class VillageSettingsComponent implements OnInit {
         this.isSavingRate.set(false);
         this.newPrice = null;
         this.loadRates();
-        toast.success(`ตั้งเรทค่าน้ำใหม่ ${price} บาท/หน่วย เรียบร้อยแล้ว`, { id: 'rate-saved' });
+        toast.success(`ตั้งอัตราค่าน้ำใหม่ ${price} บาท/หน่วย เรียบร้อยแล้ว`, { id: 'rate-saved' });
       },
       error: (err) => {
         this.isSavingRate.set(false);
-        toast.error(extractErrorMessage(err, 'ตั้งเรทค่าน้ำไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'rate-save-error' });
+        toast.error(extractErrorMessage(err, 'ตั้งอัตราค่าน้ำไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), { id: 'rate-save-error' });
       },
     });
   }

@@ -63,7 +63,7 @@ export class AccountSettingsComponent implements OnInit {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('กรุณาเลือกไฟล์ภาพภาพ', { id: 'photo-type' });
+      toast.error('กรุณาเลือกไฟล์ภาพ', { id: 'photo-type' });
       return;
     }
 

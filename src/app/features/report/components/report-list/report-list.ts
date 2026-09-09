@@ -138,7 +138,7 @@ export class ReportListComponent implements OnInit {
       next: () => {
         this.isSaving = false;
         this.closeReply();
-        toast.success('บันทึกคำตอบเรียบร้อยแล้ว ลูกบ้านจะเห็นในหน้าของเขาทันที', {
+        toast.success('บันทึกคำตอบเรียบร้อยแล้ว ลูกบ้านจะเห็นคำตอบทันที', {
           id: 'reply-saved',
         });
         this.loadReports();

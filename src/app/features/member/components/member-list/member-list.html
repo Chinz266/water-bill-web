@@ -39,7 +39,7 @@
         <div class="empty-art">📡</div>
         <h2 class="empty-title">โหลดรายชื่อไม่สำเร็จ</h2>
         <p class="empty-text">อาจเป็นเพราะเน็ตหลุดหรือระบบหลังบ้านยังไม่พร้อม</p>
-        <button type="button" class="btn btn-primary" (click)="loadMembers()">ลองโหลดใหม่</button>
+        <button type="button" class="btn btn-primary" (click)="loadMembers()">โหลดข้อมูลอีกครั้ง</button>
       </div>
     </div>
   } @else if (members.length === 0) {
@@ -323,7 +323,7 @@
         @if (addErrors.phone) {
           <p class="field-error">{{ addErrors.phone }}</p>
         } @else {
-          <p class="field-hint">ไม่กรอกก็ได้ แต่ลูกบ้านต้องใช้เบอร์นี้ล็อกอินเข้าดูบิลตัวเอง</p>
+          <p class="field-hint">ไม่บังคับกรอก แต่ลูกบ้านต้องใช้หมายเลขนี้เข้าสู่ระบบเพื่อดูบิลของตนเอง</p>
         }
       </div>
 
@@ -334,7 +334,7 @@
         @if (photoPreview) {
           <div class="photo-attach">
             <img [src]="photoPreview" alt="ภาพมิเตอร์ตอนลงทะเบียน" />
-            <button type="button" class="btn btn-ghost btn-sm" (click)="removePhoto()">เอาภาพออก</button>
+            <button type="button" class="btn btn-ghost btn-sm" (click)="removePhoto()">นำภาพออก</button>
           </div>
 
           <!-- ข้อมูลที่ติดมากับรูป ต้องเห็นก่อนกดบันทึก เพราะกลายเป็นวันเริ่มรอบบิล
@@ -549,7 +549,7 @@
         } @else {
           <p class="field-hint">
             ภาพที่ถ่ายตอนเปิดตำแหน่งจะพกตำแหน่งมาในไฟล์ ระบบจะดึงข้อมูลให้อัตโนมัติ
-            — ต้องเป็นไฟล์ต้นฉบับในเครื่อง ภาพที่อัปโหลดไปแล้วถูกย่อจนพิกัดหาย
+            — ต้องเป็นไฟล์ต้นฉบับในเครื่อง ภาพที่ส่งเข้าระบบแล้วถูกย่อจนพิกัดหายไป
             <br />{{ photoCoordsHint }}
           </p>
         }
@@ -623,7 +623,7 @@
               @if (bill.payment_status === 'Paid') {
                 <button type="button" class="btn btn-sm btn-secondary" (click)="askToggleStatus(bill)">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
-                  กลับเป็นรอชำระ
+                  เปลี่ยนเป็นรอชำระเงิน
                 </button>
               } @else {
                 <button type="button" class="btn btn-sm btn-primary" (click)="askToggleStatus(bill)">
@@ -656,7 +656,7 @@
           @if (toggleTargetStatus === 'Paid') {
             ยืนยันการรับชำระเงินของบิลใบนี้
           } @else {
-            ยืนยันการเปลี่ยนสถานะกลับเป็นรอชำระเงิน
+            ยืนยันการเปลี่ยนสถานะเปลี่ยนเป็นรอชำระเงินเงิน
           }
         </h2>
         <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด" [disabled]="isTogglingStatus">✕</button>
@@ -702,7 +702,7 @@
           (click)="cancelToggleStatus()"
           [disabled]="isTogglingStatus"
         >
-          ยังไม่เปลี่ยน
+          ยกเลิก
         </button>
         <button
           type="button"
@@ -718,7 +718,7 @@
             ยืนยันการรับชำระเงิน
           } @else {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
-            ยืนยัน กลับเป็นรอชำระ
+            ยืนยัน เปลี่ยนเป็นรอชำระเงิน
           }
         </button>
       </div>
@@ -759,14 +759,14 @@
       }
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="cancelDelete()" [disabled]="isDeleting">เก็บไว้ก่อน</button>
+        <button type="button" class="btn btn-secondary" (click)="cancelDelete()" [disabled]="isDeleting">เก็บไว้ในคิว</button>
         <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="isDeleting">
           @if (isDeleting) {
             <span class="btn-spinner"></span>
             กำลังลบ...
           } @else {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
-            ลบเลย
+            ยืนยันการลบ
           }
         </button>
       </div>

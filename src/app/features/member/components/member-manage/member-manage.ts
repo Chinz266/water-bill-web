@@ -41,7 +41,7 @@ export class MemberManageComponent implements OnInit {
 
     const id = Number(this.route.snapshot.paramMap.get('membersId'));
     if (!Number.isFinite(id) || id <= 0) {
-      toast.error('ไม่พบรหัสบ้านใน URL', { id: 'manage-no-id' });
+      toast.error('ไม่พบรหัสบ้านในที่อยู่หน้าเว็บ', { id: 'manage-no-id' });
       return;
     }
 
@@ -239,13 +239,13 @@ export class MemberManageComponent implements OnInit {
 
     // ดักคู่ที่กรอกไม่ครบตั้งแต่หน้าเว็บ — ข้อความเดียวกับหลังบ้าน แค่ไม่ต้องรอ round trip
     if (group && (seq === null || `${seq}` === '')) {
-      toast.error('อยู่ในกลุ่มมิเตอร์แล้วต้องระบุตำแหน่งด้วย — พิกัดแยกตัวซ้าย/ขวาไม่ได้', {
+      toast.error('เมื่อกำหนดกลุ่มมิเตอร์แล้ว ต้องระบุตำแหน่งด้วย เนื่องจากพิกัดแยกตัวซ้าย/ขวาไม่ได้', {
         id: 'cluster-need-seq'
       });
       return;
     }
     if (!group && seq !== null && `${seq}` !== '') {
-      toast.error('กรอกตำแหน่งแล้วแต่ยังไม่ได้ระบุกลุ่มมิเตอร์', { id: 'cluster-need-group' });
+      toast.error('ระบุตำแหน่งแล้ว แต่ยังไม่ได้กำหนดกลุ่มมิเตอร์', { id: 'cluster-need-group' });
       return;
     }
 

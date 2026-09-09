@@ -190,7 +190,7 @@
         <p class="empty-text">เริ่มจากการสแกนมิเตอร์น้ำสักหลัง แล้วบิลจะมาแสดงที่หน้านี้ให้อัตโนมัติ</p>
         <button type="button" class="btn btn-primary" routerLink="/scan-batch">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
-          ไปสแกนมิเตอร์
+          ไปยังหน้าสแกนมิเตอร์
         </button>
       </div>
     </div>
@@ -312,7 +312,7 @@
           @if (detail.photo && !photoBroken) {
             <button type="button" class="photo-open" (click)="openPhoto()">
               <img class="meter-photo" [src]="detail.photo" alt="ภาพหน้าปัดมิเตอร์ตอนจด" (error)="onPhotoError()" />
-              <span class="photo-hint">แตะที่ภาพเพื่อดูใหญ่</span>
+              <span class="photo-hint">แตะที่ภาพเพื่อขยาย</span>
             </button>
           } @else if (detail.photoPurged) {
             <p class="photo-missing">
@@ -454,7 +454,7 @@
         </div>
 
         <p class="field-hint">
-          ครอปให้เหลือหน้าปัดกับเลขซีเรียลของมิเตอร์ ถ้าเหลือแต่ตัวเลขจะย้อนมาตรวจไม่ได้ว่าเป็นมิเตอร์ตัวไหน
+          ครอบตัดให้เหลือหน้าปัดและหมายเลขประจำมิเตอร์ ถ้าเหลือแต่ตัวเลขจะย้อนมาตรวจไม่ได้ว่าเป็นมิเตอร์ตัวไหน
         </p>
 
         <div class="modal-actions">
@@ -462,7 +462,7 @@
           <button type="button" class="btn btn-ghost btn-sm" (click)="rotateEditCrop(1)">↻ หมุนขวา</button>
           <button type="button" class="btn btn-secondary" (click)="cancelEditCrop()">ยกเลิกภาพนี้</button>
           <button type="button" class="btn btn-primary" (click)="useEditCrop()" [disabled]="!editPhotoFile">
-            ใช้กรอบนี้
+            ยืนยันกรอบนี้
           </button>
         </div>
       } @else {
@@ -495,7 +495,7 @@
             <div class="edit-photo-picked">
               <span>เลือกภาพใหม่ไว้แล้ว</span>
               <button type="button" class="btn btn-ghost btn-sm" (click)="clearEditPhoto()" [disabled]="isSavingEdit">
-                เอาออก
+                นำออก
               </button>
             </div>
             <p class="field-hint">
@@ -560,11 +560,11 @@
 
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" (click)="cancelDelete()">
-          เก็บไว้ก่อน
+          เก็บไว้ในคิว
         </button>
         <button type="button" class="btn btn-danger" (click)="confirmDelete()">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>
-          ลบเลย
+          ยืนยันการลบ
         </button>
       </div>
     </div>
@@ -580,7 +580,7 @@
           @if (toggleTargetStatus === 'Paid') {
             ยืนยันการรับชำระเงินของบิลใบนี้
           } @else {
-            ยืนยันการเปลี่ยนสถานะกลับเป็นรอชำระเงิน
+            ยืนยันการเปลี่ยนสถานะเปลี่ยนเป็นรอชำระเงินเงิน
           }
         </h2>
         <button type="button" class="modal-close" (click)="cancelToggleStatus()" aria-label="ปิด">✕</button>
@@ -632,7 +632,7 @@
           (click)="cancelToggleStatus()"
           [disabled]="isTogglingStatus"
         >
-          ยังไม่เปลี่ยน
+          ยกเลิก
         </button>
         <button
           type="button"
@@ -648,7 +648,7 @@
             ยืนยันการรับชำระเงิน
           } @else {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 .9-6.4L3 7"/></svg>
-            ยืนยัน กลับเป็นรอชำระ
+            ยืนยัน เปลี่ยนเป็นรอชำระเงิน
           }
         </button>
       </div>

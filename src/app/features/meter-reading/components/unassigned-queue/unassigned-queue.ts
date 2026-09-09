@@ -369,7 +369,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       next: (rate: any) => {
         if (!rate?.id) {
           this.isAssigning.set(false);
-          toast.error('ยังไม่มีเรทค่าน้ำในระบบ ตั้งเรทที่หน้าตั้งค่าหมู่บ้านก่อน', { id: 'no-rate' });
+          toast.error('ยังไม่มีอัตราค่าน้ำในระบบ กำหนดอัตราที่หน้าตั้งค่าหมู่บ้านก่อน', { id: 'no-rate' });
           return;
         }
 
@@ -402,7 +402,7 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isAssigning.set(false);
-        toast.error(extractErrorMessage(err, 'ดึงเรทค่าน้ำไม่สำเร็จ'), { id: 'rate-error' });
+        toast.error(extractErrorMessage(err, 'ดึงอัตราค่าน้ำไม่สำเร็จ'), { id: 'rate-error' });
       }
     });
   }
@@ -457,11 +457,11 @@ export class UnassignedQueueComponent implements OnInit, OnDestroy {
         this.rowToDiscard.set(null);
         this.discardNote = '';
         this.selected.set(null);
-        toast.success('ตีทิ้งภาพนี้แล้ว', { id: 'discard-ok' });
+        toast.success('ตัดภาพนี้ออกจากคิวแล้ว', { id: 'discard-ok' });
         this.reload();
       },
       error: (err) => {
-        toast.error(extractErrorMessage(err, 'ตีทิ้งไม่สำเร็จ'), { id: 'discard-error' });
+        toast.error(extractErrorMessage(err, 'ตัดออกจากคิวไม่สำเร็จ'), { id: 'discard-error' });
       }
     });
   }
