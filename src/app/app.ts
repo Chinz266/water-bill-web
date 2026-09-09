@@ -11,7 +11,11 @@ import { BillPrintComponent } from './features/meter-reading/components/bill-pri
   standalone: true,
   imports: [NgxSonnerToaster, RouterModule, Navbar, BillPrintComponent], // 🌟 เอามาใส่ใน imports
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
+  // แถบข้างซ้ายของจอคอมเป็น position: fixed จึงไม่กินที่ในสายเลย์เอาต์
+  // ต้องเว้นที่ให้ด้วย padding ของ host เอง และเว้นเฉพาะตอนที่แถบมีอยู่จริง
+  // (หน้าเข้าสู่ระบบกับฝั่งลูกบ้านไม่มีแถบนี้ ถ้าเว้นไว้จะเหลือที่ว่างเปล่า 248px)
+  host: { '[class.with-sidebar]': 'isAdmin()' }
 })
 export class AppComponent {
   title = 'water-bill-web';

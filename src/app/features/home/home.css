@@ -1,3 +1,6 @@
+/* หน้าแรกของเจ้าหน้าที่ — เขียนแบบมือถือก่อน แล้วค่อยกางออกบนจอคอม
+   งานเดียวที่ต้องเด่นที่สุดคือ "ไปสแกนมิเตอร์" ที่เหลือเป็นข้อมูลประกอบ */
+
 svg {
   width: 22px;
   height: 22px;
@@ -8,39 +11,26 @@ svg {
   stroke-linejoin: round;
 }
 
-/* กล่องงานหลักของหน้า — ปุ่มสแกนมิเตอร์ต้องเด่นที่สุด */
 .hero {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  margin-bottom: 24px;
-  background: linear-gradient(180deg, #ffffff 0%, var(--primary-soft) 100%);
-}
-
-.hero-art {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  height: 96px;
-  flex-shrink: 0;
-  font-size: 44px;
-  background: #fff;
-  border-radius: 24px;
-  box-shadow: var(--shadow);
+  margin-bottom: var(--sp-2);
+  /* พื้นสีอ่อนแทนการไล่สี — ไล่สีบนจอกลางแดดกลายเป็นแถบด่างมากกว่าจะดูนุ่ม */
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-2);
 }
 
 .hero-title {
+  margin: 0;
   font-size: 22px;
+  line-height: 1.3;
 }
 
 .hero-text {
-  margin: 8px 0 24px;
-  color: var(--text-muted);
+  margin: 8px 0 20px;
   max-width: 52ch;
+  line-height: 1.6;
+  color: var(--text-muted);
 }
 
-/* สองโหมดสแกนวางคู่กัน ขึ้นบรรทัดใหม่เองบนจอแคบ */
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -53,12 +43,11 @@ svg {
   font-size: 17px;
 }
 
-/* การ์ดสรุปข้อมูล */
 .stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: 1fr;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
 }
 
 .stat-label {
@@ -89,11 +78,10 @@ svg {
   margin: 12px 0 8px;
 }
 
-/* ทางลัดไปหน้าอื่น (ปุ่มรอง) */
 .shortcuts {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: var(--sp-2);
 }
 
 .shortcut {
@@ -103,26 +91,57 @@ svg {
   color: var(--text);
 }
 
-@media (max-width: 700px) {
-  .hero {
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
-  }
-
-  .hero-art {
-    width: 72px;
-    height: 72px;
-    font-size: 34px;
-    border-radius: 20px;
-  }
-
+/* ============================================================
+   มือถือ — ปุ่มหลักเต็มความกว้าง กดด้วยนิ้วโป้งได้โดยไม่ต้องเล็ง
+   ============================================================ */
+@media (max-width: 1023.98px) {
   .hero-btn {
     width: 100%;
   }
+}
 
+/* จอมือถือแนวนอน/แท็บเล็ตเล็ก: การ์ดสรุปวางคู่กันได้แล้ว */
+@media (min-width: 600px) and (max-width: 1023.98px) {
   .stats,
   .shortcuts {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================================================
+   จอคอม — กางเป็นสองคอลัมน์ ข้อความซ้าย ปุ่มขวา
+   ============================================================ */
+@media (min-width: 1024px) {
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-3);
+    padding: var(--sp-4);
+  }
+
+  .hero-title {
+    font-size: 26px;
+  }
+
+  .hero-text {
+    margin-bottom: 0;
+  }
+
+  /* ปุ่มไม่ต้องยืดเต็มความกว้าง — บนเมาส์ปุ่มยาว ๆ ไม่ได้กดง่ายขึ้นเลย */
+  .hero-actions {
+    flex: none;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+
+  .shortcuts {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--sp-3);
   }
 }
