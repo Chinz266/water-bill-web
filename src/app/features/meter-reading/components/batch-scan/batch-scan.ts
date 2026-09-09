@@ -451,7 +451,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
   stopQueue(): void {
     if (!this.isSaving) return;
     this.stopRequested = true;
-    toast.success('ระบบจะหยุดเมื่อออกบิลรายการที่ค้างอยู่เสร็จสิ้น', { id: 'batch-stop' });
+    toast.success('ระบบจะหยุดหลังออกบิลรายการที่ค้างอยู่เสร็จ', { id: 'batch-stop' });
   }
 
   // ==========================================
@@ -1578,7 +1578,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
     const notes = [...row.warnings];
     if (!row.file) notes.push('แถวที่กู้มาจากคิวเก่า ไม่มีภาพให้เทียบแล้ว');
     if (row.brokenImage) notes.push('เปิดภาพนี้ไม่ขึ้น เทียบเลขกับหน้าปัดด้วยตาไม่ได้');
-    if (row.file && row.file.size > 12 * 1024 * 1024) notes.push('ไฟล์มีขนาดใหญ่มาก การส่งเข้าระบบอาจล่าช้าหรือไม่สำเร็จ');
+    if (row.file && row.file.size > 12 * 1024 * 1024) notes.push('ไฟล์มีขนาดใหญ่มาก อาจส่งเข้าระบบช้าหรือไม่สำเร็จ');
     if (row.status === 'unknown') {
       notes.push('ค้างอยู่ตอนออกบิลรอบก่อน กดออกบิลซ้ำได้ ถ้ามีบิลอยู่แล้วระบบจะบอกเอง');
     }
@@ -2922,7 +2922,7 @@ export class BatchScanComponent implements OnInit, OnDestroy {
 
       if (this.stopRequested) {
         this.stopRequested = false;
-        toast.success(`หยุดดำเนินการแล้ว ออกบิลทั้งสิ้น ${done.length - failed} ใบ`, { id: 'batch-save-done' });
+        toast.success(`หยุดแล้ว ออกบิลทั้งหมด ${done.length - failed} ใบ`, { id: 'batch-save-done' });
         return;
       }
 

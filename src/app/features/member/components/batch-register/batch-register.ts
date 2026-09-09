@@ -328,7 +328,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
   stopQueue(): void {
     if (!this.isSaving) return;
     this.stopRequested = true;
-    toast.success('ระบบจะหยุดเมื่อลงทะเบียนรายการที่ค้างอยู่เสร็จสิ้น', { id: 'reg-stop' });
+    toast.success('ระบบจะหยุดหลังลงทะเบียนรายการที่ค้างอยู่เสร็จ', { id: 'reg-stop' });
   }
 
   // ==========================================
@@ -362,7 +362,7 @@ export class BatchRegisterComponent implements OnInit, OnDestroy {
 
       if (this.stopRequested) {
         this.stopRequested = false;
-        toast.success(`หยุดดำเนินการแล้ว ลงทะเบียนทั้งสิ้น ${done.length - failed} หลัง`, { id: 'reg-done' });
+        toast.success(`หยุดแล้ว ลงทะเบียนทั้งหมด ${done.length - failed} หลัง`, { id: 'reg-done' });
         return;
       }
 

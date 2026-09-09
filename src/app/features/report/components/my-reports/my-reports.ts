@@ -84,7 +84,7 @@ export class MyReportsComponent implements OnInit {
         console.error('โหลดรายชื่อบ้านไม่สำเร็จ:', err);
         this.housesFailed = true;
         this.cdr.detectChanges();
-        toast.error(extractErrorMessage(err, 'โหลดข้อมูลบ้านของท่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
+        toast.error(extractErrorMessage(err, 'โหลดข้อมูลบ้านของคุณไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), {
           id: 'my-houses-error',
         });
       },
@@ -119,7 +119,7 @@ export class MyReportsComponent implements OnInit {
     if (this.houses.length === 0) {
       toast.error(
         this.housesFailed
-          ? 'ยังโหลดข้อมูลบ้านของท่านไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้ง'
+          ? 'ยังโหลดข้อมูลบ้านของคุณไม่ได้ กรุณาปิดแล้วเปิดหน้านี้ใหม่อีกครั้ง'
           : 'บัญชีนี้ยังไม่ได้ผูกกับบ้านหลังไหน รบกวนติดต่อผู้ดูแลหมู่บ้านให้เพิ่มให้ก่อน',
         { id: 'report-no-house' },
       );
