@@ -200,14 +200,22 @@ svg {
    มือถือ/แท็บเล็ต — แถบบน + แถบล่าง
    ============================================================ */
 @media (max-width: 1023.98px) {
+  /* โปร่งแสงเล็กน้อยให้เนื้อหาที่เลื่อนผ่านด้านหลังยังรู้สึกต่อเนื่อง
+     และเว้นขอบบนให้พ้นรอยบากของเครื่องที่มีติ่ง */
   .topbar {
     position: sticky;
     top: 0;
     z-index: 100;
     align-items: center;
     gap: 12px;
-    padding: 10px 16px;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background: var(--bar-glass);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--line);
+  }
+
+  .brand-title {
+    font-size: 16px;
   }
 
   /* จอแคบเหลือแค่ชื่อระบบกับรูปผู้ใช้ ที่เหลือย้ายไปแถบล่าง */
@@ -236,7 +244,8 @@ svg {
     /* จำนวนช่องต้องตามจำนวนเมนูจริง ไม่งั้นเมนูสุดท้ายตกไปแถวสอง */
     grid-template-columns: repeat(5, 1fr);
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-    background: var(--card);
+    background: var(--bar-glass);
+    backdrop-filter: blur(12px);
     border-top: 1px solid var(--line);
     box-shadow: 0 -2px 16px rgba(15, 23, 42, 0.06);
   }
@@ -263,6 +272,21 @@ svg {
     /* 5 เมนูบนจอแคบ — ห้ามตัดคำขึ้นบรรทัดใหม่ ไม่งั้นแถบสูงไม่เท่ากัน */
     white-space: nowrap;
     overflow: hidden;
+    font-size: 11px;
+    letter-spacing: -0.01em;
+    transition: transform 0.12s, background 0.15s, color 0.15s;
+  }
+
+  /* บนมือถือไม่มี hover ให้รู้ว่าโดนปุ่มแล้ว ต้องตอบกลับตอนกดแทน */
+  .tabbar a:active,
+  .tabbar button:active {
+    transform: scale(0.94);
+  }
+
+  /* ไอคอนคงขนาดไว้แม้ป้ายเล็กลง — คนกดจากรูปไอคอน ไม่ได้อ่านป้ายทุกครั้ง */
+  .tabbar svg {
+    width: 23px;
+    height: 23px;
   }
 
   .tabbar a.is-active,
